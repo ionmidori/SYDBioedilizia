@@ -36,7 +36,7 @@ const line = z.string().trim().min(1).max(1000);
 const title = z.string().trim().min(1).max(120);
 const slug = z.string().trim().max(60).regex(SLUG_PATTERN);
 
-// ── Text blocks (same shape as FaqBlock in lib/faq-data.ts) ──────────────────
+// ── Text blocks (rendered by components/faq/FAQAnswer.tsx) ───────────────────
 
 export const textBlockSchema = z.object({ type: z.enum(['lead', 'p', 'note', 'callout']), text }).strict();
 export const listBlockSchema = z.object({ type: z.enum(['ul', 'ol']), items: z.array(line).min(1).max(30) }).strict();
@@ -96,6 +96,7 @@ export const serviceAreaSchema = z
 export const serviceItemSchema = z
   .object({ title: z.string().trim().min(1).max(80), description: z.string().trim().max(300).default('') })
   .strict();
+export type ServiceItem = z.infer<typeof serviceItemSchema>;
 export const servicesSchema = z
   .object({ summary: z.string().trim().min(1).max(300), items: z.array(serviceItemSchema).min(1).max(100) })
   .strict();
@@ -157,6 +158,8 @@ export const aboutSchema = z
     cta_note: z.string().trim().max(300).default(''),
   })
   .strict();
+
+export type About = z.infer<typeof aboutSchema>;
 
 function duplicates(values: string[]): string[] {
   const seen = new Set<string>();

@@ -1,24 +1,24 @@
 import type { Metadata } from "next";
 import { STRUCTURED_DATA_LOGO } from "@/lib/brand";
-import { COMPANY } from "@/lib/company";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import type { BlogPost } from "./types";
 
 /**
  * SEO for blog articles: resolved titles/descriptions, Next metadata and the
  * JSON-LD graph (Article + BreadcrumbList + FAQPage).
  *
- * Every absolute URL derives from COMPANY.url — the articles used to hard-code
+ * Every absolute URL derives from SITE_URL — the articles used to hard-code
  * https://sydbioedilizia.it (a different host from the canonical, sitemap and
  * index) and a publisher logo at /images/logo.png that does not exist.
  */
 
-export const BLOG_LOGO_URL = `${COMPANY.url}${STRUCTURED_DATA_LOGO.url}`;
+export const BLOG_LOGO_URL = `${SITE_URL}${STRUCTURED_DATA_LOGO.url}`;
 
 /** Articles carry a date only; OG publishedTime keeps the historical 08:00 UTC. */
 const toIsoDateTime = (date: string) => `${date}T08:00:00.000Z`;
 
 export function articleUrl(post: BlogPost): string {
-  return `${COMPANY.url}/blog/${post.slug}`;
+  return `${SITE_URL}/blog/${post.slug}`;
 }
 
 export function resolveSeo(post: BlogPost) {
@@ -44,11 +44,11 @@ export function blogPostMetadata(post: BlogPost): Metadata {
       description: seo.ogDescription,
       type: "article",
       locale: "it_IT",
-      siteName: COMPANY.name,
+      siteName: SITE_NAME,
       url: articleUrl(post),
       publishedTime: toIsoDateTime(post.datePublished),
       modifiedTime: toIsoDateTime(seo.dateModified),
-      authors: [post.author ?? COMPANY.name],
+      authors: [post.author ?? SITE_NAME],
       images: [{ url: post.image, alt: post.title }],
     },
     alternates: {
@@ -62,8 +62,8 @@ export function blogPostJsonLd(post: BlogPost) {
   const url = articleUrl(post);
   const organization = {
     "@type": "Organization",
-    name: COMPANY.name,
-    url: COMPANY.url,
+    name: SITE_NAME,
+    url: SITE_URL,
   };
 
   return {
@@ -86,12 +86,12 @@ export function blogPostJsonLd(post: BlogPost) {
       {
         "@type": "BreadcrumbList",
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: "Home", item: COMPANY.url },
+          { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
           {
             "@type": "ListItem",
             position: 2,
             name: "Blog",
-            item: `${COMPANY.url}/blog`,
+            item: `${SITE_URL}/blog`,
           },
           {
             "@type": "ListItem",

@@ -3,14 +3,17 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Mail, MapPin, Phone } from 'lucide-react';
+import { Download, Mail, MapPin, Phone } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { M3EasingFM } from '@/lib/m3-motion';
-import { COMPANY } from '@/lib/company';
+import { useCompanyIdentity } from '@/components/providers/CompanyIdentityProvider';
+import { mailtoHref, telHref } from '@/lib/company-info/format';
+import { VCARD_PATH } from '@/lib/company-info/vcard';
 
 export function Footer() {
     const currentYear = new Date().getFullYear();
     const pathname = usePathname();
+    const identity = useCompanyIdentity();
 
     // Footer reveal, once, as its top crosses 90% of the viewport.
     const reduceMotion = useReducedMotion();
@@ -64,32 +67,40 @@ export function Footer() {
                     </div>
 
                     {/* Contact Info — icons sit on the first text line (mt-1 on a 24px line) */}
+                    {identity && (
                     <div className="min-w-0">
                         <h2 className="text-ink font-serif font-bold mb-6 text-lg">Contatti</h2>
                         <ul className="space-y-3 text-sm leading-relaxed tracking-[0.01em] text-ink-muted">
                             <li className="flex items-start gap-2 md:gap-3">
                                 <MapPin className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
                                 <address className="not-italic min-w-0">
-                                    {COMPANY.address.street},<br />{COMPANY.address.postalCode} {COMPANY.address.city}
-                                    <span className="text-accent-ink text-xs block mt-0.5 tabular-nums">P.IVA: {COMPANY.vatId}</span>
+                                    {identity.address.street},<br />{identity.address.postal_code} {identity.address.city}
+                                    <span className="text-accent-ink text-xs block mt-0.5 tabular-nums">P.IVA: {identity.vat_id}</span>
                                 </address>
                             </li>
                             <li className="flex items-start gap-2 md:gap-3">
                                 <Phone className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
-                                <a href={`tel:${COMPANY.phone.replace(/\s+/g, '')}`} className="min-w-0 tabular-nums hover:text-accent-ink transition-colors">
-                                    {COMPANY.phone}
+                                <a href={telHref(identity.phone)} className="min-w-0 tabular-nums hover:text-accent-ink transition-colors">
+                                    {identity.phone}
                                 </a>
                             </li>
                             <li className="flex items-start gap-2 md:gap-3">
                                 <Mail className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
                                 {/* <wbr> after "@": on a narrow column it wraps as "name@ / domain",
                                     not mid-word ("gmail.co / m"). */}
-                                <a href={`mailto:${COMPANY.email}`} className="min-w-0 [overflow-wrap:anywhere] hover:text-accent-ink transition-colors">
-                                    {COMPANY.email.split('@')[0]}@<wbr />{COMPANY.email.split('@')[1]}
+                                <a href={mailtoHref(identity.email)} className="min-w-0 [overflow-wrap:anywhere] hover:text-accent-ink transition-colors">
+                                    {identity.email.split('@')[0]}@<wbr />{identity.email.split('@')[1]}
+                                </a>
+                            </li>
+                            <li className="flex items-start gap-2 md:gap-3">
+                                <Download className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
+                                <a href={VCARD_PATH} download className="min-w-0 hover:text-accent-ink transition-colors">
+                                    Salva il contatto di SYD
                                 </a>
                             </li>
                         </ul>
                     </div>
+                    )}
                 </div>
 
                 <div className="border-t border-line pt-8 flex flex-col md:flex-row justify-between items-center gap-4">

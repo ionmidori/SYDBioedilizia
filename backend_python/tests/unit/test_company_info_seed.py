@@ -1,28 +1,20 @@
 """The bundled company info seed (Phase 141): today's site content, with the corrections the owner decided.
 
-Until the site reads the company info (Phase 141 PR-3), the identity and the FAQ
-questions must also match web_client/lib/company.ts and faq-data.ts (this
-replaces tests/unit/test_company_parity.py).
+The site keeps a copy of it (web_client/lib/company-info/seed.json) as its
+fallback when the backend cannot be reached: the two must stay identical.
 """
 import json
-import re
 from pathlib import Path
 
 import src
 from src.schemas.company_info import CompanyInfo
 
 SEED = Path(src.__file__).resolve().parent / "data" / "company_info.seed.json"
-WEB = Path(__file__).resolve().parents[3] / "web_client" / "lib"
+SITE_SEED = Path(__file__).resolve().parents[3] / "web_client" / "lib" / "company-info" / "seed.json"
 
 
 def _seed() -> dict:
     return json.loads(SEED.read_text(encoding="utf-8"))["info"]
-
-
-def _ts_value(source: str, key: str) -> str:
-    match = re.search(rf"\b{key}:\s*'([^']*)'", source)
-    assert match, f"{key} not found in company.ts"
-    return match.group(1)
 
 
 def test_the_seed_satisfies_the_schema():
@@ -30,23 +22,6 @@ def test_the_seed_satisfies_the_schema():
     info = CompanyInfo.model_validate(raw)
     # No hidden defaults: what is stored is exactly what the editor will show.
     assert info.model_dump(mode="json", exclude_none=True) == raw
-
-
-def test_identity_matches_the_site_until_pr3():
-    ts = (WEB / "company.ts").read_text(encoding="utf-8")
-    identity = _seed()["identity"]
-    assert identity["name"] == _ts_value(ts, "name")
-    assert identity["legal_name"] == _ts_value(ts, "legalName")
-    assert identity["vat_id"] == _ts_value(ts, "vatId")
-    assert identity["address"] == {
-        "street": _ts_value(ts, "street"),
-        "postal_code": _ts_value(ts, "postalCode"),
-        "city": _ts_value(ts, "city"),
-        "region": _ts_value(ts, "region"),
-        "country": _ts_value(ts, "country"),
-    }
-    assert identity["phone"] == _ts_value(ts, "phone")
-    assert identity["email"] == _ts_value(ts, "email")
 
 
 def test_service_area_is_the_whole_metropolitan_city():
@@ -59,25 +34,9 @@ def test_service_area_is_the_whole_metropolitan_city():
     assert {loc["name"] for loc in _seed()["service_area"]["localities"]} >= {"Ostia", "Acilia", "EUR"}
 
 
-# What the owner changed on 11 Nov 2026: SYD does not handle tax bonuses (that FAQ
-# leaves the site) and the times FAQ uses the owner's own times.
-REMOVED_FAQ = {"bonus-ristrutturazione-2026"}
-RENAMED_FAQ = {"tempi-ristrutturazione-100mq": "tempi-ristrutturazione"}
-
-
-def test_faq_matches_the_site_questions_until_pr3():
-    ts = (WEB / "faq-data.ts").read_text(encoding="utf-8")
-    site = [
-        (slug, question)
-        for slug, question in zip(
-            re.findall(r'slug:\s*"([^"]+)"', ts), re.findall(r'question:\s*"([^"]+)"', ts), strict=True
-        )
-        if slug not in REMOVED_FAQ
-    ]
-    faq = _seed()["faq"]
-    assert [f["slug"] for f in faq] == [RENAMED_FAQ.get(slug, slug) for slug, _ in site]
-    kept = [(slug, q) for slug, q in site if slug not in RENAMED_FAQ]
-    assert [(f["slug"], f["question"]) for f in faq if f["slug"] not in RENAMED_FAQ.values()] == kept
+def test_the_site_fallback_is_the_seed():
+    """The site shows its own copy when the backend is down: it must be the backend's seed."""
+    assert json.loads(SITE_SEED.read_text(encoding="utf-8")) == json.loads(SEED.read_text(encoding="utf-8"))
 
 
 def test_the_corrected_texts_no_longer_contradict_the_rules():

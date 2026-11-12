@@ -1,20 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import { FAQAnswer } from "@/components/faq/FAQAnswer";
-import { faqBlocksToPlainText, type FaqBlock } from "@/lib/faq-data";
-
-describe("faqBlocksToPlainText", () => {
-  it("flattens all block types and strips bold markers", () => {
-    const blocks: FaqBlock[] = [
-      { type: "lead", text: "Costo **medio** al mq." },
-      { type: "p", text: "Fattori:" },
-      { type: "ul", items: ["**A:** uno.", "**B:** due."] },
-      { type: "definitions", items: [{ term: "CILA:", description: "serve per X." }] },
-    ];
-    const text = faqBlocksToPlainText(blocks);
-    expect(text).toBe("Costo medio al mq. Fattori: A: uno. B: due. CILA: serve per X.");
-    expect(text).not.toContain("*");
-  });
-});
 
 describe("FAQAnswer", () => {
   it("renders bold segments as <strong> without injecting HTML", () => {

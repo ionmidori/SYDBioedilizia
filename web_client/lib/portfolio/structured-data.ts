@@ -4,12 +4,12 @@
  * example cards are stock photography and must never be presented as our work —
  * pass the backend's projects here, never the output of `withExamples`.
  */
-import { COMPANY } from '@/lib/company';
+import { SITE_URL } from '@/lib/site';
 import { projectImageAlt } from './presentation';
 import type { PortfolioCard, PortfolioItem } from './types';
 
 /** `@id` of the business node published by the homepage JSON-LD (app/page.tsx). */
-const BUSINESS_ID = `${COMPANY.url}/#business`;
+const BUSINESS_ID = `${SITE_URL}/#business`;
 
 export function portfolioItemList(
     // `isExample?: never`: passing the output of withExamples() is a type error.

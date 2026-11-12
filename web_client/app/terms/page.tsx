@@ -4,11 +4,13 @@ import React from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, FileText } from 'lucide-react';
-import { COMPANY_LEGAL_LINE } from '@/lib/company';
+import { useCompanyIdentity } from '@/components/providers/CompanyIdentityProvider';
+import { legalLine } from '@/lib/company-info/format';
 import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 
 export default function TermsPage() {
     const reduceMotion = useReducedMotion();
+    const identity = useCompanyIdentity();
     return (
         <div className="min-h-screen bg-canvas text-ink selection:bg-accent/30 selection:text-accent-ink">
             {/* Background Atmosphere */}
@@ -67,7 +69,7 @@ export default function TermsPage() {
                             <Link href="/privacy" className="text-xs font-bold uppercase tracking-widest text-ink-subtle hover:text-accent-ink transition-colors">Privacy Policy</Link>
                             <Link href="/cookie-policy" className="text-xs font-bold uppercase tracking-widest text-ink-subtle hover:text-accent-ink transition-colors">Cookie Policy</Link>
                         </div>
-                        <p className="text-xs text-ink-muted">&copy; {new Date().getFullYear()} {COMPANY_LEGAL_LINE}</p>
+                        {identity && <p className="text-xs text-ink-muted">&copy; {new Date().getFullYear()} {legalLine(identity)}</p>}
                     </footer>
                 </motion.div>
             </main>

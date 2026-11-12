@@ -4,7 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
-import { COMPANY, COMPANY_FULL_ADDRESS, COMPANY_LEGAL_LINE } from '@/lib/company';
+import { useCompanyIdentity } from '@/components/providers/CompanyIdentityProvider';
+import { fullAddress, legalLine, mailtoHref } from '@/lib/company-info/format';
 import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 
 const H3 = "font-bold text-ink uppercase tracking-widest text-sm border-l-2 border-accent pl-4";
@@ -12,6 +13,8 @@ const MAIL_LINK = "text-accent-ink hover:underline decoration-accent-ink";
 
 export default function PrivacyPage() {
     const reduceMotion = useReducedMotion();
+    // The data controller is the company of the company info (admin console), never a fixed text.
+    const identity = useCompanyIdentity();
     return (
         <div className="min-h-screen bg-canvas text-ink selection:bg-accent/30 selection:text-accent-ink">
             {/* Background Atmosphere */}
@@ -59,12 +62,14 @@ export default function PrivacyPage() {
 
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-accent-ink italic">Il Titolare del trattamento</h2>
-                            <p>
-                                Titolare del trattamento è <strong>{COMPANY.legalName}</strong>, P.IVA {COMPANY.vatId}, con sede in {COMPANY_FULL_ADDRESS}.
-                                Per qualsiasi richiesta relativa ai dati personali puoi scrivere a{' '}
-                                <a href={`mailto:${COMPANY.email}`} className={MAIL_LINK}>{COMPANY.email}</a>{' '}
-                                o telefonare al {COMPANY.phone}.
-                            </p>
+                            {identity && (
+                                <p>
+                                    Titolare del trattamento è <strong>{identity.legal_name}</strong>, P.IVA {identity.vat_id}, con sede in {fullAddress(identity)}.
+                                    Per qualsiasi richiesta relativa ai dati personali puoi scrivere a{' '}
+                                    <a href={mailtoHref(identity.email)} className={MAIL_LINK}>{identity.email}</a>{' '}
+                                    o telefonare al {identity.phone}.
+                                </p>
+                            )}
                         </section>
 
                         <section className="space-y-6">
@@ -152,8 +157,10 @@ export default function PrivacyPage() {
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-accent-ink italic">Diritti dell&apos;interessato</h2>
                             <p>
-                                Ai sensi degli artt. 15–22 del GDPR puoi in qualsiasi momento chiedere l&apos;accesso ai tuoi dati, la rettifica, la cancellazione, la limitazione del trattamento e la portabilità, e opporti al trattamento basato sul legittimo interesse. Se il trattamento si basa sul consenso, puoi revocarlo in qualsiasi momento, senza effetti sulla liceità del trattamento precedente. Per esercitare i tuoi diritti scrivi a{' '}
-                                <a href={`mailto:${COMPANY.email}`} className={MAIL_LINK}>{COMPANY.email}</a>.
+                                Ai sensi degli artt. 15–22 del GDPR puoi in qualsiasi momento chiedere l&apos;accesso ai tuoi dati, la rettifica, la cancellazione, la limitazione del trattamento e la portabilità, e opporti al trattamento basato sul legittimo interesse. Se il trattamento si basa sul consenso, puoi revocarlo in qualsiasi momento, senza effetti sulla liceità del trattamento precedente. Per esercitare i tuoi diritti{' '}
+                                {identity ? (
+                                    <>scrivi a <a href={mailtoHref(identity.email)} className={MAIL_LINK}>{identity.email}</a></>
+                                ) : 'contatta il Titolare del trattamento'}.
                             </p>
                             <p>
                                 Hai inoltre il diritto di proporre reclamo al Garante per la protezione dei dati personali (
@@ -168,7 +175,7 @@ export default function PrivacyPage() {
                             <Link href="/cookie-policy" className="text-xs font-bold uppercase tracking-widest text-ink-subtle hover:text-accent-ink transition-colors">Cookie Policy</Link>
                             <Link href="/terms" className="text-xs font-bold uppercase tracking-widest text-ink-subtle hover:text-accent-ink transition-colors">Termini e Condizioni</Link>
                         </div>
-                        <p className="text-xs text-ink-muted">&copy; {new Date().getFullYear()} {COMPANY_LEGAL_LINE}</p>
+                        {identity && <p className="text-xs text-ink-muted">&copy; {new Date().getFullYear()} {legalLine(identity)}</p>}
                     </footer>
                 </motion.div>
             </main>

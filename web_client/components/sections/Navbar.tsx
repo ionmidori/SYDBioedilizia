@@ -9,6 +9,8 @@ import { Menu, Mail } from 'lucide-react';
 import { SignInButton } from '@/components/auth/SignInButton';
 import { cn } from '@/lib/utils';
 import { BrandLogo } from '@/components/brand/BrandLogo';
+import { useCompanyIdentity } from '@/components/providers/CompanyIdentityProvider';
+import { mailtoHref, telHref, whatsappHref } from '@/lib/company-info/format';
 import { useAuth } from '@/hooks/useAuth';
 import {
     Sheet,
@@ -39,6 +41,7 @@ export function Navbar() {
     const contactMenuRef = useRef<HTMLDivElement>(null);
     const contactMenuRefDesktop = useRef<HTMLDivElement>(null);
     const { user, isAnonymous } = useAuth();
+    const identity = useCompanyIdentity();
     const router = useRouter();
 
     const isAuthenticated = user && !isAnonymous;
@@ -87,7 +90,8 @@ export function Navbar() {
         { name: 'FAQ', href: '/faq' },
     ];
 
-    const contactLinks = [
+    // Contacts come from the company info (admin console); without it the menu has no links.
+    const contactLinks = !identity ? [] : [
         {
             Icon: ({ className }: { className?: string }) => (
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -95,9 +99,10 @@ export function Navbar() {
                 </svg>
             ),
             label: 'Chiama',
-            href: 'tel:+393755463599'
+            href: telHref(identity.phone)
         },
-        { Icon: Mail, label: 'Email', href: 'mailto:sydbioedilizia@gmail.com' },
+        { Icon: Mail, label: 'Email', href: mailtoHref(identity.email) },
+        ...(identity.whatsapp ? [
         {
             Icon: ({ className }: { className?: string }) => (
                 <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -105,8 +110,9 @@ export function Navbar() {
                 </svg>
             ),
             label: 'WhatsApp',
-            href: 'https://wa.me/393755463599'
+            href: whatsappHref(identity.whatsapp)
         }
+        ] : [])
     ];
 
     const handlePersonalAreaClick = (e: React.MouseEvent) => {

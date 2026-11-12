@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
-import { FAQItem } from "@/lib/faq-data";
 import { FAQAnswer } from "@/components/faq/FAQAnswer";
 import { M3Transition } from "@/lib/m3-motion";
 import { cn } from "@/lib/utils";
+import type { FaqItem } from "@/types/company-info";
 
 interface FAQItemProps {
-  item: FAQItem;
+  item: FaqItem;
 }
 
 export function FAQItemCard({ item }: FAQItemProps) {

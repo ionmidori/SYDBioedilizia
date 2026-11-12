@@ -8,7 +8,8 @@ import { AuthDialog } from '@/components/auth/AuthDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { triggerHaptic } from '@/lib/haptics';
 import { M3Transition, createStaggerVariants } from '@/lib/m3-motion';
-import { services, type Service, type ServiceAction } from '@/lib/services-data';
+import { COMPANY_ICONS } from '@/lib/company-info/icons';
+import type { HomeService } from '@/types/company-info';
 import { openChat } from '@/lib/chat-events';
 
 /** Vertical offset added per card so the stack shows the edge of the ones below. */
@@ -31,7 +32,11 @@ const GRID_REVEAL = createStaggerVariants({ y: 30 }, 0.15);
  */
 const stackTimeline = (index: number) => `--stack-${index}`;
 
-export function Services() {
+/**
+ * The home service cards, in display order. They come from the company info
+ * (`home_services`, edited in the admin console); no cards, no section.
+ */
+export function Services({ items: services }: { items: HomeService[] }) {
     const { user } = useAuth();
     const router = useRouter();
     const [authDialogOpen, setAuthDialogOpen] = useState(false);
@@ -43,7 +48,7 @@ export function Services() {
     // compositor. The sticky stacking itself is plain CSS and survives both
     // reduced motion and browsers without scroll timelines.
 
-    const handleCardClick = (action: ServiceAction) => {
+    const handleCardClick = (action: HomeService['action']) => {
         triggerHaptic();
 
         switch (action) {
@@ -59,6 +64,8 @@ export function Services() {
                 break;
         }
     };
+
+    if (services.length === 0) return null;
 
     return (
         // overflow-clip rather than -hidden: `hidden` would make this section a
@@ -217,7 +224,7 @@ export function Services() {
                                     "bg-[radial-gradient(circle_at_30%_20%,color-mix(in_oklab,var(--color-accent)_14%,transparent),color-mix(in_oklab,var(--color-canvas)_55%,transparent)_70%)] text-primary-ink",
                                     hoveredService === index && "scale-110 shadow-2"
                                 )}>
-                                    <service.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
+                                    <ServiceIcon icon={service.icon} className="w-[18px] h-[18px]" />
                                 </div>
 
                                 <h3 className={cn(
@@ -243,11 +250,17 @@ export function Services() {
     );
 }
 
+/** The icon the company info names for a card (a closed set, see lib/company-info/icons.ts). */
+function ServiceIcon({ icon, className }: { icon: HomeService['icon']; className: string }) {
+    const Icon = COMPANY_ICONS[icon];
+    return <Icon className={className} strokeWidth={1.5} />;
+}
+
 function ServiceCard({
     service,
     onClick,
 }: {
-    service: Service;
+    service: HomeService;
     onClick: () => void;
 }) {
     return (
@@ -274,7 +287,7 @@ function ServiceCard({
                     // card, so it only blends with its own parent, not the stack.
                     'bg-gradient-to-br from-canvas/70 to-canvas/40 text-primary-ink',
                 )}>
-                    <service.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
+                    <ServiceIcon icon={service.icon} className="w-[18px] h-[18px]" />
                 </div>
 
                 <h3 className="font-serif text-xl font-semibold leading-tight text-ink">

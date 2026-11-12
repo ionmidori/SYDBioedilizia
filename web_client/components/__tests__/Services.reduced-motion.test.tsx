@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { Services } from '@/components/sections/Services';
+import { SEED_COMPANY_INFO } from '@/lib/company-info/seed';
 
 jest.mock('next/navigation', () => ({
     useRouter: () => ({ push: jest.fn() }),
@@ -30,7 +31,7 @@ beforeAll(() => {
 
 describe('Services — reduced motion', () => {
     it('renders the header in place instead of fading it in', () => {
-        render(<Services />);
+        render(<Services items={SEED_COMPANY_INFO.home_services} />);
 
         expect(screen.getByRole('heading', { level: 2 }).style.opacity).not.toBe('0');
         expect(screen.getByText(/reingegnerizzato il processo/i).style.opacity).not.toBe('0');
