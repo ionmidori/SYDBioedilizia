@@ -39,6 +39,7 @@ from src.core.exceptions import (
 )
 from src.core.money import line_total, to_cents
 from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteRoom
+from src.services import learning_ledger
 from src.services.pdf_service import quote_pdf_blob_path
 from src.services.pricing_service import PricingService
 from src.services.quote_diff import diff_items
@@ -229,6 +230,8 @@ async def approve_tx(
     _check_version(project_id, quote, expected_version)
     _check_lock(project_id, quote, admin_uid, now)
     status = transition(quote.get("status", ""), QuoteEvent.APPROVE)
+    # Read phase of the learning ledger, before any write of the transaction.
+    entry = await learning_ledger.prepare_entry(transaction, ref, quote, expected_version, admin_uid, now)
     updates = {
         "status": status.value,
         "updated_at": now,
@@ -240,6 +243,8 @@ async def approve_tx(
         **_UNLOCK,
     }
     transaction.update(ref, updates)
+    if entry is not None:
+        learning_ledger.write_entry(transaction, db, entry)
     approved = {**quote, "status": status.value}
     return _result(project_id, quote, status.value, expected_version), approved
 

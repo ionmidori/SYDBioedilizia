@@ -6,13 +6,16 @@ replaced admin-edited items and even reset approved quotes to `draft`.
 from datetime import UTC, datetime
 
 import pytest
+from src.schemas.intervention_spec import RoomInterventionSpec, StoredMeasure, StoredPackage
 from src.schemas.quote import (
     ManualWorkItem,
     QuoteAiWarning,
     QuoteFinancials,
     QuoteItem,
     QuoteRequest,
+    QuoteRevision,
     QuoteSchema,
+    RevisionRoomSpec,
 )
 from src.services.quote_drafts import DraftSaveOutcome, QuoteStatusView, apply_ai_draft, read_quote_status
 from tests.unit.firestore_fakes import FakeDb, FakeTransaction
@@ -270,3 +273,37 @@ async def test_a_later_draft_replaces_the_work_quoted_by_hand_and_the_warnings()
     await _save(db, request=_request("Solo pavimento"))
     doc = db.get_data(*QUOTE_PATH)
     assert doc["request"]["manual_work"] == [] and doc["request"]["ai_warnings"] == []
+
+
+# ── Phase 140 step 2: the AI revision keeps the spec it was made from ─────────
+
+
+def _spec(room_id: str | None) -> RevisionRoomSpec:
+    return RevisionRoomSpec(room_id=room_id, spec=RoomInterventionSpec(
+        packages=[StoredPackage(assembly_id="ASM-BAGNO-FULL")],
+        measures=[StoredMeasure(name="mq", value=6, source="declared")],
+        library_version="2.0.0", generated_at=NOW,
+    ))
+
+
+async def test_the_ai_revision_keeps_the_specs_it_was_made_from():
+    db = FakeDb()
+    specs = [_spec("bagno1"), _spec(None)]
+    await apply_ai_draft(FakeTransaction(db), db, PID, _ai_quote(), _request(), NOW, specs=specs)
+    await apply_ai_draft(FakeTransaction(db), db, PID, _ai_quote(qty=30.0), _request(), NOW, specs=specs[:1])
+
+    first = db.get_data(*QUOTE_PATH, "revisions", "1")
+    assert [s["room_id"] for s in first["specs"]] == ["bagno1", None], "a chat without rooms has no room id"
+    assert QuoteRevision(**first).specs == specs
+    assert QuoteRevision(**db.get_data(*QUOTE_PATH, "revisions", "2")).specs == specs[:1]
+    assert "specs" not in db.get_data(*QUOTE_PATH), "the spec belongs to the revision, not the quote"
+
+
+async def test_a_revision_saved_before_the_specs_still_reads():
+    db = FakeDb()
+    await _save(db)
+
+    revision = db.get_data(*QUOTE_PATH, "revisions", "1")
+    assert revision["specs"] == []
+    del revision["specs"]
+    assert QuoteRevision(**revision).specs == []

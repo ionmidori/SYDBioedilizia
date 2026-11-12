@@ -164,7 +164,10 @@ async def get_revision(
     snap = await revision_ref(quote_doc_ref(db, project_id), version).get()
     if not snap.exists:
         raise ResourceNotFound(message="Revision not found.", detail={"version": version})
-    return QuoteRevision(**(snap.to_dict() or {}))
+    # The specs never leave the backend: not parsed, so a later change of their shape
+    # cannot break an old revision.
+    stored = {k: v for k, v in (snap.to_dict() or {}).items() if k != "specs"}
+    return QuoteRevision(**stored)
 
 
 @router.get("/quotes/{project_id}/media/{media_id}/url", response_model=MediaUrlResponse)

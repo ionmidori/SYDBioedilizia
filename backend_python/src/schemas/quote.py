@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.core.money import Money
+from src.schemas.intervention_spec import RoomInterventionSpec
 from src.schemas.room import RoomType
 from src.utils.datetime_utils import utc_now
 
@@ -172,6 +173,14 @@ class ClientFollowup(BaseModel):
     version: int = Field(..., ge=1, description="Quote version the requests were made on")
 
 
+class RevisionRoomSpec(BaseModel):
+    """The spec one quoted unit of an AI revision was expanded from (Phase 140 step 2)."""
+    model_config = {"extra": "forbid"}
+    # Quote section of the unit: a room, "Generale", or None for a chat without rooms.
+    room_id: str | None
+    spec: RoomInterventionSpec
+
+
 class QuoteRevision(BaseModel):
     """Immutable snapshot at projects/{pid}/private_data/quote/revisions/{version}."""
     model_config = {"extra": "forbid"}
@@ -185,6 +194,11 @@ class QuoteRevision(BaseModel):
     reason: str | None = Field(default=None)
     diff: list[RevisionChange] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
+    # AI revisions only: what the lines were computed from, for the learning ledger.
+    # The room's own spec is rewritten even when no draft is, so the revision keeps
+    # its copy. exclude=True: never in an API response (no TypeScript twin), so
+    # build_revision writes it explicitly.
+    specs: list[RevisionRoomSpec] = Field(default_factory=list, exclude=True)
 
 
 DeliveryRecordStatusType = Literal["queued", "sent", "delivered", "bounced", "complained", "failed"]

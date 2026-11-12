@@ -615,3 +615,36 @@ async def test_a_quote_without_rooms_names_no_room_on_the_manual_work():
 
     request = mocks["saved"].await_args.args[3]
     assert request.manual_work == [ManualWorkItem(work="Vespaio aerato", origin="client_request")]
+
+
+def _draft_specs(saved: AsyncMock) -> dict[str | None, Any]:
+    return {s.room_id: s.spec for s in saved.await_args.kwargs["specs"]}
+
+
+async def test_the_draft_carries_the_spec_of_each_quoted_room():
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks:
+        await _quote()
+
+    specs = _draft_specs(mocks["saved"])
+    assert set(specs) == {"bagno1", "cucina1"}, "one spec per quoted room"
+    assert specs["bagno1"] == _saved_specs(mocks["repo"])["bagno1"], "the same spec as the room's"
+    assert specs["bagno1"].packages == [StoredPackage(assembly_id="ASM-BAGNO-FULL")]
+
+
+async def test_the_draft_of_a_chat_without_rooms_carries_its_spec_without_a_room():
+    files = [_file("f_vecchia", DEFAULT_ROOM_ID)]
+    history = [{"role": "user", "content": "Rifaccio il bagno di 6 mq"}]
+    with _project(rooms=ROOMS[:1], files=files, history=history, engine=AsyncMock(return_value=_bathroom())) as mocks:
+        await _quote()
+
+    specs = _draft_specs(mocks["saved"])
+    assert list(specs) == [None]
+    assert specs[None].measures == [StoredMeasure(name="mq", value=6.0, source="declared")]
+    mocks["repo"].save_intervention_spec.assert_not_awaited()
+
+
+async def test_without_the_library_the_draft_has_no_spec():
+    with _project() as mocks, patch.object(quote_tools, "load_library", return_value=None):
+        await _quote()
+
+    assert mocks["saved"].await_args.kwargs["specs"] == []

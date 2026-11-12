@@ -367,3 +367,25 @@ def test_a_sent_quote_whose_email_is_still_queued_cannot_be_revised(db):
     resp = _client().post(f"/api/admin/quotes/{PID}/reopen", json={"reason": "Correzione"})
     assert resp.status_code == 409 and resp.json()["error_code"] == "DELIVERY_PENDING"
     assert db.get_data(*QUOTE)["status"] == "sent"
+
+
+def test_revision_api_leaves_out_specs(db):
+    _seed(db)
+    spec = {"measures": [], "packages": [{"assembly_id": "ASM-BAGNO-FULL", "conditions": []}],
+            "element_choices": [], "extra_items": [], "unmapped_work_requests": [],
+            "library_version": "2.0.0", "generated_at": T0}
+    db.put(*QUOTE, "revisions", "1", {"version": 1, "actor_kind": "ai", "created_at": T0,
+                                      "specs": [{"room_id": "bagno1", "spec": spec}]})
+
+    resp = _client().get(f"/api/admin/quotes/{PID}/revisions/1")
+    assert resp.status_code == 200
+    assert resp.json()["version"] == 1 and "specs" not in resp.json()
+
+
+def test_a_revision_with_a_spec_of_an_older_shape_still_opens(db):
+    # The API never returns the specs: a later change of their shape must not break old revisions.
+    _seed(db)
+    db.put(*QUOTE, "revisions", "1", {"version": 1, "actor_kind": "ai", "created_at": T0,
+                                      "specs": [{"room_id": "bagno1", "spec": {"old_field": 1}}]})
+
+    assert _client().get(f"/api/admin/quotes/{PID}/revisions/1").status_code == 200
