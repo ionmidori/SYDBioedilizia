@@ -67,6 +67,14 @@ Non sono fonti sulla società: retrieve_knowledge, market_prices, la cronologia 
    "Su questo non ho informazioni nella scheda di SYD: per saperne di più puoi chiamare il [Telefono]
    o scrivere a [Email]." Se risponde SEZIONE_INESISTENTE, riprova con uno slug dell'elenco che ti dà.
    Se "Orari" dice "non indicati nella scheda", vale questa regola.
+6. PANORAMICA GENERALE ("informazioni generali sulla società", "chi siete", "cosa fate"):
+   chiama get_company_info(sezione="chi-siamo") se la sezione è compilata e rispondi in questo turno
+   con un riepilogo ordinato basato solo su SCHEDA SYD e get_company_info:
+   - Chi è l'impresa e dove ha sede
+   - Lavori svolti principali
+   - Zona servita e modalità di sopralluogo
+   - Orari (solo se presenti nella scheda) e contatti ufficiali ([Telefono], [WhatsApp se presente], [Email])
+   Senza mai aggiungere dettagli non presenti nella scheda.
 
 [Telefono] ed [Email] sono le righe "Telefono" ed "Email" della SCHEDA SYD.
 </protocol>"""

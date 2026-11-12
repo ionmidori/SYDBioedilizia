@@ -161,3 +161,21 @@ def test_the_quote_always_asks_the_comune_of_the_site():
     assert "In quale comune si trova l'immobile?" in flow
     assert flow.index("COMUNE DEL CANTIERE") < flow.index("STEP CONFERMA DELLA REGISTRAZIONE")
     assert "Hai raccolto Comune del cantiere + Scope + Metriche" in flow  # registration waits for it
+
+
+def test_welcome_guidance_and_company_overview():
+    render_flow = _flat(MODE_A_DESIGNER)
+    quote_flow = _flat(MODE_B_SURVEYOR)
+    company_rule = _flat(COMPANY_INFO_PROTOCOL)
+
+    assert "Voglio fare un rendering" in render_flow
+    for mode in ("Da foto", "Da video", "A parole"):
+        assert mode in render_flow
+
+    assert "Voglio fare un preventivo" in quote_flow
+    for mode in ("Da foto", "planimetria", "Da video", "A parole"):
+        assert mode in quote_flow
+
+    assert "PANORAMICA GENERALE" in company_rule
+    assert "informazioni generali sulla società" in company_rule
+    assert 'get_company_info(sezione="chi-siamo")' in company_rule
