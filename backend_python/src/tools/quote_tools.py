@@ -39,7 +39,7 @@ from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_
 from src.services.quote_followup import FollowupResult, relay_client_request
 from src.services.quote_state import QuoteStatus, ai_draft_action
 from src.services.room_aggregation import aggregate_rooms, load_rules, room_sections
-from src.services.spec_confirmation import apply_confirmations, choice_checks, expansion_inputs
+from src.services.spec_confirmation import apply_confirmations, choice_checks, confirmations_only, expansion_inputs
 from src.tools.room_tools import brief_lines, room_of
 from src.utils.datetime_utils import utc_now
 from src.utils.download import MediaUnavailableError, download_session_media, session_media_path
@@ -688,6 +688,20 @@ async def _stored_specs(project_id: str) -> dict[str, RoomInterventionSpec] | No
         return None
 
 
+def _with_chat_confirmations(
+    specs: Mapping[str, RoomInterventionSpec], to_quote: list[RoomSchema]
+) -> Mapping[str, RoomInterventionSpec]:
+    """A chat without rooms that now has rooms: what the client confirmed for the
+    whole chat goes to the one room quoted, else to "Generale", if that unit has
+    no spec of its own yet (it is saved there with the unit's spec)."""
+    heir = to_quote[0].room_id if len(to_quote) == 1 else DEFAULT_ROOM_ID
+    inherited = confirmations_only(specs.get(CHAT_SPEC_KEY))
+    if inherited is None or heir in specs:
+        return specs
+    logger.info("[QuoteTool] Chat confirmations moved to a section.", extra={"section_key": heir})
+    return {**specs, heir: inherited}
+
+
 def _build_spec(
     unit: _QuoteUnit,
     analysis: InsightAnalysis,
@@ -709,12 +723,19 @@ def _build_spec(
     return fresh.model_copy(update={"missing_measures": list(expansion.missing_measures), "conflicts": conflicts})
 
 
-async def _save_spec(project_id: str, section_key: str, fresh: RoomInterventionSpec) -> None:
+async def _save_spec(
+    project_id: str, section_key: str, fresh: RoomInterventionSpec, read: RoomInterventionSpec | None
+) -> None:
     """Store the unit's spec with the confirmations stored at the time of the write
-    (one made during the analysis included). Best-effort: a deleted room, a
-    Firestore error only log a warning."""
+    (one made during the analysis included); `read`, the ones read before the
+    analysis, when none is stored yet (those inherited from the chat). Best-effort:
+    a deleted room, a Firestore error only log a warning."""
+
+    def change(current: RoomInterventionSpec | None) -> RoomInterventionSpec:
+        return apply_confirmations(fresh, current if current is not None else read)[0]
+
     try:
-        await get_spec_store().update(project_id, section_key, lambda current: apply_confirmations(fresh, current)[0])
+        await get_spec_store().update(project_id, section_key, change)
     except GoogleAPIError as exc:
         _spec_warning(section_key, exc)
 
@@ -758,7 +779,7 @@ async def _analyse(
         checks = [ExpansionWarning("admin_check", note) for note in notes]
         expansion = replace(expansion, warnings=[*expansion.warnings, *checks])
     if fresh is not None and stored_specs is not None:
-        await _save_spec(project_id, unit.spec_key, fresh)
+        await _save_spec(project_id, unit.spec_key, fresh, stored)
     return _UnitResult(unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, spec=spec)
 
 
@@ -935,6 +956,8 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         (to_quote, all_rooms, project_files), stored_specs = await asyncio.gather(
             _rooms_to_quote(target_project_id, history), _stored_specs(target_project_id)
         )
+        if to_quote and stored_specs is not None:
+            stored_specs = _with_chat_confirmations(stored_specs, to_quote)
 
         # A room that cannot be analysed (model or Firestore error) stops the
         # home quote: the other rooms are cancelled, no partial quote is saved.

@@ -766,3 +766,42 @@ async def test_a_confirmed_keep_against_a_model_replace_is_a_check():
     request = mocks["saved"].await_args.args[3]
     checks = [w for w in request.ai_warnings if w.kind == "admin_check" and "sanitari" in w.message]
     assert len(checks) == 1 and checks[0].room_id == "bagno1"
+
+
+# ── A chat without rooms that gains rooms keeps its confirmations ────────────
+
+_CHAT_CONFIRMED = {"chat": _stored(measures=[{"name": "mq", "value": 8, "source": "confirmed"}])}
+
+
+async def test_chat_confirmations_go_to_the_one_room_quoted():
+    files = [_file("f_bagno", "bagno1")]
+    history = [{"role": "user", "content": "Rifaccio il bagno", "room_id": "bagno1"}]
+    with _project(files=files, history=history, analyses={**ANALYSES, "Bagno": _bathroom()},
+                  specs=_CHAT_CONFIRMED) as mocks:
+        await _quote()
+
+    quote = mocks["saved"].await_args.args[2]
+    assert {i.sku: i.qty for i in quote.items if i.room_id == "bagno1"}["BAG-RIV-001"] == 18.48  # 8 mq
+    assert _saved_specs(mocks["store"])["bagno1"].measures == [
+        StoredMeasure(name="mq", value=8.0, source="confirmed", proposed=6.0)
+    ]
+
+
+async def test_chat_confirmations_go_to_generale_with_several_rooms():
+    with _project(specs=_CHAT_CONFIRMED) as mocks:
+        await _quote()
+
+    specs = _saved_specs(mocks["store"])
+    assert StoredMeasure(name="mq", value=8.0, source="confirmed") in specs[DEFAULT_ROOM_ID].measures
+    assert all(m.source != "confirmed" for key in ("bagno1", "cucina1") for m in specs[key].measures)
+
+
+async def test_chat_confirmations_never_replace_a_room_spec():
+    files = [_file("f_bagno", "bagno1")]
+    history = [{"role": "user", "content": "Rifaccio il bagno", "room_id": "bagno1"}]
+    own = _stored(measures=[{"name": "mq", "value": 5, "source": "confirmed"}])
+    with _project(files=files, history=history, analyses={**ANALYSES, "Bagno": _bathroom()},
+                  specs={**_CHAT_CONFIRMED, "bagno1": own}) as mocks:
+        await _quote()
+
+    assert _saved_specs(mocks["store"])["bagno1"].measures[0].value == 5.0

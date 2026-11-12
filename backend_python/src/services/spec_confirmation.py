@@ -78,6 +78,23 @@ def choice_checks(analysis: InsightAnalysis, stored: RoomInterventionSpec | None
     ]
 
 
+def confirmations_only(spec: RoomInterventionSpec | None) -> RoomInterventionSpec | None:
+    """What the client confirmed in `spec`, nothing else (None: nothing confirmed).
+
+    How the confirmations of a chat without rooms reach the unit that quotes it
+    once the project has rooms: the new analysis supplies everything else."""
+    if spec is None:
+        return None
+    measures = list(_confirmed_measures(spec).values())
+    choices = list(_confirmed_choices(spec).values())
+    if not measures and not choices:
+        return None
+    return spec.model_copy(update={
+        "measures": measures, "element_choices": choices, "packages": [], "extra_items": [],
+        "unmapped_work_requests": [], "missing_measures": [], "conflicts": {},
+    })
+
+
 def expansion_inputs(
     analysis: InsightAnalysis, measures: Mapping[str, Decimal], stored: RoomInterventionSpec | None
 ) -> tuple[InsightAnalysis, dict[str, Decimal]]:

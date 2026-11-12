@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from src.schemas.intervention_spec import RoomInterventionSpec, StoredElementChoice, StoredMeasure
 from src.services.insight_engine import ElementChoice, InsightAnalysis, SpecMeasure
-from src.services.spec_confirmation import apply_confirmations, choice_checks, expansion_inputs
+from src.services.spec_confirmation import apply_confirmations, choice_checks, confirmations_only, expansion_inputs
 
 T0 = datetime(2026, 11, 12, 9, 0, tzinfo=UTC)
 
@@ -141,3 +141,22 @@ def test_expansion_inputs_without_a_stored_spec_are_unchanged() -> None:
     analysis = InsightAnalysis(summary="Bagno", measures=[SpecMeasure(name="mq", value=6, source="declared")])
     measures = {"mq": Decimal(6)}
     assert expansion_inputs(analysis, measures, None) == (analysis, measures)
+
+
+def test_confirmations_only_keeps_what_the_client_confirmed() -> None:
+    chat = _spec(
+        [_confirmed("mq", 8, proposed=6), StoredMeasure(name="mq_pareti", value=14, source="photo")],
+        [StoredElementChoice(element="sanitari", action="keep", confirmed=True),
+         StoredElementChoice(element="piatto_doccia", action="reuse")],
+    ).model_copy(update={"unmapped_work_requests": ["Vespaio"], "missing_measures": ["n_porte"]})
+
+    kept = confirmations_only(chat)
+    assert kept is not None
+    assert kept.measures == [_confirmed("mq", 8, proposed=6)]
+    assert kept.element_choices == [StoredElementChoice(element="sanitari", action="keep", confirmed=True)]
+    assert kept.unmapped_work_requests == [] and kept.missing_measures == []
+
+
+def test_confirmations_only_without_confirmations() -> None:
+    assert confirmations_only(None) is None
+    assert confirmations_only(_spec([StoredMeasure(name="mq", value=6, source="declared")])) is None
