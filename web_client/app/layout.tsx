@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { shareMetadata } from "@/lib/site-share";
+import { SITE_URL } from "@/lib/site";
+import { getCompanyInfo } from "@/lib/company-info/server";
 import { BRAND_ICONS, THEME_COLOR } from "@/lib/brand";
 import { Playfair_Display, Lato, Red_Hat_Display } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -33,7 +35,7 @@ const redHat = Red_Hat_Display({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://sydbioedilizia.vercel.app"),
+  metadataBase: new URL(SITE_URL),
   title: {
     template: "%s | SYD BIOEDILIZIA",
     default: "SYD BIOEDILIZIA - Ristrutturazioni Tradizionali e Bioedilizia a Roma",
@@ -97,6 +99,7 @@ import { CookieConsent } from "@/components/CookieConsent";
 import { GuestClaimNotice } from "@/components/auth/GuestClaimNotice";
 import { BackendWarmup } from "@/components/BackendWarmup";
 import QueryProvider from "@/components/providers/QueryProvider";
+import { CompanyIdentityProvider } from "@/components/providers/CompanyIdentityProvider";
 
 export default async function RootLayout({
   children,
@@ -110,6 +113,10 @@ export default async function RootLayout({
   //   const nonce = headersList.get("x-nonce") ?? undefined;
   // Vercel Analytics/SpeedInsights v1.x don't accept nonce props yet.
 
+  // The company identity (contacts, address, VAT id) comes from the company info edited in the
+  // admin console; client components read it from CompanyIdentityProvider (lib/company-info).
+  const { identity } = await getCompanyInfo();
+
   // data-scroll-behavior: globals.css makes scrolling smooth for in-page anchors;
   // this tells Next.js to switch it off while it jumps to the top of a new route.
   return (
@@ -121,12 +128,14 @@ export default async function RootLayout({
         <AppCheckProvider>
           <AuthProvider>
             <QueryProvider>
-              <ChatProvider>
-                {children}
-                <BackendWarmup />
-                <CookieConsent />
-                <GuestClaimNotice />
-              </ChatProvider>
+              <CompanyIdentityProvider identity={identity}>
+                <ChatProvider>
+                  {children}
+                  <BackendWarmup />
+                  <CookieConsent />
+                  <GuestClaimNotice />
+                </ChatProvider>
+              </CompanyIdentityProvider>
             </QueryProvider>
           </AuthProvider>
         </AppCheckProvider>
