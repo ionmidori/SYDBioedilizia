@@ -22,6 +22,7 @@ function mount(Tab: ComponentType<TabProps>, edit: (info: CompanyInfo) => void =
         return (
             <Tab
                 info={info}
+                saved={copy()}
                 issues={validateCompanyInfo(info)}
                 onChange={(patch) => setInfo((previous) => ({ ...previous, ...patch }))}
             />

@@ -6,6 +6,7 @@ import {
     GroupTitle,
     IconSelect,
     issueOf,
+    issuesOf,
     issueUnder,
     RowControls,
     SelectField,
@@ -13,7 +14,7 @@ import {
     TextField,
 } from '@/components/admin/company/fields';
 import type { TabProps } from '@/components/admin/company/types';
-import { moveItem, slugify } from '@/lib/admin/company-info-logic';
+import { followSlug, moveItem } from '@/lib/admin/company-info-logic';
 import type { HomeService, ServiceItem } from '@/types/company-info';
 
 const MAX_WORKS = 100;
@@ -32,8 +33,8 @@ export function ServicesTab({ info, onChange, issues }: TabProps) {
         setServices({ items: services.items.map((item, i) => (i === index ? { ...item, ...patch } : item)) });
     const setCard = (index: number, patch: Partial<HomeService>) =>
         onChange({ home_services: cards.map((card, i) => (i === index ? { ...card, ...patch } : card)) });
-    const itemsProblem = issueOf(issues, fieldId('services', 'items'));
-    const cardsProblem = issueOf(issues, fieldId('home_services'));
+    const itemsProblems = issuesOf(issues, fieldId('services', 'items'));
+    const cardsProblems = issuesOf(issues, fieldId('home_services'));
 
     return (
         <div className="space-y-10">
@@ -53,10 +54,12 @@ export function ServicesTab({ info, onChange, issues }: TabProps) {
                     Un lavoro che non è in questo elenco non viene preventivato dall&apos;assistente: dice che SYD non lo indica
                     tra le sue attività e propone telefono ed email.
                 </p>
-                {itemsProblem && (
-                    <p id={fieldId('services', 'items')} tabIndex={-1} role="alert" className="text-sm text-danger-ink">
-                        {itemsProblem}
-                    </p>
+                {itemsProblems.length > 0 && (
+                    <div id={fieldId('services', 'items')} tabIndex={-1} role="alert" className="text-sm text-danger-ink">
+                        {itemsProblems.map((problem) => (
+                            <p key={problem}>{problem}</p>
+                        ))}
+                    </div>
                 )}
                 <ol className="space-y-3">
                     {services.items.map((item, index) => {
@@ -104,10 +107,12 @@ export function ServicesTab({ info, onChange, issues }: TabProps) {
 
             <section aria-labelledby="company-services-cards" className="space-y-4">
                 <GroupTitle id="company-services-cards">Card della home</GroupTitle>
-                {cardsProblem && (
-                    <p id={fieldId('home_services')} tabIndex={-1} role="alert" className="text-sm text-danger-ink">
-                        {cardsProblem}
-                    </p>
+                {cardsProblems.length > 0 && (
+                    <div id={fieldId('home_services')} tabIndex={-1} role="alert" className="text-sm text-danger-ink">
+                        {cardsProblems.map((problem) => (
+                            <p key={problem}>{problem}</p>
+                        ))}
+                    </div>
                 )}
                 <ol className="space-y-3">
                     {cards.map((card, index) => {
@@ -125,7 +130,7 @@ export function ServicesTab({ info, onChange, issues }: TabProps) {
                                             // The id follows the title until the admin sets one of their own.
                                             setCard(index, {
                                                 title,
-                                                id: card.id === '' || card.id === slugify(card.title) ? slugify(title) : card.id,
+                                                id: followSlug(card.id, card.title, title),
                                             })
                                         }
                                         error={issueOf(issues, base('title'))}

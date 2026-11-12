@@ -18,6 +18,11 @@ export function issueOf(issues: CompanyIssue[], id: string): string | undefined 
     return issues.find((issue) => issue.fieldId === id)?.message;
 }
 
+/** Every problem of one place of the company info (a whole list can have several). */
+export function issuesOf(issues: CompanyIssue[], id: string): string[] {
+    return issues.filter((issue) => issue.fieldId === id).map((issue) => issue.message);
+}
+
 /** The first problem on this input or on one of its entries (`places` → `places-3`). */
 export function issueUnder(issues: CompanyIssue[], id: string): string | undefined {
     return issues.find((issue) => issue.fieldId === id || issue.fieldId.startsWith(`${id}-`))?.message;
@@ -35,6 +40,8 @@ interface FieldProps {
     hint?: string;
     maxLength?: number;
     readOnly?: boolean;
+    /** The field lost focus: a value that must be applied once, not on every key. */
+    onBlur?: () => void;
 }
 
 function describedBy(id: string, error?: string, hint?: string): string | undefined {
@@ -68,6 +75,7 @@ export function TextField({
     hint,
     maxLength,
     readOnly,
+    onBlur,
     type = 'text',
     inputMode,
 }: FieldProps & { type?: HTMLInputTypeAttribute; inputMode?: 'numeric' | 'tel' | 'email' | 'text' }) {
@@ -82,6 +90,7 @@ export function TextField({
                 inputMode={inputMode}
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
+                onBlur={onBlur}
                 maxLength={maxLength}
                 readOnly={readOnly}
                 aria-invalid={error ? true : undefined}

@@ -1,6 +1,6 @@
 'use client';
 
-import { AddButton, fieldId, GroupTitle, issueOf, issueUnder, LinesField, RowControls, SelectField, TextField } from '@/components/admin/company/fields';
+import { AddButton, fieldId, GroupTitle, issueOf, issuesOf, issueUnder, LinesField, RowControls, SelectField, TextField } from '@/components/admin/company/fields';
 import type { TabProps } from '@/components/admin/company/types';
 import { moveItem } from '@/lib/admin/company-info-logic';
 import type { CompanyInfo } from '@/types/company-info';
@@ -20,14 +20,16 @@ export function AreaTab({ info, onChange, issues }: TabProps) {
     const setLocality = (index: number, patch: Partial<Locality>) =>
         setArea({ localities: area.localities.map((l, i) => (i === index ? { ...l, ...patch } : l)) });
     // A whole-area problem (a locality of a comune not in the list, a repeated comune) is shown above the fields.
-    const areaProblem = issueOf(issues, AREA_ID);
+    const areaProblems = issuesOf(issues, AREA_ID);
 
     return (
         <div id={AREA_ID} tabIndex={-1} className="space-y-8 focus:outline-hidden">
-            {areaProblem && (
-                <p role="alert" className="rounded-xl border border-danger/30 bg-danger-subtle px-4 py-3 text-sm text-danger-ink">
-                    {areaProblem}
-                </p>
+            {areaProblems.length > 0 && (
+                <div role="alert" className="rounded-xl border border-danger/30 bg-danger-subtle px-4 py-3 text-sm text-danger-ink">
+                    {areaProblems.map((problem) => (
+                        <p key={problem}>{problem}</p>
+                    ))}
+                </div>
             )}
 
             <section aria-labelledby="company-area-places" className="space-y-4">

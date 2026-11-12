@@ -222,6 +222,9 @@ describe('CompanyInfoEditor', () => {
         ['Lavori', 'Lavori svolti'],
         ['Sopralluogo', 'Come funziona il sopralluogo'],
         ['Preventivo', 'Validità e pagamenti'],
+        ['Sezioni', 'Sezione fissa'],
+        ['FAQ', 'Categorie'],
+        ['Chi siamo', 'Testata e storia'],
     ])('opens the %s tab', (tab, heading) => {
         infoQuery();
         render(<CompanyInfoEditor />);

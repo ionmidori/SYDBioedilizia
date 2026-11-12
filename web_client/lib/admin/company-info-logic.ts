@@ -152,6 +152,11 @@ export function slugify(text: string): string {
         .replace(/-+$/, '');
 }
 
+/** The slug of a row after its text changed: it follows the text until the admin sets one by hand. */
+export function followSlug(slug: string, previousText: string, nextText: string): string {
+    return slug === '' || slug === slugify(previousText) ? slugify(nextText) : slug;
+}
+
 /** A copy of the list with one item moved; the list itself when a place is out of range. */
 export function moveItem<T>(list: readonly T[], from: number, to: number): T[] {
     const inRange = (i: number) => Number.isInteger(i) && i >= 0 && i < list.length;

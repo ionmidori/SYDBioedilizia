@@ -5,10 +5,13 @@ import { CheckCircle2, History, Loader2, Save } from 'lucide-react';
 
 import { CompanyHistoryPanel } from '@/components/admin/company/CompanyHistoryPanel';
 import { CompanyTabs, panelId, tabId } from '@/components/admin/company/CompanyTabs';
+import { AboutTab } from '@/components/admin/company/tabs/AboutTab';
 import { AreaTab } from '@/components/admin/company/tabs/AreaTab';
+import { FaqTab } from '@/components/admin/company/tabs/FaqTab';
 import { HoursTab } from '@/components/admin/company/tabs/HoursTab';
 import { IdentityTab } from '@/components/admin/company/tabs/IdentityTab';
 import { QuoteTermsTab } from '@/components/admin/company/tabs/QuoteTermsTab';
+import { SectionsTab } from '@/components/admin/company/tabs/SectionsTab';
 import { ServicesTab } from '@/components/admin/company/tabs/ServicesTab';
 import { SiteVisitTab } from '@/components/admin/company/tabs/SiteVisitTab';
 import type { TabProps } from '@/components/admin/company/types';
@@ -25,11 +28,6 @@ import {
 } from '@/lib/admin/company-info-logic';
 import type { CompanyInfo } from '@/types/company-info';
 
-/** Placeholder of a tab not built yet: replaced as the tabs land. */
-function ComingSoon() {
-    return <p className="text-sm text-ink-muted">Questa scheda sarà disponibile a breve.</p>;
-}
-
 const TAB_COMPONENTS: Record<CompanyTab, ComponentType<TabProps>> = {
     identity: IdentityTab,
     hours: HoursTab,
@@ -37,9 +35,9 @@ const TAB_COMPONENTS: Record<CompanyTab, ComponentType<TabProps>> = {
     services: ServicesTab,
     site_visit: SiteVisitTab,
     quote_terms: QuoteTermsTab,
-    sections: ComingSoon,
-    faq: ComingSoon,
-    about: ComingSoon,
+    sections: SectionsTab,
+    faq: FaqTab,
+    about: AboutTab,
 };
 
 const MAX_ISSUES_SHOWN = 8;
@@ -262,7 +260,7 @@ export function CompanyInfoEditor() {
                 className="focus:outline-hidden"
             >
                 <fieldset disabled={busy} className="contents" aria-label={tabLabel(tab)}>
-                    <ActiveTab info={info} onChange={edit} issues={shownIssues} />
+                    <ActiveTab info={info} saved={saved} onChange={edit} issues={shownIssues} />
                 </fieldset>
             </div>
 

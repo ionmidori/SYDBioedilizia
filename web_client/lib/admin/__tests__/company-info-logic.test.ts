@@ -2,6 +2,7 @@ import { SEED_COMPANY_INFO } from '@/lib/company-info/seed';
 import {
     changedParts,
     COMPANY_TABS,
+    followSlug,
     moveItem,
     PART_LABELS,
     sectionInUse,
@@ -151,5 +152,19 @@ describe('sectionInUse', () => {
         info.faq[0] = { ...info.faq[0], section_slug: 'garanzie' };
         expect(sectionInUse(info, 'garanzie')).toBe(true);
         expect(sectionInUse(info, 'pagamenti')).toBe(false);
+    });
+});
+
+describe('followSlug', () => {
+    it('gives an empty slug the slug of the new text', () => {
+        expect(followSlug('', '', 'Città più belle')).toBe('citta-piu-belle');
+    });
+
+    it('keeps following while the slug is still the one of the previous text', () => {
+        expect(followSlug('citta', 'Città', 'Città nuova')).toBe('citta-nuova');
+    });
+
+    it('keeps a slug the admin set by hand', () => {
+        expect(followSlug('mia-card', 'Città', 'Altro titolo')).toBe('mia-card');
     });
 });
