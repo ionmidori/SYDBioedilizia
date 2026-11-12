@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from src.schemas.intervention_spec import StoredMeasureSource
 from src.schemas.price_range import PriceEstimate, PriceRangePolicy
 from src.services.intervention_expansion import ExpandedLine, LineOrigin
-from src.services.price_range import estimate, line_uncertainty, load_price_range_policy
+from src.services.price_range import PricedLine, estimate, line_uncertainty, load_price_range_policy
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ def _line(*measures: str, origin: LineOrigin = "package") -> ExpandedLine:
 def _one(line: ExpandedLine, sources: dict[str, StoredMeasureSource], policy: PriceRangePolicy, *,
          manual: int = 0, subtotal: str = "1000", grand_total: str = "1000") -> PriceEstimate | None:
     return estimate(
-        [(line, Decimal(subtotal))], sources, manual_count=manual,
+        [PricedLine(line, Decimal(subtotal), sources)], manual_count=manual,
         grand_total=Decimal(grand_total), subtotal=Decimal(subtotal), policy=policy,
     )
 
@@ -69,12 +69,24 @@ def test_line_without_measures_uses_no_measure(policy: PriceRangePolicy) -> None
 
 
 def test_lines_add_up(policy: PriceRangePolicy) -> None:
+    sources: dict[str, StoredMeasureSource] = {"mq": "confirmed"}
     result = estimate(
-        [(_line("mq"), Decimal("1000")), (_line(origin="extra"), Decimal("200"))],
-        {"mq": "confirmed"}, manual_count=0, grand_total=Decimal("1200"), subtotal=Decimal("1200"), policy=policy,
+        [PricedLine(_line("mq"), Decimal("1000"), sources), PricedLine(_line(origin="extra"), Decimal("200"), sources)],
+        manual_count=0, grand_total=Decimal("1200"), subtotal=Decimal("1200"), policy=policy,
     )
     assert result is not None
     assert (result.low, result.high) == (Decimal("1100.00"), Decimal("1300.00"))
+
+
+def test_each_line_reads_the_sources_of_its_own_room(policy: PriceRangePolicy) -> None:
+    """Two rooms measure "mq": the bathroom's is confirmed, the kitchen's estimated."""
+    result = estimate(
+        [PricedLine(_line("mq"), Decimal("1000"), {"mq": "confirmed"}),
+         PricedLine(_line("mq"), Decimal("1000"), {"mq": "estimated"})],
+        manual_count=0, grand_total=Decimal("2000"), subtotal=Decimal("2000"), policy=policy,
+    )
+    assert result is not None
+    assert (result.low, result.high, result.precision) == (Decimal("1700.00"), Decimal("2300.00"), 85)
 
 
 @pytest.mark.parametrize(("manual", "high"), [
@@ -110,7 +122,7 @@ def test_vat_scaling(policy: PriceRangePolicy) -> None:
 @pytest.mark.parametrize("subtotal", ["0", "0.00"])
 def test_zero_subtotal_none(policy: PriceRangePolicy, subtotal: str) -> None:
     assert _one(_line("mq"), {"mq": "confirmed"}, policy, subtotal=subtotal, grand_total="0") is None
-    assert estimate([], {}, manual_count=3, grand_total=Decimal("0"), subtotal=Decimal("0"), policy=policy) is None
+    assert estimate([], manual_count=3, grand_total=Decimal("0"), subtotal=Decimal("0"), policy=policy) is None
 
 
 def test_policy_file_valid() -> None:

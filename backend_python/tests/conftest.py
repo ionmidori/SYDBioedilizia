@@ -89,7 +89,8 @@ def _orchestrator_without_rooms():
     repo.find_file_by_storage_path = AsyncMock(return_value=None)
     specs = MagicMock()
     specs.load_all = AsyncMock(return_value={})
-    specs.update = AsyncMock()
+    # Like SpecStore.update on an empty store: the change applied to no spec, returned.
+    specs.update = AsyncMock(side_effect=lambda project_id, section_key, change: change(None))
     with ExitStack() as stack:
         for module in modules:
             if module is not None:

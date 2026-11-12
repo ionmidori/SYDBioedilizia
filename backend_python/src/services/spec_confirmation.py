@@ -3,16 +3,21 @@
 A measure or an element choice the client confirmed changes only from the card.
 A new analysis that gives another value leaves it in place: the new value is
 kept as a proposal the card shows to the client, and the team gets a check
-(`admin_check`). Pure: no I/O.
+(`admin_check`). What the card confirms (`confirm`) is expanded again by code,
+without the model (`analysis_from_spec`). Pure: no I/O.
 """
 from collections.abc import Mapping
 from decimal import Decimal
 
 from src.core.money import to_decimal
-from src.schemas.assembly_library import MEASURE_LABELS
+from src.schemas.assembly_library import MEASURE_LABELS, ElementAction
+from src.schemas.confirmation import ConfirmationUpdate
 from src.schemas.intervention_spec import RoomInterventionSpec, StoredElementChoice, StoredMeasure
 from src.services.insight_engine import ElementChoice, InsightAnalysis
 from src.services.intervention_expansion import ACTION_LABELS, requested_actions
+
+# Reasoning of a single line recomputed from the stored spec (the model's own is not stored).
+_STORED_EXTRA_REASONING = "Voce singola dell'ultima analisi, ricalcolata con le misure confermate"
 
 
 def _number(value: float) -> str:
@@ -25,6 +30,15 @@ def _confirmed_measures(spec: RoomInterventionSpec) -> dict[str, StoredMeasure]:
 
 def _confirmed_choices(spec: RoomInterventionSpec) -> dict[str, StoredElementChoice]:
     return {c.element: c for c in spec.element_choices if c.confirmed}
+
+
+def _settled(spec: RoomInterventionSpec) -> RoomInterventionSpec:
+    """A confirmed measure is neither missing nor in conflict any more."""
+    confirmed = _confirmed_measures(spec)
+    return spec.model_copy(update={
+        "missing_measures": [name for name in spec.missing_measures if name not in confirmed],
+        "conflicts": {name: values for name, values in spec.conflicts.items() if name not in confirmed},
+    })
 
 
 def _merged_measure(fresh: StoredMeasure | None, confirmed: StoredMeasure, notes: list[str]) -> StoredMeasure:
@@ -61,7 +75,7 @@ def apply_confirmations(
 
     chosen = _confirmed_choices(stored)
     choices = [*chosen.values(), *(c for c in fresh.element_choices if c.element not in chosen)]
-    return fresh.model_copy(update={"measures": measures, "element_choices": choices}), notes
+    return _settled(fresh.model_copy(update={"measures": measures, "element_choices": choices})), notes
 
 
 def choice_checks(analysis: InsightAnalysis, stored: RoomInterventionSpec | None) -> list[str]:
@@ -115,3 +129,59 @@ def expansion_inputs(
         ],
     })
     return updated, {**measures, **confirmed}
+
+
+def _confirmed_values(spec: RoomInterventionSpec | None) -> tuple[dict[str, float], dict[str, ElementAction]]:
+    if spec is None:
+        return {}, {}
+    return (
+        {name: m.value for name, m in _confirmed_measures(spec).items()},
+        {element: c.action for element, c in _confirmed_choices(spec).items()},
+    )
+
+
+def same_confirmations(a: RoomInterventionSpec | None, b: RoomInterventionSpec | None) -> bool:
+    """Whether the client confirmed the same values in both (proposals and the rest aside)."""
+    return _confirmed_values(a) == _confirmed_values(b)
+
+
+def confirm(spec: RoomInterventionSpec, update: ConfirmationUpdate) -> RoomInterventionSpec:
+    """The section's spec with what the client confirmed on the card: each measure
+    becomes the client's (any proposal is answered), each element choice too."""
+    measures = {m.name: StoredMeasure(name=m.name, value=m.value, source="confirmed") for m in update.measures}
+    choices = {
+        c.element: StoredElementChoice(element=c.element, action=c.action, confirmed=True)
+        for c in update.element_choices
+    }
+    stored_names = {m.name for m in spec.measures}
+    stored_elements = {c.element for c in spec.element_choices}
+    return _settled(spec.model_copy(update={
+        "measures": [
+            *(measures.get(m.name, m) for m in spec.measures),
+            *(m for name, m in measures.items() if name not in stored_names),
+        ],
+        "element_choices": [
+            *(choices.get(c.element, c) for c in spec.element_choices),
+            *(c for element, c in choices.items() if element not in stored_elements),
+        ],
+    }))
+
+
+def analysis_from_spec(spec: RoomInterventionSpec, summary: str) -> InsightAnalysis:
+    """The analysis `expand` reads, rebuilt from a stored spec (no model call). Its
+    measures are not in it: `expand` takes them from `spec_measures`."""
+    # Validated from data: the response-schema models declare their defaults positionally.
+    return InsightAnalysis.model_validate({
+        "summary": summary,
+        "packages": [{"assembly_id": p.assembly_id, "conditions": list(p.conditions)} for p in spec.packages],
+        "element_choices": [{"element": c.element, "action": c.action} for c in spec.element_choices],
+        "suggestions": [
+            {"sku": item.sku, "qty": item.qty, "ai_reasoning": _STORED_EXTRA_REASONING} for item in spec.extra_items
+        ],
+        "unmapped_work_requests": list(spec.unmapped_work_requests),
+    })
+
+
+def spec_measures(spec: RoomInterventionSpec) -> dict[str, Decimal]:
+    """The measures `expand` computes the section's lines from (a proposal is never used)."""
+    return {m.name: to_decimal(m.value) for m in spec.measures}

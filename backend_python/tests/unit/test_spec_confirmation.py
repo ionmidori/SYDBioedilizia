@@ -6,9 +6,25 @@ value from the model becomes a proposal for the client and a check for the team.
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from src.schemas.intervention_spec import RoomInterventionSpec, StoredElementChoice, StoredMeasure
+from src.schemas.confirmation import ChoiceConfirmation, ConfirmationUpdate, MeasureConfirmation
+from src.schemas.intervention_spec import (
+    RoomInterventionSpec,
+    StoredElementChoice,
+    StoredExtraItem,
+    StoredMeasure,
+    StoredPackage,
+)
 from src.services.insight_engine import ElementChoice, InsightAnalysis, SpecMeasure
-from src.services.spec_confirmation import apply_confirmations, choice_checks, confirmations_only, expansion_inputs
+from src.services.spec_confirmation import (
+    analysis_from_spec,
+    apply_confirmations,
+    choice_checks,
+    confirm,
+    confirmations_only,
+    expansion_inputs,
+    same_confirmations,
+    spec_measures,
+)
 
 T0 = datetime(2026, 11, 12, 9, 0, tzinfo=UTC)
 
@@ -160,3 +176,66 @@ def test_confirmations_only_keeps_what_the_client_confirmed() -> None:
 def test_confirmations_only_without_confirmations() -> None:
     assert confirmations_only(None) is None
     assert confirmations_only(_spec([StoredMeasure(name="mq", value=6, source="declared")])) is None
+
+
+def test_a_confirmed_measure_is_never_missing_nor_in_conflict() -> None:
+    """A confirmation made during the analysis: the fresh spec still lists the measure as missing."""
+    fresh = _spec().model_copy(update={"missing_measures": ["mq", "n_porte"], "conflicts": {"mq": [6.0, 9.0]}})
+    merged, _ = apply_confirmations(fresh, _spec([_confirmed("mq", 8)]))
+    assert merged.missing_measures == ["n_porte"] and merged.conflicts == {}
+
+
+# ── The card: a section confirmed by the client ───────────────────────────────
+
+
+def test_confirm_marks_measures_and_choices_as_the_client_s() -> None:
+    stored = _spec(
+        [StoredMeasure(name="mq", value=6, source="declared"), _confirmed("mq_pareti", 14, proposed=15)],
+        [StoredElementChoice(element="sanitari", action="keep")],
+    ).model_copy(update={"missing_measures": ["n_porte"], "conflicts": {"n_porte": [1.0, 2.0]}})
+    update = ConfirmationUpdate(
+        measures=[MeasureConfirmation(name="mq_pareti", value=15), MeasureConfirmation(name="n_porte", value=2)],
+        element_choices=[ChoiceConfirmation(element="sanitari", action="reuse"),
+                         ChoiceConfirmation(element="rubinetteria", action="replace")],
+    )
+    confirmed = confirm(stored, update)
+
+    assert confirmed.measures == [
+        StoredMeasure(name="mq", value=6, source="declared"),  # not on the card this time: unchanged
+        _confirmed("mq_pareti", 15),  # the proposal accepted: no proposal left
+        _confirmed("n_porte", 2),
+    ]
+    assert confirmed.element_choices == [
+        StoredElementChoice(element="sanitari", action="reuse", confirmed=True),
+        StoredElementChoice(element="rubinetteria", action="replace", confirmed=True),
+    ]
+    assert confirmed.missing_measures == [] and confirmed.conflicts == {}
+
+
+def test_analysis_from_spec_reads_what_expand_needs() -> None:
+    spec = _spec(
+        [StoredMeasure(name="mq", value=6, source="declared")],
+        [StoredElementChoice(element="sanitari", action="keep", confirmed=True)],
+    ).model_copy(update={
+        "packages": [StoredPackage(assembly_id="ASM-BAGNO-FULL", conditions=["if_doccia"])],
+        "extra_items": [StoredExtraItem(sku="SC-002", qty=1)],
+        "unmapped_work_requests": ["Vespaio aerato"],
+    })
+    analysis = analysis_from_spec(spec, "Bagno")
+
+    assert analysis.summary == "Bagno"
+    assert [(p.assembly_id, p.conditions) for p in analysis.packages] == [("ASM-BAGNO-FULL", ["if_doccia"])]
+    assert [(c.element, c.action) for c in analysis.element_choices] == [("sanitari", "keep")]
+    assert [(s.sku, s.qty) for s in analysis.suggestions] == [("SC-002", 1)]
+    assert analysis.unmapped_work_requests == ["Vespaio aerato"]
+    assert analysis.measures == []  # expand reads them from spec_measures
+    assert spec_measures(spec) == {"mq": Decimal(6)}
+
+
+def test_same_confirmations_compares_only_what_the_client_confirmed() -> None:
+    a = _spec([_confirmed("mq", 8, proposed=6), StoredMeasure(name="n_porte", value=1, source="photo")])
+    b = _spec([_confirmed("mq", 8)])
+    assert same_confirmations(a, b)
+    assert same_confirmations(None, _spec([StoredMeasure(name="mq", value=6, source="declared")]))
+    assert not same_confirmations(b, _spec([_confirmed("mq", 9)]))
+    assert not same_confirmations(None, _spec(choices=[StoredElementChoice(element="s", action="keep", confirmed=True)]))

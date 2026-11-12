@@ -343,3 +343,31 @@ class UserChatMismatch(AppException):
 
     def __init__(self) -> None:
         super().__init__(message="La tua chat è cambiata. Ricarica la pagina per continuare.")
+
+
+# ─── Confirmation card (Phase 140, step 3) ────────────────────────────────────
+
+class ConfirmationSectionNotFoundError(ResourceNotFound):
+    """The section is no quote unit of the project, so there is nothing to confirm."""
+    error_code = "CONFIRMATION_SECTION_NOT_FOUND"
+
+    def __init__(self, section_key: str) -> None:
+        super().__init__(message="This section has nothing to confirm.", detail={"section_key": section_key})
+
+
+class ConfirmationInvalidError(AppException):
+    """An element choice the assembly library does not offer for the section."""
+    status_code = 422
+    error_code = "CONFIRMATION_INVALID"
+
+    def __init__(self, section_key: str) -> None:
+        super().__init__(
+            message="This choice is not available for the section.", detail={"section_key": section_key}
+        )
+
+
+class QuoteNotEditableError(AppException):
+    """The quote is with the team (or was sent): the card cannot change it."""
+    status_code = 409
+    error_code = "QUOTE_NOT_EDITABLE"
+    message = "The quote is with the team: write in the chat to change it."

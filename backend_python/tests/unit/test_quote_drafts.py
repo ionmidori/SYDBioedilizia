@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 import pytest
 from src.schemas.intervention_spec import RoomInterventionSpec, StoredMeasure, StoredPackage
+from src.schemas.price_range import PriceEstimate
 from src.schemas.quote import (
     ManualWorkItem,
     QuoteAiWarning,
@@ -307,3 +308,50 @@ async def test_a_revision_saved_before_the_specs_still_reads():
     assert revision["specs"] == []
     del revision["specs"]
     assert QuoteRevision(**revision).specs == []
+
+
+# ── Phase 140 step 3: the card recalculates only a draft the client can still change ──
+
+
+@pytest.mark.parametrize("status", ["sent", "rejected", "pending_review", "in_review", "approved"])
+async def test_editable_only_blocks_revise_and_relay(status):
+    db = FakeDb()
+    seeded = _seed_sent(db, status)
+    tx = FakeTransaction(db)
+
+    result = await apply_ai_draft(tx, db, PID, _ai_quote(), _request(), NOW, editable_only=True)
+
+    assert result.outcome is DraftSaveOutcome.NOT_EDITABLE
+    assert (result.status, result.quote_number) == (status, "PRV-2026-0007")
+    assert tx.writes == []
+    assert db.get_data(*QUOTE_PATH) == seeded
+
+
+async def test_editable_only_creates_and_updates_a_draft():
+    db = FakeDb()
+    created = await apply_ai_draft(FakeTransaction(db), db, PID, _ai_quote(), _request(), NOW, editable_only=True)
+    updated = await apply_ai_draft(
+        FakeTransaction(db), db, PID, _ai_quote(qty=30.0), _request(), NOW, editable_only=True
+    )
+    assert (created.outcome, updated.outcome) == (DraftSaveOutcome.CREATED, DraftSaveOutcome.UPDATED)
+
+
+def _estimated(quote: QuoteSchema, precision: int) -> QuoteSchema:
+    estimate = PriceEstimate(low=1100, high=1400, precision=precision, policy_version="1.0.0")
+    return quote.model_copy(update={"estimate": estimate})
+
+
+async def test_the_estimate_is_stored_on_the_draft_and_its_revision():
+    db = FakeDb()
+    await _save(db, _estimated(_ai_quote(), 90))
+
+    doc = db.get_data(*QUOTE_PATH)
+    assert doc["estimate"] == {"low": 1100.0, "high": 1400.0, "precision": 90, "policy_version": "1.0.0"}
+    assert QuoteSchema(**doc).estimate == QuoteRevision(**db.get_data(*QUOTE_PATH, "revisions", "1")).estimate
+
+    await _save(db, _estimated(_ai_quote(qty=30.0), 80))
+    assert db.get_data(*QUOTE_PATH)["estimate"]["precision"] == 80
+    assert db.get_data(*QUOTE_PATH, "revisions", "2")["estimate"]["precision"] == 80
+
+    await _save(db, _ai_quote(qty=40.0))  # no range (no library): the old one goes
+    assert "estimate" not in db.get_data(*QUOTE_PATH)

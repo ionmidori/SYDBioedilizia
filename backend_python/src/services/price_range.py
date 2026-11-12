@@ -8,6 +8,7 @@ precision (0-100) is what the client is shown instead of the amounts.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Context, Decimal
 from functools import cache
 from pathlib import Path
@@ -25,6 +26,15 @@ _UNKNOWN_SOURCE: StoredMeasureSource = "estimated"
 _RATIO = Context(prec=28, rounding=ROUND_HALF_UP)
 _ONE = Decimal(1)
 _HUNDRED = Decimal(100)
+
+
+@dataclass(frozen=True)
+class PricedLine:
+    """A quote line, its net amount, and the sources of its unit's measures (each
+    room has its own: the same measure name may be confirmed in one, estimated in another)."""
+    line: ExpandedLine
+    amount: Decimal
+    sources: Mapping[str, StoredMeasureSource]
 
 
 @cache
@@ -52,20 +62,19 @@ def _precision(low: Decimal, high: Decimal, step: int) -> int:
 
 
 def estimate(
-    priced: Sequence[tuple[ExpandedLine, Decimal]],
-    sources: Mapping[str, StoredMeasureSource],
+    priced: Sequence[PricedLine],
     *,
     manual_count: int,
     grand_total: Decimal,
     subtotal: Decimal,
     policy: PriceRangePolicy,
 ) -> PriceEstimate | None:
-    """The range of the draft whose lines are `priced` (each with its net amount).
+    """The range of the draft whose lines are `priced`, scaled by grand_total/subtotal.
 
     None when there is nothing to range: no line, or a zero subtotal."""
     if not priced or subtotal <= 0:
         return None
-    shares = [(amount, line_uncertainty(line, sources, policy)) for line, amount in priced]
+    shares = [(p.amount, line_uncertainty(p.line, p.sources, policy)) for p in priced]
     low = sum_amounts(amount * (_ONE - share) for amount, share in shares)
     high = sum_amounts(amount * (_ONE + share) for amount, share in shares)
     high *= _ONE + min(manual_count * policy.manual_work_high, policy.manual_work_cap)

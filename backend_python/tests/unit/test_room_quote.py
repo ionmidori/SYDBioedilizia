@@ -805,3 +805,27 @@ async def test_chat_confirmations_never_replace_a_room_spec():
         await _quote()
 
     assert _saved_specs(mocks["store"])["bagno1"].measures[0].value == 5.0
+
+
+# ── Phase 140 step 3: the tool's draft goes through the shared pipeline ──────
+
+
+async def test_lines_follow_a_confirmation_made_during_the_analysis():
+    """The client confirms 9 mq on the card while the model analyses (6 mq): the draft uses 9."""
+    meanwhile = _stored(measures=[{"name": "mq", "value": 9, "source": "confirmed"}])
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}, specs_at_save={"bagno1": meanwhile}) as mocks:
+        await _quote()
+
+    quote = mocks["saved"].await_args.args[2]
+    assert {i.sku: i.qty for i in quote.items if i.room_id == "bagno1"}["MUR-004"] == 19.8  # 9 * 2.2
+    assert _draft_specs(mocks["saved"])["bagno1"] == _saved_specs(mocks["store"])["bagno1"]
+    request = mocks["saved"].await_args.args[3]
+    assert any(w.kind == "admin_check" and "confermato 9" in w.message for w in request.ai_warnings)
+
+
+async def test_the_tool_draft_has_a_price_range():
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks:
+        await _quote()
+
+    estimate = mocks["saved"].await_args.args[2].estimate
+    assert estimate is not None and estimate.low < estimate.high

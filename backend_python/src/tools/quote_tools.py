@@ -19,7 +19,7 @@ from src.repositories.room_repository import get_room_repository
 from src.repositories.spec_store import CHAT_SPEC_KEY, get_spec_store
 from src.schemas.assembly_library import AssemblyLibrary
 from src.schemas.intervention_spec import RoomInterventionSpec
-from src.schemas.quote import ManualWorkItem, QuoteAiWarning, QuoteRequest, RevisionRoomSpec
+from src.schemas.quote import ManualWorkItem, QuoteRequest
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
 from src.services.assembly_library import load_library
 from src.services.insight_engine import InsightAnalysis, InsightEngineError, get_insight_engine
@@ -34,12 +34,19 @@ from src.services.intervention_expansion import (
     spec_from_analysis,
 )
 from src.services.pricing_service import PricingService
+from src.services.quote_build import UnitBuild, build_draft, price_book_units
 from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_ai_draft
 from src.services.quote_followup import FollowupResult, relay_client_request
 from src.services.quote_state import QuoteStatus, ai_draft_action
-from src.services.room_aggregation import aggregate_rooms, load_rules, room_sections
-from src.services.spec_confirmation import apply_confirmations, choice_checks, confirmations_only, expansion_inputs
+from src.services.room_aggregation import load_rules
+from src.services.spec_confirmation import (
+    apply_confirmations,
+    choice_checks,
+    confirmations_only,
+    expansion_inputs,
+    same_confirmations,
+)
 from src.tools.room_tools import brief_lines, room_of
 from src.utils.datetime_utils import utc_now
 from src.utils.download import MediaUnavailableError, download_session_media, session_media_path
@@ -725,19 +732,31 @@ def _build_spec(
 
 async def _save_spec(
     project_id: str, section_key: str, fresh: RoomInterventionSpec, read: RoomInterventionSpec | None
-) -> None:
+) -> RoomInterventionSpec | None:
     """Store the unit's spec with the confirmations stored at the time of the write
     (one made during the analysis included); `read`, the ones read before the
-    analysis, when none is stored yet (those inherited from the chat). Best-effort:
-    a deleted room, a Firestore error only log a warning."""
+    analysis, when none is stored yet (those inherited from the chat). The spec
+    written, or None. Best-effort: a deleted room, a Firestore error only log a warning."""
 
     def change(current: RoomInterventionSpec | None) -> RoomInterventionSpec:
         return apply_confirmations(fresh, current if current is not None else read)[0]
 
     try:
-        await get_spec_store().update(project_id, section_key, change)
+        return await get_spec_store().update(project_id, section_key, change)
     except GoogleAPIError as exc:
         _spec_warning(section_key, exc)
+        return None
+
+
+def _expansion(
+    analysis: InsightAnalysis,
+    measures: Mapping[str, Decimal],
+    library: AssemblyLibrary | None,
+    stored: RoomInterventionSpec | None,
+) -> Expansion:
+    """The unit's lines, computed by code, with what the client confirmed on the card (`stored`)."""
+    for_expansion, used = expansion_inputs(analysis, measures, stored)
+    return expand(for_expansion, library or _NO_LIBRARY, price_book_units(), used)
 
 
 async def _analyse(
@@ -765,21 +784,24 @@ async def _analyse(
     # "Generale" has no brief of its own measures: its floor is not the rest of the home's.
     measures = resolve_measures(validated, unit.room.brief if unit.room else None)
     stored = stored_specs.get(unit.spec_key) if stored_specs is not None else None
-    for_expansion, used = expansion_inputs(validated, measures, stored)
-    units = {str(item["sku"]): str(item["unit"]) for item in PricingService.load_price_book()}
-    expansion = expand(for_expansion, library or _NO_LIBRARY, units, used)
+    expansion = _expansion(validated, measures, library, stored)
     # Built from the model's values: one that differs from a confirmed value is a proposal.
     fresh = _build_spec(unit, validated, measures, library, expansion)
     spec: RoomInterventionSpec | None = None
+    if fresh is not None and stored_specs is not None:
+        spec = await _save_spec(project_id, unit.spec_key, fresh, stored)
+        if spec is not None and not same_confirmations(spec, stored):
+            # The client confirmed on the card during the analysis: the lines follow it.
+            stored = spec
+            expansion = _expansion(validated, measures, library, stored)
     notes = choice_checks(validated, stored)
     if fresh is not None:
-        spec, measure_notes = apply_confirmations(fresh, stored)
+        merged, measure_notes = apply_confirmations(fresh, stored)
+        spec = merged if spec is None else spec
         notes = [*measure_notes, *notes]
     if notes:
         checks = [ExpansionWarning("admin_check", note) for note in notes]
         expansion = replace(expansion, warnings=[*expansion.warnings, *checks])
-    if fresh is not None and stored_specs is not None:
-        await _save_spec(project_id, unit.spec_key, fresh, stored)
     return _UnitResult(unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, spec=spec)
 
 
@@ -871,28 +893,6 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
 def _section_label(result: _UnitResult) -> str | None:
     """The room name the admin reads next to a manual work or a warning (None: a quote without rooms)."""
     return _room_label(result) if result.unit.section_id else None
-
-
-def _manual_work(results: list[_UnitResult]) -> list[ManualWorkItem]:
-    return [
-        ManualWorkItem(work=work.work, room_id=r.unit.section_id, room_label=_section_label(r), origin=work.origin)
-        for r in results
-        for work in r.expansion.manual_work
-    ]
-
-
-def _ai_warnings(results: list[_UnitResult]) -> list[QuoteAiWarning]:
-    return [
-        QuoteAiWarning(
-            kind=warning.kind,
-            message=warning.message,
-            room_id=r.unit.section_id,
-            room_label=_section_label(r),
-            skus=list(warning.skus),
-        )
-        for r in results
-        for warning in r.expansion.warnings
-    ]
 
 
 def _manual_work_note(manual_work: list[ManualWorkItem]) -> str:
@@ -1006,37 +1006,25 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         if refusal is not None:
             return refusal
 
-        # 8. Generate Pricing
-        sku_list = [
-            {"sku": line.sku, "qty": float(line.qty), "ai_reasoning": line.reasoning, "room_id": r.unit.section_id}
-            for r in results
-            for line in r.lines
-        ]
+        # 8. Prices, one quote for the home (project-wide lines once, in "Generale"),
+        # totals and price range: the pipeline the confirmation card uses too.
         # We need a user_id. If not provided, we try to get it from context or use session_id
         final_user_id = user_id or "guest_" + session_id
-
-        quote = PricingService.create_quote_from_skus(target_project_id, final_user_id, sku_list)
+        built = build_draft(
+            target_project_id,
+            final_user_id,
+            [UnitBuild(section_id=r.unit.section_id, label=_section_label(r), expansion=r.expansion, spec=r.spec)
+             for r in results],
+            all_rooms,
+            to_quote=bool(to_quote),
+        )
+        quote = built.quote
         if to_quote:
-            # One quote for the home: project-wide lines once, in "Generale".
-            items = aggregate_rooms(quote.items, {r.room_id: r.label for r in all_rooms})
-            quote = quote.model_copy(update={
-                "items": items,
-                "rooms": room_sections(all_rooms, items),
-                "financials": PricingService.calculate_financials(items),
-            })
             summary = "\n".join(f"{_room_label(r)}: {r.analysis.summary}" for r in results if r.lines)
             headline = "\n".join(f"**{_room_label(r)}** — {r.analysis.summary}" for r in results if r.lines)
         else:
             summary = results[0].analysis.summary
             headline = f"**{summary}**"
-
-        # Sanity check: suspiciously low totals often indicate malformed AI output
-        if quote.financials.grand_total < 100 and len(quote.items) > 1:
-            logger.warning(
-                f"[QuoteTool] Suspicious grand_total=€{quote.financials.grand_total:.2f} "
-                f"for {len(quote.items)} items (project={target_project_id}). "
-                "Verify pricing service and AI output."
-            )
 
         # 9. Save the draft to Firestore (projects/{projectId}/private_data/quote)
         # in a transaction: never overwrite a quote the team is working on, open
@@ -1045,13 +1033,11 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # gathered outside the transaction, best-effort, never blocks the draft.
         now = utc_now()
         dossier = await gather_dossier_inputs(db, target_project_id, final_user_id, now)
-        manual_work = _manual_work(results)
         request = QuoteRequest(
             summary=summary, channel="chat", session_id=session_id,
-            manual_work=manual_work, ai_warnings=_ai_warnings(results),
+            manual_work=built.manual_work, ai_warnings=built.ai_warnings,
         )
-        specs = [RevisionRoomSpec(room_id=r.unit.section_id, spec=r.spec) for r in results if r.spec is not None]
-        saved = await save_ai_draft(db, target_project_id, quote, request, now=now, dossier=dossier, specs=specs)
+        saved = await save_ai_draft(db, target_project_id, quote, request, now=now, dossier=dossier, specs=built.specs)
         reference = f" (riferimento **{saved.quote_number}**)" if saved.quote_number else ""
 
         if saved.outcome is DraftSaveOutcome.WITH_THE_TEAM:
@@ -1069,7 +1055,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # deliberately NOT shown to the client: the admin reviews and adjusts
         # it first in the dashboard, then the client receives the final quote
         # by email after approval. Only the works summary is disclosed.
-        headline += _manual_work_note(manual_work)
+        headline += _manual_work_note(built.manual_work)
         room_labels = ", ".join(room.room_label for room in quote.rooms)
         sections = f" in {len(quote.rooms)} sezioni ({room_labels})" if len(quote.rooms) > 1 else ""
         if saved.outcome is DraftSaveOutcome.REVISED:
