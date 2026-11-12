@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { motion, Variants } from 'framer-motion';
-import { User } from 'lucide-react';
+import { User, Calculator, ImagePlus, Layers, ArrowRight } from 'lucide-react';
 import { type Components } from 'react-markdown';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
 import { ImagePreview } from '@/components/chat/ImagePreview';
@@ -29,6 +29,8 @@ interface MessageItemProps {
     message: Message;
     sessionId?: string; // made optional
     onImageClick: (imageUrl: string) => void;
+    /** Optional callback for interactive quick-start actions on the welcome message. */
+    onQuickPrompt?: (prompt: string) => void;
     /**
      * Firestore-history version of this message (same id), resolved once by
      * ChatMessages. Passed as a prop instead of reading the chat context here:
@@ -40,12 +42,33 @@ interface MessageItemProps {
     animate?: boolean;
 }
 
+const WELCOME_QUICK_ACTIONS = [
+    {
+        icon: Calculator,
+        title: 'Preventivo veloce',
+        subtitle: 'Ottieni subito una stima dei costi',
+        prompt: 'Vorrei un preventivo veloce per ristrutturare',
+    },
+    {
+        icon: ImagePlus,
+        title: 'Rendering gratuito',
+        subtitle: 'Visualizza in anteprima le tue idee',
+        prompt: 'Vorrei creare un rendering gratuito di una stanza',
+    },
+    {
+        icon: Layers,
+        title: 'Materiali e design',
+        subtitle: 'Chiedi consigli su finiture e soluzioni',
+        prompt: 'Vorrei consigli su materiali e design per la ristrutturazione',
+    },
+] as const;
+
 /**
  * Single message item component
  * Handles rendering of one chat message with its avatar, content, and attachments
  * ✅ Memoized to prevent unnecessary re-renders
  */
-export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, historyMessage, animate = false }) => {
+export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onQuickPrompt, historyMessage, animate = false }) => {
     const { user } = useAuth();
     const identity = useCompanyIdentity();
     // Vercel AI SDK strips custom fields like "rating" from the messages array during internal state updates.
@@ -310,10 +333,10 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                     <div className={cn(
                         // Solid backgrounds, no backdrop-filter: a blurred bubble had to be fully
                         // repainted on every height change while a reply streamed in.
-                        "p-4 text-sm leading-relaxed shadow-lg transition-colors duration-300",
+                        "p-4 text-sm leading-relaxed transition-colors duration-300",
                         message.role === 'user'
-                            ? "bg-primary text-on-primary rounded-[24px_24px_4px_24px] border border-transparent" // Organic shape USER
-                            : "bg-canvas border border-line text-ink rounded-[24px_24px_24px_4px] shadow-lg shadow-shade/5" // Organic shape AI
+                            ? "bg-primary text-on-primary rounded-[24px_24px_4px_24px] border border-transparent shadow-md" // Organic shape USER
+                            : "bg-surface border border-line text-ink rounded-[24px_24px_24px_4px] shadow-sm shadow-shade/5" // Organic shape AI
                     )}>
                         <div className={cn(
                             "prose prose-sm prose-p:my-1 prose-pre:bg-surface-muted prose-pre:p-2 prose-pre:rounded-lg prose-pre:overflow-x-auto max-w-none break-words [word-break:break-word] overflow-hidden w-full",
@@ -325,6 +348,33 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                                     {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
                                     {formattedText.startsWith('...') ? formattedText.substring(3) : formattedText}
                                 </MemoizedMarkdown>
+                            )}
+
+                            {/* Interactive quick-start chips on the welcome message */}
+                            {message.id === 'welcome-msg' && onQuickPrompt && (
+                                <div className="mt-3.5 flex flex-col gap-2 not-prose" role="group" aria-label="Azioni rapide">
+                                    {WELCOME_QUICK_ACTIONS.map(({ icon: Icon, title, subtitle, prompt }) => (
+                                        <button
+                                            key={title}
+                                            type="button"
+                                            onClick={() => onQuickPrompt(prompt)}
+                                            className="group/chip flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-xl bg-surface-muted/60 hover:bg-primary-subtle border border-line hover:border-primary/40 transition-colors cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                                        >
+                                            <span className="p-2 rounded-lg bg-primary-subtle text-primary-ink group-hover/chip:bg-primary group-hover/chip:text-on-primary transition-colors shrink-0">
+                                                <Icon className="w-4 h-4" aria-hidden="true" />
+                                            </span>
+                                            <span className="flex-1 min-w-0">
+                                                <span className="block text-xs font-semibold text-ink leading-tight">
+                                                    {title}
+                                                </span>
+                                                <span className="block text-[11px] text-ink-muted leading-tight mt-0.5 truncate">
+                                                    {subtitle}
+                                                </span>
+                                            </span>
+                                            <ArrowRight className="w-3.5 h-3.5 text-ink-subtle group-hover/chip:text-primary-ink group-hover/chip:translate-x-0.5 transition-all shrink-0" aria-hidden="true" />
+                                        </button>
+                                    ))}
+                                </div>
                             )}
 
                             {/* Tool Invocations */}

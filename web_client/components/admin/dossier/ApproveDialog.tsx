@@ -39,7 +39,7 @@ export function ApproveDialog({
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-canvas border-line text-ink">
+      <DialogContent className="max-w-md bg-surface border-line text-ink">
         <DialogHeader>
           <DialogTitle>Approvare il preventivo?</DialogTitle>
           <DialogDescription>
@@ -71,7 +71,7 @@ export function ApproveDialog({
             onClick={onConfirm}
             disabled={pending}
             data-testid="approve-confirm"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
           >
             {pending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
             Approva

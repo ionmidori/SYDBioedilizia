@@ -113,7 +113,7 @@ export function DossierView({ projectId }: { projectId: string }) {
   if (dossier.isPending) {
     return (
       <div className="py-16 flex justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary-ink" aria-label="Caricamento" />
       </div>
     );
   }
@@ -122,7 +122,7 @@ export function DossierView({ projectId }: { projectId: string }) {
     return (
       <div role="alert" className="py-10 text-center space-y-3">
         <p className="text-sm text-danger-ink">{notFound ? 'Preventivo non trovato.' : 'Impossibile caricare il preventivo.'}</p>
-        <Link href="/admin/quotes" className="text-sm text-accent-ink hover:underline">
+        <Link href="/admin/quotes" className="text-sm text-primary-ink hover:underline">
           Torna ai preventivi
         </Link>
       </div>
@@ -264,7 +264,7 @@ export function DossierView({ projectId }: { projectId: string }) {
       </Link>
 
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="text-2xl font-semibold tabular-nums text-accent-ink" data-testid="dossier-number">
+        <h1 className="text-2xl font-semibold tabular-nums text-primary-ink" data-testid="dossier-number">
           {quoteNumber}
         </h1>
         <span className="text-lg text-ink" data-testid="dossier-client">
@@ -321,7 +321,7 @@ export function DossierView({ projectId }: { projectId: string }) {
       )}
       {status === 'approved' && pdfReady && pdfPreviewUrl && (
         <p className="text-sm">
-          <a href={pdfPreviewUrl} target="_blank" rel="noopener noreferrer" data-testid="pdf-preview-link" className="text-accent-ink hover:underline">
+          <a href={pdfPreviewUrl} target="_blank" rel="noopener noreferrer" data-testid="pdf-preview-link" className="text-primary-ink hover:underline">
             Apri l&apos;anteprima del PDF approvato
           </a>{' '}
           <span className="text-ink-muted">(il link vale 15 minuti)</span>
@@ -440,9 +440,9 @@ export function DossierView({ projectId }: { projectId: string }) {
             onPickFromPriceBook={() => setPickerOpen(true)}
             rooms={quote.rooms}
           />
-          <section className="glass rounded-2xl p-4 border border-line space-y-4" data-testid="totals-panel">
+          <section className="bg-surface shadow-1 rounded-2xl p-4 border border-line space-y-4" data-testid="totals-panel">
             <label className="block space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-accent-ink">
+              <span className="text-xs font-semibold uppercase tracking-wide text-primary-ink">
                 Note per il cliente <span className="normal-case font-normal text-ink-muted">(compaiono nel PDF)</span>
               </span>
               <textarea
@@ -452,7 +452,7 @@ export function DossierView({ projectId }: { projectId: string }) {
                 rows={3}
                 maxLength={4000}
                 data-testid="admin-notes"
-                className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-accent disabled:opacity-60"
+                className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-primary disabled:opacity-60"
               />
             </label>
             <dl className="ml-auto max-w-xs space-y-1.5 text-sm">
@@ -673,10 +673,10 @@ function ActionButton({
   title?: string;
 }) {
   const tone = primary
-    ? 'bg-accent text-on-accent font-medium border-transparent'
+    ? 'bg-primary hover:bg-primary-hover text-on-primary font-medium border-transparent transition-colors'
     : danger
-      ? 'border-danger/40 text-danger-ink hover:bg-danger-subtle'
-      : 'border-line hover:bg-surface';
+      ? 'border-danger/40 bg-surface text-danger-ink hover:bg-danger-subtle transition-colors'
+      : 'border-line bg-surface hover:bg-primary-subtle hover:text-primary-ink hover:border-primary/40 transition-colors';
   return (
     <button
       type="button"

@@ -63,11 +63,11 @@ export function ProjectCard({
             // Only while it is shown: a hidden description must not be announced.
             aria-describedby={isOpen ? descriptionId : undefined}
             className={cn(
-                'group relative block overflow-hidden rounded-2xl border border-line bg-surface-muted text-left',
+                'group relative block overflow-hidden rounded-2xl border border-line bg-surface-muted text-left shadow-sm cursor-pointer',
                 // No `cinematic-focus`: its focus-within scale(1.02) is only neutralised
                 // inside a SnapRail item, so on the desktop row (overflow-x: auto clips
                 // vertically too) a clicked card would grow and be cropped.
-                'transition-colors hover:border-accent',
+                'transition-[border-color,box-shadow] duration-300 hover:border-primary/60 hover:shadow-md',
                 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
                 className,
             )}
@@ -81,7 +81,7 @@ export function ProjectCard({
 
             {/* Always visible, not only on open: an example must never pass for our work. */}
             {project.isExample && (
-                <span className="absolute left-3 top-3 z-10 inline-flex rounded-full border border-line bg-canvas px-3 py-1 text-xs font-medium text-accent-ink shadow-1">
+                <span className="absolute left-3 top-3 z-10 inline-flex rounded-full border border-line bg-surface px-3 py-1 text-xs font-medium text-ink-muted shadow-1">
                     {EXAMPLE_LABEL}
                 </span>
             )}
@@ -94,7 +94,7 @@ export function ProjectCard({
                     )}
                 >
                     <span className="block overflow-hidden rounded-xl">
-                        <span className="block rounded-xl border border-line bg-canvas p-4 shadow-2">
+                        <span className="block rounded-xl border border-line bg-surface p-4 shadow-2">
                             {/* line-clamp on its own element: with padding on the same
                                 one, a clamped line would peek through the padding. */}
                             <span
@@ -110,7 +110,12 @@ export function ProjectCard({
                 {/* Visual affordance only — the whole card is the button. */}
                 <span
                     aria-hidden="true"
-                    className="inline-flex h-11 items-center gap-2 rounded-full border border-line bg-canvas pl-4 pr-3 text-sm font-medium text-ink shadow-1 transition-colors group-hover:border-accent"
+                    className={cn(
+                        'inline-flex h-11 items-center gap-2 rounded-full border pl-4 pr-3 text-sm font-medium transition-colors',
+                        isOpen
+                            ? 'border-primary bg-primary text-on-primary shadow-2'
+                            : 'border-line bg-surface text-ink shadow-1 group-hover:border-primary/50 group-hover:text-primary-ink',
+                    )}
                 >
                     {isOpen ? 'Chiudi' : 'Descrizione'}
                     <Plus

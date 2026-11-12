@@ -72,8 +72,8 @@ export function RoomChips({ projectId, rooms, activeRoomId, onSelect }: RoomChip
                         className={cn(
                             CHIP_CLASS,
                             isActive
-                                ? 'bg-accent text-on-accent border-accent'
-                                : 'bg-canvas/40 text-ink border-line hover:border-accent',
+                                ? 'bg-primary text-on-primary border-primary'
+                                : 'bg-surface text-ink border-line hover:border-primary hover:bg-primary-subtle/50',
                         )}
                     >
                         <Icon className="w-4 h-4" aria-hidden="true" />
@@ -87,7 +87,7 @@ export function RoomChips({ projectId, rooms, activeRoomId, onSelect }: RoomChip
                 onClick={() => setIsCreating(true)}
                 className={cn(
                     CHIP_CLASS,
-                    'border-dashed border-accent text-accent-ink hover:bg-accent-subtle',
+                    'border-dashed border-primary/50 text-primary-ink hover:bg-primary-subtle',
                 )}
             >
                 <Plus className="w-4 h-4" aria-hidden="true" />

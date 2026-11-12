@@ -9,8 +9,8 @@ const CHANNEL_LABEL: Record<string, string> = {
   dashboard: 'Dashboard del cliente',
 };
 
-const CARD = 'glass rounded-2xl p-4 border border-line';
-const TITLE = 'text-xs font-semibold uppercase tracking-wide text-accent-ink mb-2';
+const CARD = 'bg-surface shadow-1 rounded-2xl p-4 border border-line';
+const TITLE = 'text-xs font-semibold uppercase tracking-wide text-primary-ink mb-2';
 
 export function clientDisplayName(client: ClientSnapshot | null | undefined): string {
   return client?.display_name || (client?.is_guest ? 'Cliente ospite' : 'Cliente senza nome');
@@ -36,7 +36,7 @@ export function ClientCard({
         {client?.email && (
           <li className="flex items-center gap-2">
             <Mail className="w-3.5 h-3.5 shrink-0" aria-hidden />
-            <a href={`mailto:${client.email}`} className="break-all hover:text-accent-ink">
+            <a href={`mailto:${client.email}`} className="break-all hover:text-primary-ink transition-colors">
               {client.email}
             </a>
           </li>
@@ -44,7 +44,7 @@ export function ClientCard({
         {client?.phone && (
           <li className="flex items-center gap-2">
             <Phone className="w-3.5 h-3.5 shrink-0" aria-hidden />
-            <a href={`tel:${client.phone}`} className="hover:text-accent-ink">
+            <a href={`tel:${client.phone}`} className="hover:text-primary-ink transition-colors">
               {client.phone}
             </a>
           </li>
@@ -85,7 +85,7 @@ function DraftChecks({ request }: { request: QuoteRequest | null | undefined }) 
     <>
       {manualWork.length > 0 && (
         <div data-testid="request-manual-work" className="mt-3 rounded-xl border border-line bg-surface-muted p-3 text-sm">
-          <h3 className="inline-flex items-center gap-1.5 font-medium text-accent-ink">
+          <h3 className="inline-flex items-center gap-1.5 font-medium text-primary-ink">
             <ClipboardList className="w-3.5 h-3.5" aria-hidden /> Da quotare a mano
           </h3>
           <ul className="mt-1.5 list-disc space-y-1 pl-5 text-ink-muted">

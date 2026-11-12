@@ -28,7 +28,7 @@ interface Props {
 export function ReasonDialog({ open, onOpenChange, ...rest }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-canvas border-line text-ink">
+      <DialogContent className="max-w-md bg-surface border-line text-ink">
         {/* Mounted only while open: the typed reason never leaks into the next use. */}
         {open && <ReasonForm {...rest} onCancel={() => onOpenChange(false)} />}
       </DialogContent>
@@ -82,13 +82,13 @@ function ReasonForm({
           rows={3}
           maxLength={1000}
           data-testid="reason-input"
-          className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-accent"
+          className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-primary"
         />
         <span className="block text-xs text-ink-muted">Almeno 3 caratteri. Resta nello storico del preventivo.</span>
       </label>
       <ErrorBanner error={error} onReload={onReload} />
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface cursor-pointer">
+        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface-muted transition-colors cursor-pointer">
           Annulla
         </button>
         <button
@@ -98,7 +98,7 @@ function ReasonForm({
           className={
             destructive
               ? 'inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-danger text-on-danger text-sm disabled:opacity-50 cursor-pointer'
-              : 'inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer'
+              : 'inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer'
           }
         >
           {pending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}

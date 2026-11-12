@@ -55,15 +55,15 @@ export function AdminClientLayout({ children }: { children: React.ReactNode }) {
         data-testid="admin-access-denied"
         className="min-h-screen flex items-center justify-center p-6 bg-canvas text-ink"
       >
-        <div className="max-w-md text-center space-y-4 glass rounded-2xl p-8 border border-line">
-          <ShieldAlert className="w-10 h-10 mx-auto text-accent-ink" aria-hidden />
+        <div className="max-w-md text-center space-y-4 bg-surface shadow-1 rounded-2xl p-8 border border-line">
+          <ShieldAlert className="w-10 h-10 mx-auto text-primary-ink" aria-hidden />
           <h1 className="text-xl font-semibold">{denied ? 'Accesso riservato' : 'Console non raggiungibile'}</h1>
           <p className="text-sm text-ink-muted">
             {denied
               ? "Questa area è riservata agli amministratori. Se il ruolo ti è stato assegnato da poco, esci e accedi di nuovo."
               : 'Il server non ha risposto. Riprova tra qualche istante.'}
           </p>
-          <Link href="/" className="inline-block text-sm text-accent-ink hover:underline">
+          <Link href="/" className="inline-block text-sm text-primary-ink hover:underline">
             Torna al sito
           </Link>
         </div>
@@ -73,16 +73,16 @@ export function AdminClientLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-canvas text-ink">
-      <header className="sticky top-0 z-30 border-b border-line bg-canvas">
+      <header className="sticky top-0 z-30 border-b border-line bg-surface shadow-xs">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-14 flex items-center gap-4">
           <Link
             href="/admin"
             onClick={(event) => {
               if (!confirmLeave()) event.preventDefault();
             }}
-            className="font-semibold tracking-tight"
+            className="font-semibold tracking-tight shrink-0"
           >
-            SYD <span className="text-accent-ink">Console</span>
+            SYD <span className="text-primary-ink">Console</span>
           </Link>
           <nav aria-label="Sezioni della console" className="flex items-center gap-1 text-sm overflow-x-auto">
             {NAV.map(({ href, label, icon: Icon, exact }) => {
@@ -96,8 +96,10 @@ export function AdminClientLayout({ children }: { children: React.ReactNode }) {
                   }}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap',
-                    active ? 'bg-accent-subtle text-accent-ink' : 'hover:bg-surface',
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors',
+                    active
+                      ? 'bg-primary-subtle text-primary-ink font-medium'
+                      : 'text-ink-muted hover:text-ink hover:bg-surface-muted/70',
                   )}
                 >
                   <Icon className="w-4 h-4" aria-hidden />
@@ -106,14 +108,14 @@ export function AdminClientLayout({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
-          <div className="ml-auto flex items-center gap-3 text-sm">
+          <div className="ml-auto flex items-center gap-3 text-sm shrink-0">
             <span className="hidden sm:inline text-ink-muted" data-testid="admin-email">
               {me.data.email}
             </span>
             <button
               type="button"
               onClick={() => void logout()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line hover:bg-surface cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-surface text-ink-muted hover:text-ink hover:bg-surface-muted/70 transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" aria-hidden />
               Esci

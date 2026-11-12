@@ -196,6 +196,17 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
     // Typing Indicator
     const typingMessage = useTypingIndicator(isLoading);
 
+    const handleQuickPrompt = useCallback(async (prompt: string) => {
+        if (isLoading || !isInitialized || !sessionId) return;
+        scrollToBottom('smooth');
+        try {
+            await sendMessage(prompt);
+        } catch (err: unknown) {
+            const errObj = err as Error;
+            setErrorMessage(errObj.message || "Invio fallito.");
+        }
+    }, [isLoading, isInitialized, sessionId, scrollToBottom, sendMessage]);
+
     // Error Handling — map backend error codes to user-friendly Italian messages
     useEffect(() => {
         if (error) {
@@ -227,7 +238,7 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
                 <div className="flex-1 overflow-hidden p-0 flex flex-col relative">
                     {isRestoringHistory && (
                         <div className="flex justify-center py-4">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                         </div>
                     )}
 
@@ -238,6 +249,7 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
                         typingMessage={typingMessage}
                         sessionId={sessionId}
                         onImageClick={setSelectedImage}
+                        onQuickPrompt={handleQuickPrompt}
                         messagesContainerRef={messagesContainerRef}
                         messagesEndRef={messagesEndRef}
                         statusMessage={currentStatus}

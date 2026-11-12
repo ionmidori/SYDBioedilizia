@@ -29,7 +29,7 @@ interface Props {
 }
 
 const FIELD =
-  'w-full rounded-lg bg-surface border border-line px-2.5 py-1.5 text-base md:text-sm focus:outline-hidden focus:border-accent disabled:opacity-60 disabled:cursor-not-allowed';
+  'w-full rounded-lg bg-surface border border-line px-2.5 py-1.5 text-base md:text-sm focus:outline-hidden focus:border-primary disabled:opacity-60 disabled:cursor-not-allowed';
 
 const NO_ROOMS: QuoteRoom[] = [];
 
@@ -70,9 +70,9 @@ export function QuoteItemsEditor({
   );
 
   return (
-    <section className="glass rounded-2xl p-4 border border-line space-y-3" data-testid="items-editor">
+    <section className="bg-surface shadow-1 rounded-2xl p-4 border border-line space-y-3" data-testid="items-editor">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-primary-ink">
           Voci del preventivo <span className="text-ink-subtle">({items.length})</span>
         </h2>
         {!readOnly && (
@@ -82,7 +82,7 @@ export function QuoteItemsEditor({
                 type="button"
                 onClick={onPickFromPriceBook}
                 data-testid="add-from-price-book"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-subtle border border-line text-accent-ink text-sm cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-subtle border border-primary/25 text-primary-ink hover:bg-primary hover:text-on-primary transition-colors text-sm cursor-pointer"
               >
                 <Search className="w-4 h-4" aria-hidden /> Dal listino
               </button>

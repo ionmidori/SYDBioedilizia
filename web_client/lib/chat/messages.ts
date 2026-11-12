@@ -11,7 +11,7 @@ import type { Message as FirestoreMessage } from '@/types/chat';
 export const WELCOME_MESSAGE = {
     id: 'welcome-msg',
     role: 'assistant',
-    parts: [{ type: 'text', text: "✨ **Ciao! Sono Syd**, il tuo assistente per la ristrutturazione. ✨\n\nEcco cosa posso fare per aiutarti a realizzare il tuo progetto:\n\n\n📋 **1. Creare preventivo veloce:**\n_Ottieni subito una stima dei costi._\n\n\n🎨 **2. Creare un rendering gratuito:**\n_Visualizza in anteprima le tue idee._\n\n\n💡 **3. Fornire informazioni dettagliate:**\n_Chiedi consigli su materiali e design._\n\n\n👇 **Come posso aiutarti oggi?**" }],
+    parts: [{ type: 'text', text: "**Ciao! Sono Syd**, il tuo assistente per la ristrutturazione.\n\nPosso aiutarti a stimare i costi, visualizzare in anteprima i tuoi spazi o consigliarti su materiali e design.\n\n**Come posso aiutarti oggi?**" }],
     createdAt: new Date()
 } as unknown as Message;
 

@@ -36,7 +36,7 @@ interface Props {
 export function PriceBookPicker({ open, onOpenChange, onPick }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-canvas border-line text-ink">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-surface border-line text-ink">
         <DialogHeader>
           <DialogTitle>Aggiungi dal listino</DialogTitle>
           <DialogDescription>Cerca per SKU, descrizione, categoria o parola chiave.</DialogDescription>
@@ -59,7 +59,7 @@ function PickerBody({ onPick }: { onPick: (item: QuoteItem) => void }) {
   if (book.isPending) {
     return (
       <div className="py-10 flex justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary-ink" aria-label="Caricamento" />
       </div>
     );
   }
@@ -85,7 +85,7 @@ function PickerBody({ onPick }: { onPick: (item: QuoteItem) => void }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Es. piastrelle bagno, DEM-001…"
           data-testid="picker-search"
-          className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-hidden focus:border-accent"
+          className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-hidden focus:border-primary"
         />
       </div>
       {results.length === 0 ? (
@@ -109,7 +109,7 @@ function PickerBody({ onPick }: { onPick: (item: QuoteItem) => void }) {
                 type="button"
                 onClick={() => onPick(quoteItemFromPriceBook(item))}
                 aria-label={`Aggiungi ${item.sku}`}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent-subtle border border-line text-accent-ink text-sm cursor-pointer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary-subtle border border-primary/25 text-primary-ink hover:bg-primary hover:text-on-primary transition-colors text-sm cursor-pointer"
               >
                 <Plus className="w-4 h-4" aria-hidden /> Aggiungi
               </button>

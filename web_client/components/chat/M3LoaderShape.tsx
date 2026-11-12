@@ -13,7 +13,7 @@ export const M3LoaderShape = () => {
             {[0, 1, 2].map((i) => (
                 <motion.div
                     key={i}
-                    className="w-2 h-2 bg-accent shadow-[0_0_8px_color-mix(in_oklab,var(--color-accent)_60%,transparent)]"
+                    className="w-2 h-2 bg-primary shadow-[0_0_8px_color-mix(in_oklab,var(--color-primary)_45%,transparent)]"
                     animate={{
                         scale: [0.6, 1.2, 0.6],
                         borderRadius: ["50%", "25%", "50%"],

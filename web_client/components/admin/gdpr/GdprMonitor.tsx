@@ -23,7 +23,7 @@ function RetentionOutcome({ retention, failed }: { retention: RetentionSummary |
   }
   return (
     <div className="space-y-2" data-testid="gdpr-retention">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-accent-ink">Pulizia dei dati scaduti</h3>
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-primary-ink">Pulizia dei dati scaduti</h3>
       {!retention.orphans_applied && (
         <p className="text-xs text-warning-ink">
           Residui orfani: solo conteggiati, non cancellati. La loro pulizia va attivata dopo aver verificato i numeri.
@@ -81,19 +81,19 @@ export function GdprMonitor() {
       </div>
 
       {status.isPending ? (
-        <Loader2 className="w-5 h-5 animate-spin text-accent-ink" aria-label="Caricamento" />
+        <Loader2 className="w-5 h-5 animate-spin text-primary-ink" aria-label="Caricamento" />
       ) : status.isError ? (
         <p role="alert" className="text-sm text-danger-ink">
           Impossibile caricare la configurazione.
         </p>
       ) : (
         <>
-          <section className="glass rounded-2xl p-4 border border-line" data-testid="gdpr-phases">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">Fasi del ciclo di vita</h2>
+          <section className="bg-surface shadow-1 rounded-2xl p-4 border border-line" data-testid="gdpr-phases">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-primary-ink mb-3">Fasi del ciclo di vita</h2>
             <ol className="space-y-2 text-sm">
               {status.data.phases.map((phase) => (
                 <li key={phase.phase} className="flex gap-3">
-                  <span className="font-semibold tabular-nums text-accent-ink">Fase {phase.phase}</span>
+                  <span className="font-semibold tabular-nums text-primary-ink">Fase {phase.phase}</span>
                   <span className="tabular-nums text-ink-muted">{phase.months_inactive} mesi senza attività</span>
                   <span>{phase.action}</span>
                 </li>
@@ -116,7 +116,7 @@ export function GdprMonitor() {
               }}
               disabled={run.isPending}
               data-testid="gdpr-run"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
             >
               {run.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
               Esegui ora
@@ -126,8 +126,8 @@ export function GdprMonitor() {
           </div>
 
           {run.data && (
-            <section className="glass rounded-2xl p-4 border border-line space-y-3" data-testid="gdpr-result">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink">Risultato</h2>
+            <section className="bg-surface shadow-1 rounded-2xl p-4 border border-line space-y-3" data-testid="gdpr-result">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-primary-ink">Risultato</h2>
               <p className={run.data.status === 'ok' ? 'text-sm text-success-ink' : 'text-sm text-warning-ink'}>
                 {run.data.status === 'ok' ? 'Completato senza errori.' : 'Completato con errori parziali.'}
               </p>
@@ -164,7 +164,7 @@ export function GdprMonitor() {
       )}
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="max-w-md bg-canvas border-line text-ink">
+        <DialogContent className="max-w-md bg-surface border-line text-ink">
           <DialogHeader>
             <DialogTitle>Eseguire il controllo ora?</DialogTitle>
             <DialogDescription>
@@ -174,7 +174,7 @@ export function GdprMonitor() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setConfirmOpen(false)} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface cursor-pointer">
+            <button type="button" onClick={() => setConfirmOpen(false)} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface-muted transition-colors cursor-pointer">
               Annulla
             </button>
             <button
@@ -184,7 +184,7 @@ export function GdprMonitor() {
                 run.mutate();
               }}
               data-testid="gdpr-confirm"
-              className="px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary text-sm font-medium transition-colors cursor-pointer"
             >
               Esegui
             </button>

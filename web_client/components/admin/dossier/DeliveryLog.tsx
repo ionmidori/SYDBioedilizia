@@ -6,8 +6,8 @@ import type { DeliverySummary } from '@/types/admin-quote';
 export function DeliveryLog({ deliveries }: { deliveries: DeliverySummary[] }) {
   const ordered = [...deliveries].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
   return (
-    <section className="glass rounded-2xl p-4 border border-line" data-testid="delivery-log">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">Invii al cliente</h2>
+    <section className="bg-surface shadow-1 rounded-2xl p-4 border border-line" data-testid="delivery-log">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-primary-ink mb-3">Invii al cliente</h2>
       {ordered.length === 0 ? (
         <p className="text-sm text-ink-muted">Nessun invio ancora.</p>
       ) : (

@@ -39,8 +39,8 @@ export function RevisionTimeline({
   const ordered = [...revisions].sort((a, b) => b.version - a.version);
 
   return (
-    <section className="glass rounded-2xl p-4 border border-line" data-testid="revision-timeline">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">Revisioni</h2>
+    <section className="bg-surface shadow-1 rounded-2xl p-4 border border-line" data-testid="revision-timeline">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-primary-ink mb-3">Revisioni</h2>
       {ordered.length === 0 ? (
         <p className="text-sm text-ink-muted">Nessuna revisione registrata.</p>
       ) : (
@@ -53,9 +53,9 @@ export function RevisionTimeline({
                   type="button"
                   aria-expanded={open}
                   onClick={() => setOpenVersion(open ? null : revision.version)}
-                  className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-surface cursor-pointer"
+                  className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-surface-muted/70 transition-colors cursor-pointer"
                 >
-                  <span className="font-semibold tabular-nums text-accent-ink">Rev. {revision.version}</span>
+                  <span className="font-semibold tabular-nums text-primary-ink">Rev. {revision.version}</span>
                   <span className="text-ink-muted">{ACTOR_LABEL[revision.actor_kind] ?? revision.actor_kind}</span>
                   {approvedRevision === revision.version && (
                     <span className="text-[11px] text-success-ink border border-success/30 rounded-full px-2">approvata</span>
@@ -92,7 +92,7 @@ function RevisionDetail({
           Totale IVA inclusa: <span className="tabular-nums font-medium">{formatEuro(revision.grand_total)}</span>
         </p>
       )}
-      {detail.isPending && <Loader2 className="w-4 h-4 animate-spin text-accent-ink" aria-label="Caricamento" />}
+      {detail.isPending && <Loader2 className="w-4 h-4 animate-spin text-primary-ink" aria-label="Caricamento" />}
       {detail.isError && (
         <p role="alert" className="text-danger-ink">
           Impossibile caricare il dettaglio.

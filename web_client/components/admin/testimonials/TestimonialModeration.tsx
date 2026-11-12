@@ -56,7 +56,7 @@ export function TestimonialModeration() {
               data-testid={`tab-${tab.id}`}
               className={cn(
                 'px-3 py-1.5 rounded-lg text-sm whitespace-nowrap cursor-pointer border',
-                tab.id === status ? 'bg-accent-subtle border-accent text-accent-ink' : 'border-transparent text-ink-muted hover:bg-surface',
+                tab.id === status ? 'bg-primary-subtle border-primary text-primary-ink font-medium' : 'border-transparent text-ink-muted hover:bg-surface',
               )}
             >
               {tab.label}
@@ -70,7 +70,7 @@ export function TestimonialModeration() {
 
       {list.isPending ? (
         <div className="py-16 flex justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
+          <Loader2 className="w-6 h-6 animate-spin text-primary-ink" aria-label="Caricamento" />
         </div>
       ) : list.isError ? (
         <p role="alert" className="py-10 text-center text-sm text-danger-ink">
@@ -104,7 +104,7 @@ function ReviewCard({
   const send = (decision: 'approve' | 'reject') => onModerate(decision, notes.trim() || null);
 
   return (
-    <li className="glass rounded-2xl p-4 border border-line space-y-3" data-testid="review-card">
+    <li className="bg-surface shadow-1 rounded-2xl p-4 border border-line space-y-3" data-testid="review-card">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-medium" data-testid="review-name">
           {review.name}
@@ -128,7 +128,7 @@ function ReviewCard({
           onChange={(e) => setNotes(e.target.value)}
           maxLength={500}
           placeholder="Nota interna (facoltativa)"
-          className="flex-1 min-w-[12rem] rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-accent"
+          className="flex-1 min-w-[12rem] rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-primary"
         />
         {review.status !== 'approved' && (
           <button
@@ -136,7 +136,7 @@ function ReviewCard({
             disabled={pending}
             onClick={() => send('approve')}
             data-testid="review-approve"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary transition-colors text-sm font-medium disabled:opacity-50 cursor-pointer"
           >
             <Check className="w-4 h-4" aria-hidden /> Pubblica
           </button>

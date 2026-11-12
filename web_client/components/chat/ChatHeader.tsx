@@ -16,18 +16,18 @@ export function ChatHeader({ onMinimize, onPointerDown }: ChatHeaderProps) {
     return (
         <div
             onPointerDown={onPointerDown}
-            className={`flex flex-col p-0 bg-canvas backdrop-blur-md border-b border-line shadow-sm flex-shrink-0 relative z-[60] ${onPointerDown ? 'touch-none cursor-grab active:cursor-grabbing' : ''}`}
+            className={`flex flex-col p-0 bg-surface border-b border-line shadow-sm flex-shrink-0 relative z-[60] ${onPointerDown ? 'touch-none cursor-grab active:cursor-grabbing' : ''}`}
             style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
         >
-            {/* M3 Drag Handle Indicator */}
+            {/* M3 Drag Handle Indicator (mobile only) */}
             {onPointerDown && (
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-accent-subtle rounded-full pointer-events-none" />
+                <div className="md:hidden absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-line-strong/60 rounded-full pointer-events-none" />
             )}
             
             {/* Standard spacing for desktop/mobile without handle */}
             <div className="pt-2" />
 
-            <div className="flex items-center justify-between px-4 pb-4">
+            <div className="flex items-center justify-between px-4 pb-3.5">
 
                 {/* Left: Branding (Always visible) */}
                 <div className="flex items-center gap-3">
@@ -37,7 +37,7 @@ export function ChatHeader({ onMinimize, onPointerDown }: ChatHeaderProps) {
                             <h3 className="font-serif font-bold text-ink text-lg leading-none">
                                 SYD
                             </h3>
-                            <span className="text-xs font-sans font-medium text-accent-ink mt-0.5">
+                            <span className="text-xs font-sans font-medium text-primary-ink mt-1">
                                 Architetto personale
                             </span>
                         </div>
@@ -52,11 +52,11 @@ export function ChatHeader({ onMinimize, onPointerDown }: ChatHeaderProps) {
                             size="icon"
                             onClick={onMinimize}
                             aria-label="Riduci la chat"
-                            className="text-ink-muted hover:text-accent-ink hover:bg-accent-subtle"
+                            className="text-ink-muted hover:text-primary-ink hover:bg-primary-subtle border border-line bg-surface-muted/50 rounded-full transition-colors cursor-pointer"
                             // Prevent drag when clicking the button
                             onPointerDown={(e) => e.stopPropagation()}
                         >
-                            <Minimize2 className="w-5 h-5" aria-hidden="true" />
+                            <Minimize2 className="w-4 h-4" aria-hidden="true" />
                         </Button>
                     )}
                 </div>
