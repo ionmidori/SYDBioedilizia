@@ -97,18 +97,32 @@ def _place_key(text: str) -> str:
     return key.removeprefix("comune di ").strip()
 
 
+def _find_place(places: list[str], name: str) -> str | None:
+    """The comune called `name`: same name whatever the spaces ("Montecompatri" =
+    "Monte Compatri"), or the beginning of ONE comune's name only ("Guidonia" →
+    "Guidonia Montecelio"; "Monte" names several comuni: no guess)."""
+    key = _place_key(name)
+    if not key:
+        return None
+    squeezed = key.replace(" ", "")
+    exact = next((p for p in places if _place_key(p).replace(" ", "") == squeezed), None)
+    if exact is not None:
+        return exact
+    starting = [p for p in places if _place_key(p).startswith(key + " ")]
+    return starting[0] if len(starting) == 1 else None
+
+
 def service_area(info: CompanyInfo, localita: str, comune: str = "") -> str:
     """SERVITA / NON_SERVITA for a place, on the comuni (and their districts) of the company info."""
     if not _place_key(localita):
         return "Indica la località da verificare."
     area = info.service_area
-    places = {_place_key(p): p for p in area.places}
-    found = places.get(_place_key(localita))
+    found = _find_place(area.places, localita)
     if found is None:
         locality = next((loc for loc in area.localities if _place_key(loc.name) == _place_key(localita)), None)
-        found = places.get(_place_key(locality.comune)) if locality is not None else None
+        found = _find_place(area.places, locality.comune) if locality is not None else None
     if found is None and comune:
-        found = places.get(_place_key(comune))
+        found = _find_place(area.places, comune)
     name = localita.strip()
     if found is None:
         return f"{AREA_NOT_SERVED}: {name} non è tra i comuni della zona servita ({area.summary})."

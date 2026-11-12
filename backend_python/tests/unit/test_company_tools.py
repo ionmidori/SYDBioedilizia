@@ -85,6 +85,22 @@ def test_service_area(localita, comune, expected):
     assert service_area(seed_info(), localita, comune).startswith(expected + ":")
 
 
+# Final review: common spellings of served comuni came out NON_SERVITA (a lost lead).
+@pytest.mark.parametrize(
+    ("localita", "comune"),
+    [("Montecompatri", "Monte Compatri"), ("Guidonia", "Guidonia Montecelio"),
+     ("Anguillara", "Anguillara Sabazia"), ("Monte Porzio", "Monte Porzio Catone")],
+)
+def test_common_spellings_of_a_served_comune_are_served(localita, comune):
+    out = service_area(seed_info(), localita)
+    assert out.startswith(f"{AREA_SERVED}:") and f"comune di {comune}" in out
+
+
+@pytest.mark.parametrize("localita", ["Monte", "Rocca"])
+def test_an_ambiguous_beginning_is_not_guessed(localita):
+    assert service_area(seed_info(), localita).startswith(f"{AREA_NOT_SERVED}:")
+
+
 def test_a_place_not_served_names_the_served_area():
     assert "Roma e provincia" in service_area(seed_info(), "Viterbo")
 

@@ -82,7 +82,8 @@ def company_facts_block(info: CompanyInfo) -> str:
     lines += [
         f"Email: {who.email}",
         f"Orari: {_hours_line(info)}",
-        f"Zona servita: {_one_line(info.service_area.summary)} (per una località usa check_service_area)",
+        f"Zona servita: {_one_line(info.service_area.summary)}",
+        "(Per sapere se una località è servita usa check_service_area.)",
         f"Lavori svolti: {_one_line(info.services.summary)}",
     ]
     for item in info.services.items:

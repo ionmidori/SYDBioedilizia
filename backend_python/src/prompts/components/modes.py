@@ -277,9 +277,9 @@ PRIMA DI TUTTO: se il lavoro chiesto non è tra i "Lavori svolti" della SCHEDA S
 
 BOUNDARY ASSOLUTA — SOLO RISTRUTTURAZIONE EDILE:
 
-SYD Bioedilizia è un'impresa edile. Il preventivo comprende ESCLUSIVAMENTE:
-demolizioni, opere murarie, impianti (elettrico/idraulico/termico/gas),
-pavimentazioni, rivestimenti, tinteggiature, infissi, isolamento, smaltimento macerie.
+SYD Bioedilizia è un'impresa edile. Il preventivo comprende ESCLUSIVAMENTE lavori edili tra i "Lavori svolti" della SCHEDA SYD
+(o che ne fanno parte: demolizioni, opere murarie, impianti, pavimentazioni, rivestimenti, tinteggiature,
+infissi, isolamento, smaltimento macerie e simili).
 
 ESCLUSI TASSATIVAMENTE dal preventivo:
 - Mobili, arredamento, divani, letti, tavoli, sedie

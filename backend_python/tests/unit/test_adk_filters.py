@@ -10,6 +10,7 @@ Test Categories:
 """
 import pytest
 from src.adk.filters import _MASKED_REPLY, filter_agent_output, sanitize_before_agent
+from src.schemas.company_info import TextBlock
 from src.services import company_info
 from src.services.company_info_service import CompanyInfoService
 
@@ -188,6 +189,25 @@ class TestFilterAgentOutput:
         CompanyInfoService.apply(info, 2)
         assert await filter_agent_output("Scrivi a info@syd.example") == "Scrivi a info@syd.example"
         assert await filter_agent_output("Scrivi a sydbioedilizia@gmail.com") == _MASKED_REPLY
+
+    @pytest.mark.asyncio
+    async def test_an_email_written_in_the_company_info_is_not_a_leak(self):
+        """Final review: a PEC saved in a section reached the reply and masked it, like on 9 Nov."""
+        info = company_info.seed_info()
+        pagamenti = next(s for s in info.sections if s.slug == "pagamenti")
+        pagamenti.blocks.append(TextBlock(type="p", text="Fatture alla PEC amministrazione@pec.syd.example"))
+        CompanyInfoService.apply(info, 2)
+        msg = "Puoi scrivere alla PEC amministrazione@pec.syd.example"
+        assert await filter_agent_output(msg) == msg
+
+    @pytest.mark.asyncio
+    async def test_the_log_says_which_kind_of_leak(self, caplog):
+        """The reason (never the text) is what told the 9 Nov masking apart."""
+        with caplog.at_level("WARNING"):
+            await filter_agent_output("scrivi a mario.rossi@example.com")
+            await filter_agent_output('File "main.py", line 42')
+        assert "(email)" in caplog.text and "(traceback)" in caplog.text
+        assert "mario.rossi" not in caplog.text
 
     @pytest.mark.asyncio
     async def test_credit_card_masked(self):

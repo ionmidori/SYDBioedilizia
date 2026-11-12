@@ -16,63 +16,69 @@ from src.utils.data_sanitizer import sanitize_input
 logger = logging.getLogger(__name__)
 
 # ─── Output leak patterns ─────────────────────────────────────────────────────
-# If ANY of these match the agent output, the entire reply is masked.
-_LEAK_PATTERNS: list[re.Pattern] = [re.compile(p, re.IGNORECASE | re.DOTALL) for p in [
+# If ANY of these match the agent output, the entire reply is masked. Each rule
+# has a reason, logged instead of the matched text.
+_LEAK_RULES: list[tuple[str, re.Pattern]] = [(reason, re.compile(p, re.IGNORECASE | re.DOTALL)) for reason, p in [
     # Python tracebacks (all forms)
-    r"Traceback \(most recent call last\)",
-    r"File \".*\.py\", line \d+",
+    ("traceback", r"Traceback \(most recent call last\)"),
+    ("traceback", r"File \".*\.py\", line \d+"),
     # Internal package paths that would reveal server structure
-    r"/usr/local/lib/python",
-    r"site-packages/google",
-    r"backend_python/src/",
+    ("server_path", r"/usr/local/lib/python"),
+    ("server_path", r"site-packages/google"),
+    ("server_path", r"backend_python/src/"),
     # GCP / Firebase internal IDs leaking from agent errors
-    r"projects/[a-z0-9_-]+/databases",  # Firestore resource path
-    r"gs://[a-z0-9_.-]+\.appspot\.com",  # Storage bucket path leak
+    ("gcp_resource", r"projects/[a-z0-9_-]+/databases"),  # Firestore resource path
+    ("gcp_resource", r"gs://[a-z0-9_.-]+\.appspot\.com"),  # Storage bucket path leak
     # System prompt boundary spoofing — catches if agent reflects injection attempts
-    r"###\s*(SYSTEM|USER_INPUT|END)\s*###",
-    r"<\|system\|>",
+    ("prompt_boundary", r"###\s*(SYSTEM|USER_INPUT|END)\s*###"),
+    ("prompt_boundary", r"<\|system\|>"),
     # Agent internal code reflection (defensive)
-    r"```python\n(?:import|from|async def|def )",
-    r"google\.adk\.",
-    r"google\.cloud\.aiplatform",
+    ("code", r"```python\n(?:import|from|async def|def )"),
+    ("code", r"google\.adk\."),
+    ("code", r"google\.cloud\.aiplatform"),
     # PII patterns (defense-in-depth; auth data should never appear in agent output)
-    r"\b[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]\b",       # Italian codice fiscale
-    r"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14})\b",   # Visa/MC credit card
+    ("fiscal_code", r"\b[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]\b"),       # Italian codice fiscale
+    ("card_number", r"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14})\b"),   # Visa/MC credit card
 ]]
-# Email addresses are PII too, except the company's own one (see _leaks).
+# Email addresses are PII too, except the company's own ones (see _leak_reason).
 _EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE | re.DOTALL)
 
 _MASKED_REPLY = "Mi dispiace, ho incontrato un problema interno. Come posso aiutarti ulteriormente?"
 
 
 def _company_emails() -> frozenset[str]:
-    """The company's own contact email, as the company info serves it now.
+    """The emails the company info serves now: its contact email and any other
+    address written in it (a PEC in a section, an FAQ answer).
 
     Production, 9 Nov 2026: asked "Come posso contattare la società?", the agent
     answered with the company email and the PII pattern retracted the whole
-    reply ("ho incontrato un problema interno"). The company email is public
-    and is what the agent must give. It is read from the company info (edited
-    in the admin console), never a constant.
+    reply ("ho incontrato un problema interno"). The company's emails are public
+    and are what the agent must give. They are read from the company info
+    (edited only in the admin console), never a constant; every other email,
+    a customer's included, is still masked.
     """
-    return frozenset({CompanyInfoService.snapshot().identity.email.lower()})
+    info = CompanyInfoService.snapshot()
+    found = {m.group(0).lower() for m in _EMAIL_PATTERN.finditer(info.model_dump_json())}
+    return frozenset(found | {info.identity.email.lower()})
 
 
-def _leaks(text: str, allowed_emails: frozenset[str], *, final: bool) -> bool:
-    """True if `text` holds a leak pattern or an email other than the allowed ones.
+def _leak_reason(text: str, allowed_emails: frozenset[str], *, final: bool) -> str | None:
+    """Why `text` leaks (a rule's reason, or "email"), None when it is clean.
 
     While streaming (`final=False`), an email at the very end of the text that
     is the beginning of an allowed one is still being written: not a leak yet.
     """
-    if any(pattern.search(text) for pattern in _LEAK_PATTERNS):
-        return True
+    for reason, pattern in _LEAK_RULES:
+        if pattern.search(text):
+            return reason
     for match in _EMAIL_PATTERN.finditer(text):
         email = match.group(0).lower()
         if email in allowed_emails:
             continue
         if not final and match.end() == len(text) and any(a.startswith(email) for a in allowed_emails):
             continue
-        return True
-    return False
+        return "email"
+    return None
 
 
 async def sanitize_before_agent(raw_input: str) -> str:
@@ -109,8 +115,9 @@ async def filter_agent_output(raw_output: str) -> str:
     Returns:
         Safe output text, or a generic error message if a leak is detected.
     """
-    if _leaks(raw_output, _company_emails(), final=True):
-        logger.warning("Detected potential sensitive data leak in ADK output. Masking.")
+    reason = _leak_reason(raw_output, _company_emails(), final=True)
+    if reason is not None:
+        logger.warning("Detected potential sensitive data leak in ADK output (%s). Masking.", reason)
         return _MASKED_REPLY
     return raw_output
 
@@ -140,7 +147,7 @@ class StreamingOutputGuard:
     - once a pattern matches, emits nothing more and reports `tripped`, so the
       caller can retract what was already shown (see `stream_redact`).
 
-    The company's own email is not a leak (read once per model call); while it
+    The company's own emails are not a leak (read once per model call); while one
     is still being written its beginning is held back, not retracted.
     """
 
@@ -155,7 +162,10 @@ class StreamingOutputGuard:
         return bool(self.raw)
 
     def _leaks(self, *, final: bool) -> bool:
-        return _leaks(self.raw, self._allowed_emails, final=final)
+        reason = _leak_reason(self.raw, self._allowed_emails, final=final)
+        if reason is not None:
+            logger.warning("Detected potential sensitive data leak in streamed ADK output (%s). Retracting.", reason)
+        return reason is not None
 
     def feed(self, chunk: str) -> str:
         """Add a chunk; return the newly releasable text ("" if none)."""
@@ -164,7 +174,6 @@ class StreamingOutputGuard:
         self.raw += chunk
         if self._leaks(final=False):
             self.tripped = True
-            logger.warning("Detected potential sensitive data leak in streamed ADK output. Retracting.")
             return ""
         # Last word boundary at least _STREAM_HOLDBACK_CHARS before the end, so a
         # release never splits a token.

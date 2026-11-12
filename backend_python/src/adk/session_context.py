@@ -64,6 +64,7 @@ _GUEST_RULE = (
     "retrieve_price_by_code, pricing_engine, market_prices, get_company_info, check_service_area "
     "(domande su prezzi o sulla società non richiedono l'accesso).\n"
     "SEQUENZA OBBLIGATORIA per rendering e preventivo:\n"
+    "0) Un lavoro fuori elenco (regola LAVORO FUORI ELENCO della scheda società) non ha conferma né accesso.\n"
     "1) Raccogli i dati e ottieni la CONFERMA esplicita dell'utente (ok al riepilogo del rendering, "
     "richiesta di preparare il preventivo o sì alla tua domanda). La scelta del percorso, una domanda "
     "di prezzo o una foto caricata NON sono conferme: in quei turni NON chiedere l'accesso.\n"

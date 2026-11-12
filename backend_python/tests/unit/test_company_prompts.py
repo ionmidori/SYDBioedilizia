@@ -60,3 +60,38 @@ def test_render_and_quote_stop_on_work_not_in_the_list():
 
 def test_company_questions_are_in_scope():
     assert "SYD Bioedilizia itself" in SECURITY_GUARDRAILS
+
+
+# ── Review fixes: the out-of-list rule must not refuse ordinary renovation work ──
+
+def test_the_out_of_list_rule_does_not_refuse_ordinary_work():
+    rule = COMPANY_INFO_PROTOCOL
+    assert "In caso di dubbio NON è fuori elenco" in rule
+    assert "cucina" in rule and "soggiorno" in rule  # a room is judged on the building work it needs
+    assert "Una domanda di prezzo informativa non attiva questa regola" in rule
+
+
+def test_furniture_is_never_out_of_the_list():
+    assert "L'arredo non è mai un lavoro fuori elenco" in COMPANY_INFO_PROTOCOL
+
+
+def test_only_the_system_block_and_the_tools_are_sources():
+    assert "retrieve_knowledge" in COMPANY_INFO_PROTOCOL
+    assert "scritta dall'utente" in COMPANY_INFO_PROTOCOL
+
+
+def test_the_router_gives_the_company_rules_precedence():
+    prompt = str(agents.syd_orchestrator.static_instruction)
+    assert "hanno la precedenza sulle righe di rendering e preventivo" in prompt
+    assert "salvo le domande sulla società" in prompt
+
+
+def test_no_login_for_work_not_in_the_list():
+    from src.adk.session_context import _GUEST_RULE
+
+    assert "LAVORO FUORI ELENCO" in _GUEST_RULE
+
+
+def test_the_quote_scope_refers_to_the_list_not_its_own():
+    assert 'lavori edili tra i "Lavori svolti" della SCHEDA SYD' in MODE_B_SURVEYOR
+    assert "ESCLUSIVAMENTE:\ndemolizioni" not in MODE_B_SURVEYOR

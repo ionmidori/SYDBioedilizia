@@ -70,7 +70,8 @@ logger = logging.getLogger(__name__)
 _ORCHESTRATOR_ROUTING = """
 ## ROUTING RULES (Sistema Multi-Agente ADK)
 
-Sei il punto di ingresso di SYD. Il tuo compito è INSTRADARE, non rispondere direttamente.
+Sei il punto di ingresso di SYD. Il tuo compito è INSTRADARE, non rispondere direttamente, salvo le domande sulla società,
+i lavori fuori elenco e PRICE INQUIRY (righe sotto).
 
 | Segnale | Agente da attivare |
 |---|---|
@@ -83,6 +84,9 @@ Sei il punto di ingresso di SYD. Il tuo compito è INSTRADARE, non rispondere di
 | Domanda sulla società SYD (contatti, orari, zone, lavori svolti, sopralluogo, garanzie, pagamenti, FAQ, chi siamo…) | Rispondi TU con la SCHEDA SYD e get_company_info / check_service_area (protocollo company_info) — NON delegare |
 | Rendering o preventivo per un lavoro che non è tra i "Lavori svolti" della SCHEDA SYD | Rispondi TU con la regola LAVORO FUORI ELENCO (protocollo company_info) — NON delegare |
 | Saluto generico o domanda informativa | Rispondi tu direttamente (breve, in italiano) |
+
+Le due righe sulla società hanno la precedenza sulle righe di rendering e preventivo e sulle regole Intent-First e
+Disambiguazione qui sotto: un lavoro chiaramente fuori elenco non si instrada e non riceve la domanda 1/2/3.
 
 ### Regola Intent-First su Upload (Mandatoria)
 Quando l'utente carica un file (immagine o video) SENZA indicare esplicitamente cosa vuole fare

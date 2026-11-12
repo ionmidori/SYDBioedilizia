@@ -24,6 +24,13 @@ def test_the_block_carries_the_contacts_of_the_seed():
     assert "**" not in block
 
 
+def test_the_served_area_line_is_only_the_area():
+    """The prompt quotes the line in the owner's sentence: no tool hint inside it."""
+    block = company_facts_block(seed_info())
+    assert "\nZona servita: Roma e provincia\n" in block
+    assert "check_service_area" in block
+
+
 def test_every_label_the_prompt_cites_is_in_the_block():
     block = company_facts_block(seed_info())
     for label in COMPANY_LABELS:
