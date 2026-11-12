@@ -1,4 +1,4 @@
-import type { FaqBlock, FaqInline } from "@/lib/faq-data";
+import type { Block } from "@/types/company-info";
 import { RichInline } from "@/components/content/RichInline";
 
 /**
@@ -9,9 +9,9 @@ import { RichInline } from "@/components/content/RichInline";
  * `**bold**` markers are converted to <strong> by RichInline; everything else is
  * plain text, so any stray HTML in the source data would be shown literally.
  */
-const renderInline = (text: FaqInline) => <RichInline text={text} />;
+const renderInline = (text: string) => <RichInline text={text} />;
 
-export function FAQAnswer({ blocks }: { blocks: FaqBlock[] }) {
+export function FAQAnswer({ blocks }: { blocks: Block[] }) {
   return (
     <>
       {blocks.map((block, i) => {

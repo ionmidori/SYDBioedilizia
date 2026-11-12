@@ -40,7 +40,6 @@ const customJestConfig = {
         // Pure data / init wiring: no logic to exercise. Under the v8 provider a
         // bare import would mark them covered — inflated number, zero guarantees.
         // Kept out of the denominator so the percentage measures testable code.
-        '!lib/faq-data.ts',
         '!lib/m3-motion.ts',
         '!lib/firebase.ts',
         '!lib/firebase-admin.ts',

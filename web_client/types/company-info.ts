@@ -36,7 +36,7 @@ const line = z.string().trim().min(1).max(1000);
 const title = z.string().trim().min(1).max(120);
 const slug = z.string().trim().max(60).regex(SLUG_PATTERN);
 
-// ── Text blocks (same shape as FaqBlock in lib/faq-data.ts) ──────────────────
+// ── Text blocks (rendered by components/faq/FAQAnswer.tsx) ───────────────────
 
 export const textBlockSchema = z.object({ type: z.enum(['lead', 'p', 'note', 'callout']), text }).strict();
 export const listBlockSchema = z.object({ type: z.enum(['ul', 'ol']), items: z.array(line).min(1).max(30) }).strict();

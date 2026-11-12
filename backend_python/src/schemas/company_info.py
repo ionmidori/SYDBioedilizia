@@ -53,7 +53,7 @@ class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
-# ── Text blocks (same shape as FaqBlock in web_client/lib/faq-data.ts) ──────
+# ── Text blocks (same shape as Block in web_client/types/company-info.ts) ───
 
 
 class TextBlock(_Model):

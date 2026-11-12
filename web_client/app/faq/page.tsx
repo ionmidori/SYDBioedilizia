@@ -1,28 +1,25 @@
 import { Metadata } from 'next';
 import { Suspense } from 'react';
-import { FAQ_DATA, FAQItem, CATEGORY_ICONS, faqBlocksToPlainText } from '@/lib/faq-data';
 import { FAQItemCard } from '@/components/faq/FAQItem';
 import { Navbar } from '@/components/sections/Navbar';
 import { Footer } from '@/components/sections/Footer';
-import { Coins, FileText, Sparkles, Wrench, Phone } from 'lucide-react';
+import { Phone } from 'lucide-react';
 import { OpenChatButton } from '@/components/ui/open-chat-button';
 import ChatWidget from '@/components/chat/ChatWidget';
+import { blocksToPlainText } from '@/lib/company-info/blocks';
+import { telHref } from '@/lib/company-info/format';
+import { COMPANY_ICONS } from '@/lib/company-info/icons';
+import { getCompanyInfo } from '@/lib/company-info/server';
+import { SITE_URL } from '@/lib/site';
 import { shareMetadata } from '@/lib/site-share';
-
-const iconMap = {
-  Coins,
-  FileText,
-  Sparkles,
-  Wrench,
-} as const;
 
 export const metadata: Metadata = {
   title: 'Domande Frequenti (FAQ) | SYD Bioedilizia',
-  description: 'Risposte immediate su costi ristrutturazione, tempistiche, permessi (CILA/SCIA), bonus 2026 e rendering AI. Scopri come funziona il metodo SYD.',
+  description: 'Risposte immediate su costi ristrutturazione, tempistiche, permessi (CILA/SCIA) e rendering AI. Scopri come funziona il metodo SYD.',
   // Brand logo as the preview image (the page has no photo of its own).
   ...shareMetadata(undefined, {
     title: 'Domande Frequenti (FAQ) | SYD Bioedilizia',
-    description: 'Tutto quello che devi sapere prima di ristrutturare: costi, tempi, bonus 2026 e tecnologia AI.',
+    description: 'Tutto quello che devi sapere prima di ristrutturare: costi, tempi, permessi e tecnologia AI.',
     path: '/faq',
   }),
   alternates: {
@@ -30,13 +27,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function FAQPage() {
-  const categories = Array.from(new Set(FAQ_DATA.map(item => item.category)));
-  const groupedFAQs: Record<string, FAQItem[]> = {};
-
-  categories.forEach(cat => {
-    groupedFAQs[cat] = FAQ_DATA.filter(item => item.category === cat);
-  });
+export default async function FAQPage() {
+  // Categories, questions and phone come from the company info edited in the admin console.
+  const { faq, faq_categories, identity } = await getCompanyInfo();
+  const sections = faq_categories
+    .map((category) => ({
+      ...category,
+      sectionId: category.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      items: faq.filter((item) => item.category === category.name),
+    }))
+    .filter((section) => section.items.length > 0);
 
   // FAQPage + BreadcrumbList JSON-LD (SEO/GEO)
   const jsonLd = {
@@ -44,12 +44,12 @@ export default function FAQPage() {
     '@graph': [
       {
         '@type': 'FAQPage',
-        mainEntity: FAQ_DATA.map((faq) => ({
+        mainEntity: faq.map((item) => ({
           '@type': 'Question',
-          name: faq.question,
+          name: item.question,
           acceptedAnswer: {
             '@type': 'Answer',
-            text: faqBlocksToPlainText(faq.answer),
+            text: blocksToPlainText(item.answer),
           },
         })),
       },
@@ -60,13 +60,13 @@ export default function FAQPage() {
             '@type': 'ListItem',
             position: 1,
             name: 'Home',
-            item: 'https://sydbioedilizia.vercel.app',
+            item: SITE_URL,
           },
           {
             '@type': 'ListItem',
             position: 2,
             name: 'Domande Frequenti',
-            item: 'https://sydbioedilizia.vercel.app/faq',
+            item: `${SITE_URL}/faq`,
           },
         ],
       },
@@ -102,18 +102,16 @@ export default function FAQPage() {
 
           {/* Category Navigation */}
           <nav className="flex flex-wrap justify-center gap-3 mb-12" aria-label="Categorie FAQ">
-            {categories.map((category) => {
-              const iconName = CATEGORY_ICONS[category as keyof typeof CATEGORY_ICONS];
-              const Icon = iconMap[iconName as keyof typeof iconMap];
-              const sectionId = category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            {sections.map(({ name, icon, sectionId }) => {
+              const Icon = COMPANY_ICONS[icon];
               return (
                 <a
-                  key={category}
+                  key={name}
                   href={`#${sectionId}`}
                   className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-full border border-primary/15 bg-primary-subtle text-ink text-sm font-medium hover:border-primary/40 hover:bg-primary-subtle hover:text-primary-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas transition-all duration-200"
                 >
-                  {Icon && <Icon className="w-4 h-4" />}
-                  {category}
+                  <Icon className="w-4 h-4" />
+                  {name}
                 </a>
               );
             })}
@@ -121,23 +119,19 @@ export default function FAQPage() {
 
           {/* FAQ Sections */}
           <div className="space-y-14">
-            {categories.map((category) => {
-              const iconName = CATEGORY_ICONS[category as keyof typeof CATEGORY_ICONS];
-              const Icon = iconMap[iconName as keyof typeof iconMap];
-              const sectionId = category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            {sections.map(({ name, icon, sectionId, items }) => {
+              const Icon = COMPANY_ICONS[icon];
               return (
-                <section key={category} className="scroll-mt-32" id={sectionId}>
+                <section key={name} className="scroll-mt-32" id={sectionId}>
                   <h2 className="text-2xl font-serif font-bold text-ink mb-6 flex items-center gap-3">
-                    {Icon && (
-                      <span className="w-10 h-10 rounded-full bg-primary-subtle border border-primary/20 flex items-center justify-center">
-                        <Icon className="w-5 h-5 text-primary-ink" />
-                      </span>
-                    )}
-                    {category}
+                    <span className="w-10 h-10 rounded-full bg-primary-subtle border border-primary/20 flex items-center justify-center">
+                      <Icon className="w-5 h-5 text-primary-ink" />
+                    </span>
+                    {name}
                   </h2>
                   <div className="space-y-4">
-                    {groupedFAQs[category].map((faq) => (
-                      <FAQItemCard key={faq.slug} item={faq} />
+                    {items.map((faqItem) => (
+                      <FAQItemCard key={faqItem.slug} item={faqItem} />
                     ))}
                   </div>
                 </section>
@@ -151,11 +145,11 @@ export default function FAQPage() {
               Non hai trovato la risposta?
             </h3>
             <p className="text-ink leading-relaxed tracking-[0.01em] mb-8 max-w-lg mx-auto">
-              Il nostro team è disponibile per rispondere a ogni tua domanda. Richiedi un sopralluogo gratuito o parla con il nostro assistente AI.
+              Il nostro team è disponibile per rispondere a ogni tua domanda. Chiamaci o parla con il nostro assistente AI.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
-                href="tel:+393755463599"
+                href={telHref(identity.phone)}
                 className="inline-flex items-center justify-center gap-2 min-h-[44px] px-6 py-3 rounded-full border border-transparent bg-accent hover:bg-accent/80 text-on-accent font-bold transition-all duration-200 shadow-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
               >
                 <Phone className="w-4 h-4" />
