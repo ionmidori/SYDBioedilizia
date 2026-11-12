@@ -18,6 +18,9 @@ import { Message, ToolInvocation } from '@/types/chat';
 import { getVisibleText, stripDuplicateImages } from '@/lib/chat/message-text';
 import { useSmoothText } from '@/hooks/useSmoothText';
 import { MemoizedMarkdown } from '@/components/chat/MemoizedMarkdown';
+import { ContactActions } from '@/components/chat/ContactActions';
+import { useCompanyIdentity } from '@/components/providers/CompanyIdentityProvider';
+import { contactRules, mentionsCompanyContact, remarkCompanyLinks } from '@/lib/chat/company-links';
 
 /** Backend tool that asks a guest to sign in (backend_python/src/adk/tools.py). */
 const LOGIN_TOOL = 'request_login';
@@ -44,6 +47,7 @@ interface MessageItemProps {
  */
 export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, historyMessage, animate = false }) => {
     const { user } = useAuth();
+    const identity = useCompanyIdentity();
     // Vercel AI SDK strips custom fields like "rating" from the messages array during internal state updates.
     // To ensure the thumbs up/down state persists across reloads, we use the raw message from Firestore history.
     const originalMessage = historyMessage;
@@ -134,6 +138,16 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
             />
         ) : null
     }), [onImageClick]);
+
+    // The company contacts the assistant writes become links (tel:, mailto:) by code, from the
+    // company info; what the user writes is never linked. Stable references: a new plugin array
+    // would re-render every finished block of a streaming reply.
+    const isAssistant = message.role === 'assistant';
+    const rules = useMemo(() => (identity && isAssistant ? contactRules(identity) : []), [identity, isAssistant]);
+    const remarkPlugins = useMemo(() => (rules.length > 0 ? [remarkCompanyLinks(rules)] : undefined), [rules]);
+    // The visible text decides: this component cannot know when the reply is complete without
+    // subscribing to the chat context (which re-renders every message on every token).
+    const showContactActions = useMemo(() => mentionsCompanyContact(formattedText, rules), [formattedText, rules]);
 
     // Entry/exit only: no `scale` and no `layout` animation. A layout (FLIP)
     // animation scales the element between old and new size on every height
@@ -301,7 +315,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                         )}>
                             {/* The login card carries its own text: the reply is not repeated above it. */}
                             {formattedText && !showLoginCard && (
-                                <MemoizedMarkdown components={markdownComponents}>
+                                <MemoizedMarkdown components={markdownComponents} remarkPlugins={remarkPlugins}>
                                     {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
                                     {formattedText.startsWith('...') ? formattedText.substring(3) : formattedText}
                                 </MemoizedMarkdown>
@@ -328,6 +342,9 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                         </div>
                     </div>
                 )}
+
+                {/* Quick ways to reach SYD, under a reply that writes a company contact */}
+                {showContactActions && identity && <ContactActions identity={identity} />}
 
                 {/* Feedback: thumbs up/down on assistant messages (self-correction loop) */}
                 {message.role === 'assistant' && text && sessionId && (

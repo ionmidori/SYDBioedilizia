@@ -4,16 +4,19 @@ import { MemoizedMarkdown, safeUrlTransform } from '../MemoizedMarkdown';
 
 // ESM-only module not transformed by Jest: a probe that counts renders per block.
 const renders: string[] = [];
+const pluginsSeen: unknown[] = [];
 jest.mock('react-markdown', () => ({
     __esModule: true,
-    default: ({ children }: { children?: string }) => {
+    default: ({ children, remarkPlugins }: { children?: string; remarkPlugins?: unknown }) => {
         renders.push(String(children));
+        pluginsSeen.push(remarkPlugins);
         return <p data-testid="md-block">{children}</p>;
     },
 }));
 
 beforeEach(() => {
     renders.length = 0;
+    pluginsSeen.length = 0;
 });
 
 describe('MemoizedMarkdown', () => {
@@ -29,10 +32,20 @@ describe('MemoizedMarkdown', () => {
         expect(renders).toEqual(['Tre, completo.']);
     });
 
+    it('hands the remark plugins to every block', () => {
+        const plugins = [() => () => undefined];
+        render(<MemoizedMarkdown remarkPlugins={plugins}>{'Uno.\n\nDue.'}</MemoizedMarkdown>);
+        expect(pluginsSeen).toEqual([plugins, plugins]);
+    });
+
     it('keeps only safe link protocols', () => {
         expect(safeUrlTransform('https://example.com')).toBe('https://example.com');
         expect(safeUrlTransform('/progetti')).toBe('/progetti');
         expect(safeUrlTransform('mailto:info@example.com')).toBe('mailto:info@example.com');
+        expect(safeUrlTransform('tel:+393755463599')).toBe('tel:+393755463599');
+        expect(safeUrlTransform('https://wa.me/393755463599')).toBe('https://wa.me/393755463599');
+        expect(safeUrlTransform('tel:javascript:alert(1)')).toBe('');
+        expect(safeUrlTransform('tel:+39 375<script>')).toBe('');
         expect(safeUrlTransform('javascript:alert(1)')).toBe('');
         expect(safeUrlTransform('data:text/html,x')).toBe('');
     });

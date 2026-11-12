@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MessageItem } from '../MessageItem';
+import { renderWithCompany } from '@/test-utils/company';
 import type { Message } from '@/types/chat';
 
 // --- Mocks ---
@@ -28,7 +29,9 @@ jest.mock('../ToolStatus', () => ({
 // ESM-only module not transformed by Jest — render children as plain text.
 jest.mock('react-markdown', () => ({
     __esModule: true,
-    default: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+    default: ({ children, remarkPlugins }: { children?: React.ReactNode; remarkPlugins?: unknown[] }) => (
+        <div data-testid="markdown" data-plugins={remarkPlugins?.length ?? 0}>{children}</div>
+    ),
 }));
 
 // Heavy / Firebase-touching children — stub them out.
@@ -160,5 +163,35 @@ describe('MessageItem — tool errors', () => {
         const { container } = render(<MessageItem message={message} sessionId="s1" onImageClick={jest.fn()} />);
 
         expect(container).toBeEmptyDOMElement();
+    });
+});
+
+describe('MessageItem — company contacts (Phase 141)', () => {
+    const say = (role: 'assistant' | 'user', text: string) =>
+        ({ id: 'c1', role, parts: [{ type: 'text', text }] }) as unknown as Message;
+    const onImage = () => {};
+
+    it('links the contacts of an assistant reply and offers the contact actions', () => {
+        renderWithCompany(<MessageItem message={say('assistant', 'Chiamaci al +39 06 1234567')} sessionId="s1" onImageClick={onImage} />);
+        expect(screen.getByTestId('markdown')).toHaveAttribute('data-plugins', '1');
+        expect(screen.getByRole('link', { name: 'Chiama' })).toHaveAttribute('href', 'tel:+39061234567');
+        expect(screen.getByRole('link', { name: 'Salva il contatto di SYD' })).toBeInTheDocument();
+    });
+
+    it('offers no actions under a reply that does not write a contact', () => {
+        renderWithCompany(<MessageItem message={say('assistant', 'Il bagno costa € 3.755,46')} sessionId="s1" onImageClick={onImage} />);
+        expect(screen.queryByRole('link', { name: 'Chiama' })).not.toBeInTheDocument();
+    });
+
+    it('leaves what the user writes alone, even a phone number', () => {
+        renderWithCompany(<MessageItem message={say('user', 'Il mio numero è +39 06 1234567')} sessionId="s1" onImageClick={onImage} />);
+        expect(screen.getByTestId('markdown')).toHaveAttribute('data-plugins', '0');
+        expect(screen.queryByRole('link', { name: 'Chiama' })).not.toBeInTheDocument();
+    });
+
+    it('still renders the reply without company info', () => {
+        renderWithCompany(<MessageItem message={say('assistant', 'Chiamaci al +39 06 1234567')} sessionId="s1" onImageClick={onImage} />, null);
+        expect(screen.getByText('Chiamaci al +39 06 1234567')).toBeInTheDocument();
+        expect(screen.getByTestId('markdown')).toHaveAttribute('data-plugins', '0');
     });
 });
