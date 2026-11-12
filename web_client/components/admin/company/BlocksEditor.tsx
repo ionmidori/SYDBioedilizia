@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 
 import { FAQAnswer } from '@/components/faq/FAQAnswer';
-import { issueOf, RowControls, TextAreaField, TextField } from '@/components/admin/company/fields';
-import { BLOCK_TYPES, convertBlock, emptyBlock, MAX_BLOCKS, parseLines, type BlockType } from '@/lib/admin/company-blocks';
+import { issueOf, LinesField, RowControls, TextAreaField, TextField } from '@/components/admin/company/fields';
+import { BLOCK_TYPES, convertBlock, emptyBlock, MAX_BLOCKS, type BlockType } from '@/lib/admin/company-blocks';
 import { moveItem, type CompanyIssue } from '@/lib/admin/company-info-logic';
 import type { Block } from '@/types/company-info';
 
@@ -22,44 +22,6 @@ interface Props {
 
 const BUTTON =
     'inline-flex min-h-11 items-center gap-1.5 px-3 py-2 rounded-xl border border-line text-sm hover:bg-surface disabled:opacity-50 cursor-pointer focus:outline-hidden focus-visible:ring-2 ring-ring';
-
-/**
- * One line per entry. Typed text is kept as typed (a new line must be possible to type) and the
- * entries are parsed from it; it re-reads the entries when they change from outside.
- */
-function LinesField({
-    id,
-    label,
-    items,
-    onItems,
-    error,
-}: {
-    id: string;
-    label: string;
-    items: string[];
-    onItems: (items: string[]) => void;
-    error?: string;
-}) {
-    const [text, setText] = useState(items.join('\n'));
-    // The entries changed from outside (two blocks swapped, a type conversion): show them, not the old text.
-    const typed = parseLines(text);
-    const given = items.filter((item) => item.trim() !== '');
-    if (typed.length !== given.length || typed.some((item, i) => item !== given[i])) setText(items.join('\n'));
-    return (
-        <TextAreaField
-            id={id}
-            label={label}
-            value={text}
-            onChange={(next) => {
-                setText(next);
-                onItems(parseLines(next));
-            }}
-            error={error}
-            hint="Una voce per riga: le righe vuote si scartano."
-            rows={Math.max(3, text.split('\n').length)}
-        />
-    );
-}
 
 /**
  * Edits a text of the company info as the blocks the site shows: paragraphs, notes, lists, definitions.

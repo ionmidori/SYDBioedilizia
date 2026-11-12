@@ -216,6 +216,41 @@ describe('CompanyInfoEditor', () => {
         expect(history).toHaveTextContent('Orari estivi');
     });
 
+    it.each([
+        ['Orari', 'Orari di apertura'],
+        ['Zone', 'Comuni serviti'],
+        ['Lavori', 'Lavori svolti'],
+        ['Sopralluogo', 'Come funziona il sopralluogo'],
+        ['Preventivo', 'Validità e pagamenti'],
+    ])('opens the %s tab', (tab, heading) => {
+        infoQuery();
+        render(<CompanyInfoEditor />);
+        fireEvent.click(screen.getByRole('tab', { name: tab }));
+        expect(screen.getByRole('tabpanel')).toHaveTextContent(heading);
+    });
+
+    it('sends an edit made on another tab, and names that part in the dialog', () => {
+        infoQuery();
+        render(<CompanyInfoEditor />);
+        fireEvent.click(screen.getByRole('tab', { name: 'Zone' }));
+        fireEvent.change(screen.getByLabelText('Riassunto della zona'), { target: { value: 'Roma e dintorni' } });
+        fireEvent.click(screen.getByTestId('company-save'));
+        expect(within(screen.getByTestId('save-parts')).getByText('Zone servite')).toBeInTheDocument();
+        fireEvent.click(screen.getByTestId('save-confirm'));
+        expect(saveMutation.mutate.mock.calls[0][0].body.info.service_area.summary).toBe('Roma e dintorni');
+    });
+
+    it('jumps to the tab and the field of a problem found on another tab', () => {
+        infoQuery();
+        render(<CompanyInfoEditor />);
+        fireEvent.click(screen.getByRole('tab', { name: 'Preventivo' }));
+        fireEvent.change(screen.getByLabelText('Validità del preventivo (giorni)'), { target: { value: '' } });
+        fireEvent.click(screen.getByRole('tab', { name: /Identità e contatti/ }));
+        fireEvent.click(screen.getByTestId('company-save'));
+        expect(screen.getByRole('tab', { name: /Preventivo/ })).toHaveAttribute('aria-selected', 'true');
+        expect(document.activeElement).toBe(screen.getByLabelText('Validità del preventivo (giorni)'));
+    });
+
     it('discarding the edits restores the saved values and disables Save', () => {
         infoQuery();
         render(<CompanyInfoEditor />);

@@ -5,7 +5,12 @@ import { CheckCircle2, History, Loader2, Save } from 'lucide-react';
 
 import { CompanyHistoryPanel } from '@/components/admin/company/CompanyHistoryPanel';
 import { CompanyTabs, panelId, tabId } from '@/components/admin/company/CompanyTabs';
+import { AreaTab } from '@/components/admin/company/tabs/AreaTab';
+import { HoursTab } from '@/components/admin/company/tabs/HoursTab';
 import { IdentityTab } from '@/components/admin/company/tabs/IdentityTab';
+import { QuoteTermsTab } from '@/components/admin/company/tabs/QuoteTermsTab';
+import { ServicesTab } from '@/components/admin/company/tabs/ServicesTab';
+import { SiteVisitTab } from '@/components/admin/company/tabs/SiteVisitTab';
 import type { TabProps } from '@/components/admin/company/types';
 import { SaveDialog } from '@/components/admin/SaveDialog';
 import { useCompanyInfo, useSaveCompanyInfo } from '@/hooks/admin/use-admin';
@@ -27,11 +32,11 @@ function ComingSoon() {
 
 const TAB_COMPONENTS: Record<CompanyTab, ComponentType<TabProps>> = {
     identity: IdentityTab,
-    hours: ComingSoon,
-    area: ComingSoon,
-    services: ComingSoon,
-    site_visit: ComingSoon,
-    quote_terms: ComingSoon,
+    hours: HoursTab,
+    area: AreaTab,
+    services: ServicesTab,
+    site_visit: SiteVisitTab,
+    quote_terms: QuoteTermsTab,
     sections: ComingSoon,
     faq: ComingSoon,
     about: ComingSoon,

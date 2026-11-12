@@ -1,9 +1,12 @@
 'use client';
 
-import type { HTMLInputTypeAttribute } from 'react';
-import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
+import { useState, type HTMLInputTypeAttribute, type ReactNode } from 'react';
+import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 
+import { COMPANY_ICONS } from '@/lib/company-info/icons';
+import { parseLines } from '@/lib/admin/company-blocks';
 import type { CompanyIssue } from '@/lib/admin/company-info-logic';
+import { iconNameSchema, type IconName } from '@/types/company-info';
 
 /** The id of the input at `path` in the company info: the one `validateCompanyInfo` reports as `fieldId`. */
 export function fieldId(...path: (string | number)[]): string {
@@ -13,6 +16,11 @@ export function fieldId(...path: (string | number)[]): string {
 /** The message of the first problem on this input, if any. */
 export function issueOf(issues: CompanyIssue[], id: string): string | undefined {
     return issues.find((issue) => issue.fieldId === id)?.message;
+}
+
+/** The first problem on this input or on one of its entries (`places` → `places-3`). */
+export function issueUnder(issues: CompanyIssue[], id: string): string | undefined {
+    return issues.find((issue) => issue.fieldId === id || issue.fieldId.startsWith(`${id}-`))?.message;
 }
 
 const CONTROL =
@@ -155,5 +163,161 @@ export function TextAreaField({
             />
             <Notes id={id} error={error} hint={hint} />
         </div>
+    );
+}
+
+/**
+ * One line per entry. Typed text is kept as typed (a new line must be possible to type) and the
+ * entries are parsed from it; it re-reads the entries when they change from outside.
+ */
+export function LinesField({
+    id,
+    label,
+    items,
+    onItems,
+    error,
+    hint = 'Una voce per riga: le righe vuote si scartano.',
+}: {
+    id: string;
+    label: string;
+    items: string[];
+    onItems: (items: string[]) => void;
+    error?: string;
+    hint?: string;
+}) {
+    const [text, setText] = useState(items.join('\n'));
+    // The entries changed from outside (two blocks swapped, a type conversion): show them, not the old text.
+    const typed = parseLines(text);
+    const given = items.filter((item) => item.trim() !== '');
+    if (typed.length !== given.length || typed.some((item, i) => item !== given[i])) setText(items.join('\n'));
+    return (
+        <TextAreaField
+            id={id}
+            label={label}
+            value={text}
+            onChange={(next) => {
+                setText(next);
+                onItems(parseLines(next));
+            }}
+            error={error}
+            hint={hint}
+            rows={Math.max(3, text.split('\n').length)}
+        />
+    );
+}
+
+export function SelectField({
+    id,
+    label,
+    value,
+    onChange,
+    options,
+    error,
+}: {
+    id: string;
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    options: { value: string; label: string }[];
+    error?: string;
+}) {
+    return (
+        <div className="space-y-1.5">
+            <label htmlFor={id} className="block text-sm font-medium text-ink">
+                {label}
+            </label>
+            <select
+                id={id}
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? `${id}-error` : undefined}
+                className={`${CONTROL} ${error ? 'border-danger' : 'border-line focus:border-accent'}`}
+            >
+                {options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
+            </select>
+            <Notes id={id} error={error} />
+        </div>
+    );
+}
+
+/** What each icon of the closed set looks like, in words (the stored names are the icons' identifiers). */
+export const ICON_LABELS: Record<IconName, string> = {
+    Coins: 'Monete',
+    FileText: 'Documento',
+    Sparkles: 'Scintille',
+    Wrench: 'Chiave inglese',
+    Award: 'Premio',
+    Shield: 'Scudo',
+    Leaf: 'Foglia',
+    LayoutDashboard: 'Pannello',
+    Wand2: 'Bacchetta magica',
+    HardHat: 'Casco',
+    CheckCircle: 'Spunta',
+    Phone: 'Telefono',
+    Clock: 'Orologio',
+    MapPin: 'Segnaposto',
+    Hammer: 'Martello',
+    Home: 'Casa',
+};
+
+/** The icon of a card or a category: a pick from the closed set the site can draw, with a preview. */
+export function IconSelect({
+    id,
+    label,
+    value,
+    onChange,
+    error,
+}: {
+    id: string;
+    label: string;
+    value: IconName;
+    onChange: (icon: IconName) => void;
+    error?: string;
+}) {
+    const Icon = COMPANY_ICONS[value];
+    return (
+        <div className="flex items-end gap-2">
+            <div className="min-w-0 flex-1">
+                <SelectField
+                    id={id}
+                    label={label}
+                    value={value}
+                    onChange={(next) => onChange(next as IconName)}
+                    options={iconNameSchema.options.map((name) => ({ value: name, label: ICON_LABELS[name] }))}
+                    error={error}
+                />
+            </div>
+            <span aria-hidden className="mb-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-xl border border-line bg-surface text-primary-ink">
+                {Icon && <Icon className="size-5" />}
+            </span>
+        </div>
+    );
+}
+
+/** "Add a row" button of a list: the visible text is its accessible name. */
+export function AddButton({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: ReactNode }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            className="inline-flex min-h-11 items-center gap-1.5 px-3 py-2 rounded-xl border border-line text-sm text-ink hover:bg-surface disabled:opacity-50 cursor-pointer focus:outline-hidden focus-visible:ring-2 ring-ring"
+        >
+            <Plus className="size-4" aria-hidden /> {children}
+        </button>
+    );
+}
+
+/** The heading of a group of fields inside a tab. */
+export function GroupTitle({ id, children }: { id: string; children: ReactNode }) {
+    return (
+        <h2 id={id} className="text-sm font-semibold uppercase tracking-wide text-accent-ink">
+            {children}
+        </h2>
     );
 }
