@@ -1,9 +1,12 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
 import type { Page, Route } from '@playwright/test';
 
 import { test, expect } from './fixtures/authed-test';
 
 /**
- * Admin console: dashboard and price book.
+ * Admin console: dashboard, price book and company info.
  *
  * Same approach as admin-quotes.spec.ts: the real app, proxy and layout gate
  * against the Auth emulator; the FastAPI backend is a small stateful fake that
@@ -31,7 +34,15 @@ const line = (sku: string, description: string, unit_price: number, category: st
   tags: [],
 });
 
+/** The company info the backend starts from (the seed, as the site does). */
+const COMPANY_SEED = JSON.parse(
+  readFileSync(path.join(__dirname, '../../lib/company-info/seed.json'), 'utf8'),
+).info as { identity: { phone: string } };
+
+type CompanyPut = { ifMatch: string | null; info: typeof COMPANY_SEED; reason: string | null };
+
 interface Fake {
+  company: { version: number; info: typeof COMPANY_SEED; puts: CompanyPut[]; failNext: { status: number; body: unknown } | null; slowNextGet: boolean };
   version: number;
   items: Line[];
   puts: { ifMatch: string | null; items: Line[]; reason: string | null }[];
@@ -51,6 +62,7 @@ async function installFakeBackend(page: Page): Promise<Fake> {
     puts: [],
     failNext: null,
     slowNextGet: false,
+    company: { version: 0, info: COMPANY_SEED, puts: [], failNext: null, slowNextGet: false },
   };
   const json = (route: Route, status: number, body: unknown) =>
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
@@ -108,6 +120,35 @@ async function installFakeBackend(page: Page): Promise<Fake> {
       return json(route, 200, { etag: `"v${f.version}"`, version: f.version, item_count: f.items.length, added, removed: 0, changed });
     }
     if (path === '/price-book/history') return json(route, 200, { items: [] });
+    if (path === '/company-info' && request.method() === 'GET') {
+      if (f.company.slowNextGet) {
+        f.company.slowNextGet = false;
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+      return json(route, 200, {
+        etag: `"v${f.company.version}"`,
+        version: f.company.version,
+        source: f.company.version === 0 ? 'seed' : 'firestore',
+        info: f.company.info,
+      });
+    }
+    if (path === '/company-info' && request.method() === 'PUT') {
+      const body = request.postDataJSON() as { info: typeof COMPANY_SEED; reason: string | null };
+      f.company.puts.push({ ifMatch: request.headers()['if-match'] ?? null, info: body.info, reason: body.reason ?? null });
+      if (f.company.failNext) {
+        const failure = f.company.failNext;
+        f.company.failNext = null;
+        return json(route, failure.status, failure.body);
+      }
+      if (request.headers()['if-match'] !== `"v${f.company.version}"`) {
+        return json(route, 409, { error_code: 'VERSION_CONFLICT', message: 'changed' });
+      }
+      f.company.info = body.info;
+      f.company.version += 1;
+      f.company.slowNextGet = true;
+      return json(route, 200, { etag: `"v${f.company.version}"`, version: f.company.version, changed_parts: ['identity'] });
+    }
+    if (path === '/company-info/history') return json(route, 200, { items: [] });
     return json(route, 404, { error_code: 'NOT_MOCKED', message: `${request.method()} ${path}` });
   });
   return f;
@@ -190,5 +231,60 @@ test.describe('admin console — dashboard and price book', () => {
     await expect(page.getByTestId('pb-issues')).toBeVisible();
     await expect(page.getByText('SKU duplicato')).toBeVisible();
     expect(fake.puts).toHaveLength(0);
+  });
+});
+
+test.describe('admin console — company info', () => {
+  test('the menu leads to the company info, an edit is saved with the version that was read', async ({ page }) => {
+    const fake = await installFakeBackend(page);
+    await page.goto('/admin', { waitUntil: 'load' });
+    await page.getByRole('link', { name: 'Società' }).click();
+    await expect(page).toHaveURL(/\/admin\/company$/);
+    await expect(page.getByTestId('company-seed')).toBeVisible(); // version 0: the initial data
+
+    await page.getByLabel('Telefono').fill('06 123456');
+    await page.getByTestId('company-save').click();
+    await expect(page.getByTestId('save-parts')).toContainText('Identità e contatti');
+    await page.getByTestId('save-reason').fill('Numero fisso');
+    await page.getByTestId('save-confirm').click();
+
+    await expect(page.getByTestId('notice')).toContainText('versione 1');
+    // while the refreshed company info is still on its way: the new phone stays, no false conflict
+    await expect(page.getByLabel('Telefono')).toHaveValue('06 123456');
+    await expect(page.getByTestId('stale-banner')).toHaveCount(0);
+    expect(fake.company.puts).toHaveLength(1);
+    expect(fake.company.puts[0].ifMatch).toBe('"v0"');
+    expect(fake.company.puts[0].reason).toBe('Numero fisso');
+    expect(fake.company.puts[0].info.identity.phone).toBe('06 123456');
+
+    // once it has arrived the editor is clean again
+    await expect(page.getByTestId('company-save')).toBeDisabled();
+    await expect(page.getByLabel('Telefono')).toHaveValue('06 123456');
+  });
+
+  test('a save that lost the race asks to reload instead of overwriting', async ({ page }) => {
+    const fake = await installFakeBackend(page);
+    await page.goto('/admin/company', { waitUntil: 'load' });
+    fake.company.failNext = { status: 409, body: { error_code: 'VERSION_CONFLICT', message: 'changed' } };
+
+    await page.getByLabel('Telefono').fill('06 999999');
+    await page.getByTestId('company-save').click();
+    await page.getByTestId('save-confirm').click();
+
+    const banner = page.getByTestId('error-banner');
+    await expect(banner).toHaveAttribute('data-error-kind', 'conflict');
+    await banner.getByRole('button', { name: 'Ricarica' }).click();
+    await expect(page.getByLabel('Telefono')).toHaveValue(COMPANY_SEED.identity.phone); // our unsaved edit is gone
+  });
+
+  test('a phone with too few digits is flagged before anything is sent', async ({ page }) => {
+    const fake = await installFakeBackend(page);
+    await page.goto('/admin/company', { waitUntil: 'load' });
+
+    await page.getByLabel('Telefono').fill('06');
+    await page.getByTestId('company-save').click();
+    await expect(page.getByTestId('company-issues')).toBeVisible();
+    await expect(page.getByLabel('Telefono')).toHaveAttribute('aria-invalid', 'true');
+    expect(fake.company.puts).toHaveLength(0);
   });
 });
