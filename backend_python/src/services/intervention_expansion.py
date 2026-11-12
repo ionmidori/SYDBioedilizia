@@ -132,6 +132,12 @@ class Expansion:
         measure with several values asks which room each one belongs to."""
         return [self._question(m) for m in self.missing_measures if m in MEASURE_QUESTIONS]
 
+    @property
+    def conflict_questions(self) -> list[str]:
+        """The questions the confirmation card cannot answer: a measure with several
+        values asks which room each belongs to (the card only offers the values)."""
+        return [self._question(m) for m in self.missing_measures if m in MEASURE_QUESTIONS and m in self.conflicts]
+
     def _question(self, measure: str) -> str:
         if measure not in self.conflicts:
             return MEASURE_QUESTIONS[measure]

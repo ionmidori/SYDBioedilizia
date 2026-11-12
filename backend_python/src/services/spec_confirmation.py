@@ -61,6 +61,11 @@ def _proposal_note(name: str, confirmed: float, proposed: float) -> str:
     )
 
 
+def has_unconfirmed_measures(spec: RoomInterventionSpec) -> bool:
+    """A measure the client has not confirmed yet, or one with a proposal still unanswered."""
+    return any(m.source != "confirmed" or m.proposed is not None for m in spec.measures)
+
+
 def proposal_checks(spec: RoomInterventionSpec) -> list[str]:
     """The team's checks for the proposals the client has not answered yet: a draft
     recomputed without the model keeps them (the analysis that made them is gone)."""

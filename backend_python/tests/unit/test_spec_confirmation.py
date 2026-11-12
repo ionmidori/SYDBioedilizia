@@ -22,6 +22,7 @@ from src.services.spec_confirmation import (
     confirm,
     confirmations_only,
     expansion_inputs,
+    has_unconfirmed_measures,
     same_confirmations,
     spec_measures,
 )
@@ -239,3 +240,15 @@ def test_same_confirmations_compares_only_what_the_client_confirmed() -> None:
     assert same_confirmations(None, _spec([StoredMeasure(name="mq", value=6, source="declared")]))
     assert not same_confirmations(b, _spec([_confirmed("mq", 9)]))
     assert not same_confirmations(None, _spec(choices=[StoredElementChoice(element="s", action="keep", confirmed=True)]))
+
+
+def test_unconfirmed_measures_are_told_from_the_confirmed_ones() -> None:
+    declared = StoredMeasure(name="mq", value=6, source="declared")
+    assert has_unconfirmed_measures(_spec([declared]))
+    assert has_unconfirmed_measures(_spec([_confirmed("mq", 6), declared.model_copy(update={"name": "mq_pareti"})]))
+    assert not has_unconfirmed_measures(_spec([_confirmed("mq", 6)]))
+    assert not has_unconfirmed_measures(_spec())
+
+
+def test_a_proposal_the_client_has_not_answered_is_unconfirmed() -> None:
+    assert has_unconfirmed_measures(_spec([_confirmed("mq", 8, proposed=6)]))

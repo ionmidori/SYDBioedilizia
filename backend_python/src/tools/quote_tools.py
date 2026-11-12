@@ -45,6 +45,7 @@ from src.services.spec_confirmation import (
     choice_checks,
     confirmations_only,
     expansion_inputs,
+    has_unconfirmed_measures,
     same_confirmations,
 )
 from src.tools.room_tools import brief_lines, room_of
@@ -419,6 +420,11 @@ COMPLETENESS_THRESHOLD = 0.70
 _MAX_QUESTIONS = 2
 # Works quoted by hand named to the client (then "e altre").
 _CLIENT_MANUAL_WORK_SHOWN = 5
+# The confirmation card (chat, signed-in clients) asks for the measures: no amount, ever.
+_CARD_MEASURES_NOTE = "Conferma le misure nella scheda qui sotto: preparo il preventivo appena sono complete."
+_CARD_DRAFT_NOTE = (
+    "Puoi confermare misure e lavori nella scheda qui sotto: la richiesta si aggiorna da sola e diventa più precisa."
+)
 # Without the assembly library the model has no package to choose: its single
 # lines are quoted as they are (the expansion keeps the price-book checks).
 _NO_LIBRARY = AssemblyLibrary(
@@ -455,6 +461,7 @@ class _UnitResult:
     expansion: Expansion  # the lines computed by code from it
     unknown_skus: list[str]
     spec: RoomInterventionSpec | None = None  # what the lines were expanded from (None: no library)
+    on_card: bool = False  # its spec is stored: the confirmation card shows this unit
 
     @property
     def lines(self) -> list[ExpandedLine]:
@@ -481,10 +488,22 @@ class _UnitResult:
         return not self.lines or self.analysis.completeness_score < COMPLETENESS_THRESHOLD
 
     @property
+    def asks_card(self) -> bool:
+        """The missing measures are asked on the card, not in words."""
+        return self.on_card and bool(self.expansion.missing_measures)
+
+    @property
+    def card_to_confirm(self) -> bool:
+        """The draft rests on measures the client may confirm on the card."""
+        return self.on_card and self.spec is not None and has_unconfirmed_measures(self.spec)
+
+    @property
     def questions(self) -> list[str]:
-        """What to ask: the missing measures first (they unblock lines), then the model's questions."""
+        """What to ask in words: the measures first (they unblock lines), then the
+        model's questions. On the card only the questions it cannot answer stay."""
+        measures = self.expansion.conflict_questions if self.on_card else self.expansion.questions
         questions: list[str] = []
-        for question in (*self.expansion.questions, *self.analysis.missing_info):
+        for question in (*measures, *self.analysis.missing_info):
             if question not in questions:
                 questions.append(question)
         return questions[:_MAX_QUESTIONS]
@@ -794,6 +813,7 @@ async def _analyse(
             # The client confirmed on the card during the analysis: the lines follow it.
             stored = spec
             expansion = _expansion(validated, measures, library, stored)
+    on_card = spec is not None
     notes = choice_checks(validated, stored)
     if fresh is not None:
         merged, measure_notes = apply_confirmations(fresh, stored)
@@ -802,7 +822,14 @@ async def _analyse(
     if notes:
         checks = [ExpansionWarning("admin_check", note) for note in notes]
         expansion = replace(expansion, warnings=[*expansion.warnings, *checks])
-    return _UnitResult(unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, spec=spec)
+    return _UnitResult(
+        unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, spec=spec, on_card=on_card
+    )
+
+
+def _blocks(*parts: str) -> str:
+    """The non-empty parts, a blank line apart."""
+    return "\n\n".join(part for part in parts if part)
 
 
 def _single_unit_reply(result: _UnitResult) -> str | None:
@@ -840,7 +867,7 @@ def _single_unit_reply(result: _UnitResult) -> str | None:
         return (
             f"Ho identificato le lavorazioni principali ({analysis.summary}), "
             f"ma ho bisogno di qualche dettaglio in più per un preventivo preciso.\n\n"
-            f"{' '.join(result.questions)}"
+            + _blocks(" ".join(result.questions), _CARD_MEASURES_NOTE if result.asks_card else "")
         )
     if not result.lines:
         return (
@@ -860,10 +887,10 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
     gated = [r for r in results if r.needs_info]
     if gated:
         logger.info("[QuoteTool] Completeness gate triggered.", extra={"rooms": [_room_label(r) for r in gated]})
-        questions = "\n".join(f"**{_room_label(r)}**: {' '.join(r.questions)}" for r in gated)
+        questions = "\n".join(f"**{_room_label(r)}**: {' '.join(r.questions)}" for r in gated if r.questions)
         return (
             "Prima di prepararti un preventivo accurato per tutta la casa ho bisogno di qualche "
-            f"dettaglio in più.\n\n{questions}"
+            "dettaglio in più.\n\n" + _blocks(questions, _CARD_MEASURES_NOTE if any(r.asks_card for r in gated) else "")
         )
     discarded = [r for r in results if r.proposed_lines and not r.lines]
     if discarded and any(r.lines for r in results):
@@ -1077,7 +1104,8 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
             f"{len(quote.items)} lavorazioni{sections} da sottoporre al nostro team tecnico.\n\n"
             "Il team esaminerà la richiesta, definirà le voci e i prezzi e "
             "riceverai il preventivo dettagliato via email dopo la revisione.\n\n"
-            "Vuoi che invii ora la richiesta al team?"
+            + (f"{_CARD_DRAFT_NOTE}\n\n" if any(r.card_to_confirm for r in results) else "")
+            + "Vuoi che invii ora la richiesta al team?"
         )
 
         # The team is notified only when the client confirms the submission

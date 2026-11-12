@@ -26,7 +26,12 @@ from src.services.intervention_expansion import MEASURE_QUESTIONS
 from src.services.pricing_service import PricingService
 from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult
 from src.tools import quote_tools
-from src.tools.quote_tools import _ROOM_ANALYSIS_CONCURRENCY, suggest_quote_items_wrapper
+from src.tools.quote_tools import (
+    _CARD_DRAFT_NOTE,
+    _CARD_MEASURES_NOTE,
+    _ROOM_ANALYSIS_CONCURRENCY,
+    suggest_quote_items_wrapper,
+)
 from src.utils.datetime_utils import utc_now
 
 PID = "proj1"
@@ -448,22 +453,55 @@ async def test_package_choice_is_expanded_by_code():
     assert {i.room_id: i.qty for i in quote.items if i.sku == "SMAL-001"} == {DEFAULT_ROOM_ID: 2.0}
 
 
-async def test_missing_measure_gates_the_room_with_a_measure_question():
+async def test_missing_measures_reply_points_to_card():
+    """The card asks for the measure: the reply no longer asks it in words."""
     with _project(analyses={**ANALYSES, "Bagno": _bathroom(measures=[])}) as mocks:
         reply = await _quote()
 
-    assert f"**Bagno**: {MEASURE_QUESTIONS['mq']}" in reply
+    assert _CARD_MEASURES_NOTE in reply and "scheda" in _CARD_MEASURES_NOTE
+    assert MEASURE_QUESTIONS["mq"] not in reply
+    assert "**Bagno**" not in reply  # a room with nothing else to ask has no line of questions
     mocks["saved"].assert_not_awaited()
 
 
-async def test_the_measure_question_comes_before_the_model_questions():
-    """At most two questions per room: the measure that blocks a line is never crowded out."""
+async def test_the_model_questions_stay_in_words_next_to_the_card():
     analysis = _bathroom(measures=[], completeness_score=0.5, missing_info=["Doccia o vasca?", "Che piastrelle?"])
     with _project(analyses={**ANALYSES, "Bagno": analysis}):
         reply = await _quote()
 
-    assert f"**Bagno**: {MEASURE_QUESTIONS['mq']} Doccia o vasca?" in reply
-    assert "Che piastrelle?" not in reply
+    assert "**Bagno**: Doccia o vasca? Che piastrelle?" in reply
+    assert reply.endswith(_CARD_MEASURES_NOTE)
+    assert MEASURE_QUESTIONS["mq"] not in reply
+
+
+async def test_the_card_note_comes_once_for_all_the_rooms_that_need_it():
+    analyses = {**ANALYSES, "Bagno": _bathroom(measures=[]), "Cucina": _bathroom(measures=[])}
+    with _project(analyses=analyses):
+        reply = await _quote()
+
+    assert reply.count(_CARD_MEASURES_NOTE) == 1
+
+
+async def test_a_measure_the_card_cannot_show_is_asked_in_words(caplog):
+    """The spec could not be stored: no card for the room, so the question stays."""
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom(measures=[])}) as mocks:
+        mocks["store"].update.side_effect = NotFound("room deleted")
+        reply = await _quote()
+
+    assert f"**Bagno**: {MEASURE_QUESTIONS['mq']}" in reply
+    assert _CARD_MEASURES_NOTE not in reply
+
+
+async def test_conflicting_values_ask_the_room_in_words_and_point_to_the_card():
+    files = [_file("f_vecchia", DEFAULT_ROOM_ID)]
+    history = [{"role": "user", "content": "Bagno da 6 mq e uno da 9"}]
+    analysis = _bathroom(measures=[SpecMeasure(name="mq", value=6, source="declared"),
+                                   SpecMeasure(name="mq", value=9, source="declared")])
+    with _project(rooms=ROOMS[:1], files=files, history=history, engine=AsyncMock(return_value=analysis)):
+        reply = await _quote()
+
+    assert "a quale stanza" in reply and "6 e 9" in reply
+    assert _CARD_MEASURES_NOTE in reply
 
 
 async def test_a_missing_measure_is_taken_from_the_room_brief():
@@ -571,14 +609,14 @@ async def test_without_the_library_the_single_lines_still_make_the_quote():
     mocks["store"].update.assert_not_awaited()
 
 
-async def test_a_chat_without_rooms_asks_for_the_missing_measure():
+async def test_a_chat_without_rooms_points_to_the_card_for_the_missing_measure():
     files = [_file("f_vecchia", DEFAULT_ROOM_ID)]
     history = [{"role": "user", "content": "Rifaccio il bagno"}]
     engine = AsyncMock(return_value=_bathroom(measures=[]))
     with _project(rooms=ROOMS[:1], files=files, history=history, engine=engine) as mocks:
         reply = await _quote()
 
-    assert MEASURE_QUESTIONS["mq"] in reply
+    assert _CARD_MEASURES_NOTE in reply and MEASURE_QUESTIONS["mq"] not in reply
     mocks["saved"].assert_not_awaited()
     # Saved before the gate, with what the card asks for.
     assert _saved_specs(mocks["store"])[CHAT_SPEC_KEY].missing_measures == ["mq"]
@@ -717,7 +755,7 @@ async def test_missing_measures_saved_before_gate():
     with _project(analyses={**ANALYSES, "Bagno": _bathroom(measures=[])}) as mocks:
         reply = await _quote()
 
-    assert MEASURE_QUESTIONS["mq"] in reply
+    assert _CARD_MEASURES_NOTE in reply
     mocks["saved"].assert_not_awaited()
     assert _saved_specs(mocks["store"])["bagno1"].missing_measures == ["mq"]
 
@@ -829,3 +867,52 @@ async def test_the_tool_draft_has_a_price_range():
 
     estimate = mocks["saved"].await_args.args[2].estimate
     assert estimate is not None and estimate.low < estimate.high
+
+
+# ── Phase 140 step 3: the reply invites to the card, with no amount ──────────
+
+
+async def test_draft_reply_invites_confirmation():
+    """The draft was made from measures the model took (declared): the client may confirm them."""
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}):
+        reply = await _quote()
+
+    assert _CARD_DRAFT_NOTE in reply and "scheda" in _CARD_DRAFT_NOTE
+    assert reply.index(_CARD_DRAFT_NOTE) < reply.index("Vuoi che invii ora la richiesta al team?")
+
+
+async def test_draft_reply_does_not_invite_when_everything_is_confirmed():
+    confirmed = _stored(measures=[{"name": "mq", "value": 6, "source": "confirmed"}])
+    analyses = {**ANALYSES, "Bagno": _bathroom(), "Cucina": InsightAnalysis(summary="Cucina", completeness_score=0.9)}
+    with _project(analyses=analyses, specs={"bagno1": confirmed}):
+        reply = await _quote()
+
+    assert _CARD_DRAFT_NOTE not in reply
+
+
+async def test_draft_reply_does_not_invite_when_the_card_cannot_show_the_spec():
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks:
+        mocks["store"].update.side_effect = NotFound("room deleted")
+        reply = await _quote()
+
+    assert _CARD_DRAFT_NOTE not in reply
+
+
+async def test_a_revision_does_not_invite_to_the_card():
+    """The quote was already sent: the card is read-only, the team decides the revision."""
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks:
+        mocks["saved"].return_value = DraftSaveResult(DraftSaveOutcome.REVISED, "draft", "PRV-2026-0042", 2, True)
+        reply = await _quote()
+
+    assert "nuova revisione" in reply and _CARD_DRAFT_NOTE not in reply
+
+
+async def test_no_amount_in_reply():
+    """Neither the questions to the client nor the draft's reply tell an amount or a range."""
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom(measures=[])}):
+        gated = await _quote()
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}):
+        drafted = await _quote()
+
+    for reply in (gated, drafted):
+        assert not any(sign in reply for sign in ("€", "euro", "%"))

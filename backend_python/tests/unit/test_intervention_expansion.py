@@ -421,6 +421,14 @@ def test_two_values_of_a_measure_are_asked_not_guessed(library: AssemblyLibrary,
     assert result.questions[0] != MEASURE_QUESTIONS["mq"]
     assert "5" in result.questions[0] and "12" in result.questions[0] and "stanza" in result.questions[0]
     assert any(w.kind == "admin_check" and "mq" in w.message for w in result.warnings)
+    # The card shows the values as quick picks; only the question about the rooms stays in words.
+    assert result.conflict_questions == result.questions
+
+
+def test_a_plain_missing_measure_is_no_conflict_question(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(("ASM-BAGNO-FULL", [])))
+    assert result.questions == [MEASURE_QUESTIONS["mq"]]
+    assert result.conflict_questions == []
 
 
 def test_a_choice_on_an_element_of_several_packages_is_flagged(
