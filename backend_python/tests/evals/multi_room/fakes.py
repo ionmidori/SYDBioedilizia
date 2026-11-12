@@ -41,6 +41,7 @@ from src.core.money import sum_amounts
 from src.schemas.intervention_spec import RoomInterventionSpec
 from src.schemas.quote import QuoteRequest, QuoteSchema
 from src.schemas.room import DEFAULT_ROOM_ID, RoomCreate, RoomSchema
+from src.services.company_info_service import CompanyInfoService
 from src.services.pricing_service import PricingService
 from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult, QuoteStatusView
 from src.services.quote_followup import FollowupResult
@@ -493,6 +494,36 @@ def _logged_in_problems(run: MultiRoomRun) -> list[str]:
     return found + ([] if run.quotes.quotes else ["no quote was saved"])
 
 
+# Company questions (Phase 141): turn (1-based) → the tool the answer needs.
+_COMPANY_TOOLS: dict[int, str] = {2: "check_service_area", 3: "check_service_area", 6: "get_company_info"}
+# Turn → what the reply must say (the owner's sentences; contacts come from the company info).
+_COMPANY_REPLIES: dict[int, tuple[str, ...]] = {
+    2: ("Viterbo", "non rientra"),
+    4: ("non è indicata come attività svolta da SYD",),
+    7: ("non è indicata come attività svolta da SYD",),
+}
+
+
+def _company_problems(run: MultiRoomRun) -> list[str]:
+    """A guest's company questions: answered from the SCHEDA SYD and the company
+    tools (served area by check_service_area, empty section by get_company_info),
+    work not in the list stopped with the owner's sentence, never a login."""
+    found = _login_problems(run, login_turn=None)
+    turns, replies = run.tool_calls.turns(), run.responses.turns()
+    if len(replies) < 7:
+        return [*found, f"only {len(replies)} of 7 turns answered"]
+    who = CompanyInfoService.snapshot().identity
+    expected = {**_COMPANY_REPLIES, 1: (who.phone, who.email)}
+    for n in range(1, 8):
+        tools = {tool for _, tool in turns[n - 1]} if n <= len(turns) else set()
+        if n in _COMPANY_TOOLS and _COMPANY_TOOLS[n] not in tools:
+            found.append(f"turn {n}: {_COMPANY_TOOLS[n]} was not called")
+        missing = [text for text in expected.get(n, ()) if text.lower() not in replies[n - 1].lower()]
+        if missing:
+            found.append(f"turn {n}: the reply misses {missing}: {replies[n - 1][:160]!r}")
+    return found
+
+
 # What each multi-room eval set checks in the backend after its run (run_evals.py).
 BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "multi_room_flow.test.json": lambda run: run.renders.problems(),
@@ -509,6 +540,8 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     # A price question is not a confirmation: the listino range, no login.
     "guest_price.test.json": lambda run: _login_problems(run, login_turn=None),
     "logged_in_quote.test.json": _logged_in_problems,
+    # Company questions: from the company info, served area decided by the tool, work not in the list stopped.
+    "company_info.test.json": _company_problems,
     # A sent quote + a new request: the next revision (same PRV), sent after the explicit yes.
     "quote_revision.test.json": lambda run: run.quotes.revision_problems() + run.submissions.problems(expected=1),
     # The team has the quote: the change reaches the team, nothing written or sent again.
@@ -516,7 +549,9 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
 }
 
 # Sets whose user is a guest (the login gate of the premium tools answers "guest").
-GUEST_SETS = frozenset({"guest_quote.test.json", "guest_render.test.json", "guest_price.test.json"})
+GUEST_SETS = frozenset(
+    {"guest_quote.test.json", "guest_render.test.json", "guest_price.test.json", "company_info.test.json"}
+)
 # Chat history suggest_quote_items reads, per set (default: QUOTE_HISTORY).
 QUOTE_HISTORIES: dict[str, list[dict[str, Any]]] = {
     "multi_room_general.test.json": GENERAL_HISTORY,
@@ -571,6 +606,8 @@ def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
         stack.enter_context(patch("src.tools.quote_tools.gather_dossier_inputs", new=AsyncMock(return_value=None)))
         stack.enter_context(patch("src.tools.quote_tools.get_async_firestore_client", new=MagicMock()))
         stack.enter_context(patch("src.services.pricing_service.PricingService.ensure_fresh", new=AsyncMock()))
+        # The seed company info: no Firestore read, no background refresh on a mocked client.
+        stack.enter_context(patch.object(CompanyInfoService, "refresh_now", new=AsyncMock()))
         # Never send a request to the team or write the phone number from an eval.
         stack.enter_context(patch("src.adk.tools.submit_quote_request_wrapper", new=run.submissions.submit))
         stack.enter_context(patch("src.db.firebase_client.get_async_firestore_client", new=MagicMock()))

@@ -1,0 +1,196 @@
+{
+  "eval_set_id": "syd_company_info_v1",
+  "name": "SYD Company Info — answers only from the company info (Phase 141, PR-2)",
+  "description": "A guest asks about SYD Bioedilizia: contacts from the SCHEDA SYD block, served area decided by check_service_area (Viterbo no, Velletri yes), work not in the list stopped with the owner's sentence (piscine, also as a quote request), free site visit after the quote, an empty section (garanzie) said to be missing with get_company_info. Never a login, never a premium tool. Manual only: never in CI.",
+  "eval_cases": [
+    {
+      "eval_id": "guest_company_questions",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": true,
+            "phone_on_file": false,
+            "session_id": "eval-company-info"
+          },
+          "syd_rooms": []
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_company_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nCome posso contattarvi?\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Puoi chiamarci o scriverci ai contatti della scheda SYD."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_company_002",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nLavorate anche a Viterbo?\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "SYD opera a Roma e provincia: in base alle informazioni che ho, Viterbo non rientra nella zona servita."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "check_service_area",
+                "args": {},
+                "id": "call_inv_company_002_1"
+              }
+            ]
+          }
+        },
+        {
+          "invocation_id": "inv_company_003",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nE a Velletri?\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Sì, Velletri rientra nella zona servita."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "check_service_area",
+                "args": {},
+                "id": "call_inv_company_003_1"
+              }
+            ]
+          }
+        },
+        {
+          "invocation_id": "inv_company_004",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nFate anche piscine?\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Questa lavorazione non è indicata come attività svolta da SYD."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_company_005",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nIl sopralluogo è gratuito?\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Il sopralluogo è gratuito: si richiede dopo aver ricevuto il preventivo, per email o per telefono."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_company_006",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nChe garanzie date sui lavori?\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Su questo non ho informazioni nella scheda di SYD: puoi chiamarci o scriverci."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "get_company_info",
+                "args": {},
+                "id": "call_inv_company_006_1"
+              }
+            ]
+          }
+        },
+        {
+          "invocation_id": "inv_company_007",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nVorrei un preventivo per costruire una piscina in giardino\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Questa lavorazione non è indicata come attività svolta da SYD."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        }
+      ]
+    }
+  ]
+}

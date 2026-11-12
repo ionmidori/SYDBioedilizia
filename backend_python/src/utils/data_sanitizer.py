@@ -65,6 +65,9 @@ _INJECTION_PATTERNS: list[re.Pattern] = [re.compile(p, re.IGNORECASE | re.UNICOD
     r"STATO\s+AUTENTICAZIONE",
     r"PHONE_ON_FILE",
     r"SESSION_ID\s*:",
+    # Company facts spoofing (Phase 141): the agents answer about SYD from the
+    # "SCHEDA SYD" block of the dynamic instruction (src/adk/company_context.py) only.
+    r"SCHEDA\s+SYD",
 ]]
 
 

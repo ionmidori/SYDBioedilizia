@@ -23,7 +23,9 @@ from src.adk.model_factory import build_adk_model
 from src.adk.session_context import session_context_instruction
 from src.adk.tools import (
     assign_media_to_room_adk,
+    check_service_area_adk,
     generate_render_adk,
+    get_company_info_adk,
     get_room_context_adk,
     list_project_files_adk,
     market_prices_adk,
@@ -40,6 +42,7 @@ from src.adk.tools import (
     suggest_quote_items_adk,
 )
 from src.core.models import ModelRole, build_generate_content_config
+from src.prompts.components.company import COMPANY_INFO_PROTOCOL
 from src.prompts.components.identity import (
     CRITICAL_PROTOCOLS,
     IDENTITY,
@@ -67,7 +70,8 @@ logger = logging.getLogger(__name__)
 _ORCHESTRATOR_ROUTING = """
 ## ROUTING RULES (Sistema Multi-Agente ADK)
 
-Sei il punto di ingresso di SYD. Il tuo compito è INSTRADARE, non rispondere direttamente.
+Sei il punto di ingresso di SYD. Il tuo compito è INSTRADARE, non rispondere direttamente, salvo le righe sulla società
+("Domanda sulla società" e "lavoro fuori elenco"), PRICE INQUIRY, Intent-First, Disambiguazione e i saluti.
 
 | Segnale | Agente da attivare |
 |---|---|
@@ -77,7 +81,14 @@ Sei il punto di ingresso di SYD. Il tuo compito è INSTRADARE, non rispondere di
 | Utente vuole vedere / visualizzare / render / idee (anche senza immagine) | `design` |
 | Utente vuole un preventivo / computo metrico per il SUO progetto | `quote` |
 | Utente chiede un prezzo PUNTUALE/informativo (es. "quanto costa una finestra?", "prezzo al mq del parquet?", "quanto viene demolire un pavimento?") | Rispondi TU direttamente via PRICE INQUIRY (vedi sotto) — NON delegare |
+| Domanda sulla società SYD (contatti, orari, zone, lavori svolti, sopralluogo, garanzie, pagamenti, FAQ, chi siamo…) | Rispondi TU con la SCHEDA SYD e get_company_info / check_service_area (protocollo company_info) — NON delegare |
+| Rendering o preventivo per un lavoro CHIARAMENTE estraneo ai "Lavori svolti" della SCHEDA SYD (nel dubbio procedi: una stanza si valuta sulle lavorazioni edili) | Rispondi TU con la regola LAVORO FUORI ELENCO (protocollo company_info) — NON delegare |
 | Saluto generico o domanda informativa | Rispondi tu direttamente (breve, in italiano) |
+
+Le due righe sulla società hanno la precedenza sulle righe di rendering e preventivo e sulle regole Intent-First e
+Disambiguazione qui sotto: un lavoro chiaramente fuori elenco non si instrada e non riceve la domanda 1/2/3.
+Per un preventivo delega a `quote` anche se l'utente indica dove si trova il cantiere: l'avviso CANTIERE FUORI ZONA
+lo dà l'agente `quote`.
 
 ### Regola Intent-First su Upload (Mandatoria)
 Quando l'utente carica un file (immagine o video) SENZA indicare esplicitamente cosa vuole fare
@@ -160,6 +171,7 @@ SYD_ORCHESTRATOR_INSTRUCTION = "\n\n".join([
     _ORCHESTRATOR_ROUTING,
     ROOMS_PROTOCOL,             # 🏠 Una casa, più stanze
     PROTOCOL,
+    COMPANY_INFO_PROTOCOL,      # 🏢 Domande sulla società: solo dalla SCHEDA SYD
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LAST — LLM Sandwich Defense (bottom)
 ])
 
@@ -248,6 +260,7 @@ TRIAGE_AGENT_INSTRUCTION = "\n\n".join([
     VIDEO_ANALYSIS_PROTOCOL,    # 🎬 Analisi video temporale
     ROOMS_PROTOCOL,             # 🏠 Una casa, più stanze
     _TRIAGE_SPECIFIC,
+    COMPANY_INFO_PROTOCOL,      # 🏢 Domande sulla società: solo dalla SCHEDA SYD
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
 
@@ -262,6 +275,7 @@ DESIGN_AGENT_INSTRUCTION = "\n\n".join([
     QUESTION_LIMIT_PROTOCOL,    # Una domanda alla volta
     ROOMS_PROTOCOL,             # 🏠 Una casa, più stanze
     MODE_A_DESIGNER,            # Flusso completo 5 fasi render
+    COMPANY_INFO_PROTOCOL,      # 🏢 Domande sulla società: solo dalla SCHEDA SYD
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
 
@@ -276,6 +290,7 @@ QUOTE_AGENT_INSTRUCTION = "\n\n".join([
     QUESTION_LIMIT_PROTOCOL,    # Una domanda alla volta
     ROOMS_PROTOCOL,             # 🏠 Una casa, più stanze
     MODE_B_SURVEYOR,            # Flusso completo 4 pilastri preventivo
+    COMPANY_INFO_PROTOCOL,      # 🏢 Domande sulla società: solo dalla SCHEDA SYD
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
 
@@ -306,6 +321,8 @@ triage_agent = Agent(
         select_room_adk,
         assign_media_to_room_adk,
         get_room_context_adk,
+        get_company_info_adk,
+        check_service_area_adk,
     ],
     static_instruction=TRIAGE_AGENT_INSTRUCTION,
     instruction=session_context_instruction,
@@ -328,6 +345,8 @@ design_agent = Agent(
         retrieve_knowledge_adk,
         select_room_adk,
         get_room_context_adk,
+        get_company_info_adk,
+        check_service_area_adk,
     ],
     static_instruction=DESIGN_AGENT_INSTRUCTION,
     instruction=session_context_instruction,
@@ -354,6 +373,8 @@ quote_agent = Agent(
         save_contact_phone_adk,
         select_room_adk,
         get_room_context_adk,
+        get_company_info_adk,
+        check_service_area_adk,
     ],
     static_instruction=QUOTE_AGENT_INSTRUCTION,
     instruction=session_context_instruction,
@@ -373,6 +394,8 @@ syd_orchestrator = Agent(
         retrieve_price_by_code_adk,
         select_room_adk,
         assign_media_to_room_adk,
+        get_company_info_adk,
+        check_service_area_adk,
     ],
     static_instruction=SYD_ORCHESTRATOR_INSTRUCTION,
     instruction=session_context_instruction,

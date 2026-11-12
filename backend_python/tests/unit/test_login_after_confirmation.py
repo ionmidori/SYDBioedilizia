@@ -80,7 +80,10 @@ def test_guest_rule_gates_renders_and_quotes_only_and_keeps_the_order():
     )
     for name in ("generate_render", "suggest_quote_items", "submit_quote_request"):
         assert name in block
-    for name in ("search_prezzario", "retrieve_price_by_code", "pricing_engine", "market_prices", "search_listino"):
+    for name in (
+        "search_prezzario", "retrieve_price_by_code", "pricing_engine", "market_prices", "search_listino",
+        "get_company_info", "check_service_area",
+    ):
         assert name in block.split("Liberi per tutti")[1].split("\n")[0], name
     # 1) confirmation, 2) login and stop, 3) the tool after the login.
     assert block.index("CONFERMA") < block.index("request_login_adk") < block.index("DOPO IL LOGIN")

@@ -19,6 +19,7 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 from src.adk.agents import design_agent, quote_agent, syd_orchestrator, triage_agent
+from src.adk.company_context import COMPANY_BLOCK_HEADER
 from src.adk.session_context import (
     ACTIVE_ROOM_STATE_KEY,
     HOUSE_QUOTE_STATE_KEY,
@@ -30,6 +31,8 @@ from src.adk.session_context import (
     session_context_instruction,
 )
 from src.prompts.components.security import SECURITY_GUARDRAILS_TAIL
+from src.services import company_info
+from src.services.company_info_service import CompanyInfoService
 from src.services.quote_drafts import QuoteStatusView
 from src.services.quote_state import STATUS_LABEL_IT, status_label_it
 
@@ -84,6 +87,8 @@ async def test_system_instruction_is_the_static_prompt_only(agent):
     assert str(agent.static_instruction) in system and SECURITY_GUARDRAILS_TAIL.strip() in system
     # The prompts name the block; the block itself (header, session data) is not here.
     assert "## CONTESTO SESSIONE (dati di sistema" not in system and "proj-1" not in system
+    # Nor the company facts: they change from the console, the prefix must not.
+    assert COMPANY_BLOCK_HEADER not in system and "+39 375 5463599" not in system
 
 
 @pytest.mark.parametrize("agent", AGENTS, ids=lambda a: a.name)
@@ -94,6 +99,7 @@ async def test_session_block_is_the_last_instruction_before_the_user_turn(agent)
     assert contents[-2].role == "user"
     assert "CONTESTO SESSIONE" in block and "SESSION_ID: proj-1" in block
     assert "STANZA ATTIVA: r_bagno · Bagno" in block
+    assert "Telefono: +39 375 5463599" in block
 
 
 async def test_on_a_tool_continuation_the_block_follows_the_tool_result():
@@ -109,10 +115,19 @@ def test_provider_reads_the_session_state(is_guest, marker):
     block = session_context_instruction(SimpleNamespace(state=_state(is_guest)))
     assert block.startswith("## CONTESTO SESSIONE") and marker in block
     assert "- r_bagno · Bagno · bagno · 5 mq, doccia walk-in" in block
+    assert COMPANY_BLOCK_HEADER in block and block.index("CONTESTO SESSIONE") < block.index(COMPANY_BLOCK_HEADER)
 
 
-def test_provider_without_session_context_is_empty():
-    assert session_context_instruction(SimpleNamespace(state={})) == ""
+def test_provider_without_session_context_gives_the_company_block_only():
+    block = session_context_instruction(SimpleNamespace(state={}))
+    assert block.startswith(COMPANY_BLOCK_HEADER) and "CONTESTO SESSIONE" not in block
+
+
+def test_the_block_follows_the_company_info_being_served():
+    info = company_info.seed_info()
+    info.identity.phone = "+39 06 000000"
+    CompanyInfoService.apply(info, 2)
+    assert "Telefono: +39 06 000000" in session_context_instruction(SimpleNamespace(state=_state()))
 
 
 @pytest.mark.parametrize("agent", AGENTS, ids=lambda a: a.name)

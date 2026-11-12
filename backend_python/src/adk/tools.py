@@ -25,7 +25,9 @@ from src.core.telemetry import instrumented_tool
 from src.db.projects.media import latest_uploaded_photo_url
 from src.repositories.room_repository import get_room_repository
 from src.schemas.room import ROOM_ID_PATTERN
+from src.services.company_info_service import CompanyInfoService
 from src.tools import gallery, project_files, room_tools
+from src.tools.company_tools import company_section, service_area
 from src.tools.project_files_view import ProjectFilesView
 from src.tools.quota import check_quota, increment_quota, quota_denial
 from src.tools.quote_submit_tools import submit_quote_request_wrapper
@@ -167,6 +169,39 @@ async def search_listino(query: str) -> str:
     """
     from src.tools.listino_tools import search_listino as _listino
     return await _listino(query)
+
+
+# ─── Company info (Phase 141) ────────────────────────────────────────────────
+# Open to everyone, guests included: no _is_guest gate (a question about the
+# company is not a premium action).
+
+@instrumented_tool("get_company_info")
+async def get_company_info(sezione: str) -> str:
+    """Testo di una sezione della scheda ufficiale di SYD: garanzie, pagamenti,
+    pratiche-permessi, bonus-fiscali, tempi-lavori, chi-lavora,
+    certificazioni-materiali, social, faq, chi-siamo, o un altro slug
+    dell'indice "Altre sezioni" della SCHEDA SYD.
+    SEZIONE_VUOTA = l'informazione manca nella scheda.
+    SEZIONE_INESISTENTE = slug sconosciuto (la risposta elenca quelli validi).
+
+    Args:
+        sezione: lo slug della sezione, dall'indice "Altre sezioni".
+    """
+    return company_section(CompanyInfoService.snapshot(), sezione)
+
+
+@instrumented_tool("check_service_area")
+async def check_service_area(localita: str, comune: str = "") -> str:
+    """Dice se SYD lavora in una località (SERVITA / NON_SERVITA),
+    confrontandola con l'elenco dei comuni della scheda. Chiamalo per OGNI
+    domanda su una località: non decidere la zona da solo.
+
+    Args:
+        localita: il nome della località detto dall'utente.
+        comune: il comune in cui si trova la località, se lo sai (es. un
+            quartiere di Roma → "Roma"); altrimenti vuoto.
+    """
+    return service_area(CompanyInfoService.snapshot(), localita, comune)
 
 
 # ─── Knowledge RAG ───────────────────────────────────────────────────────────
@@ -642,6 +677,8 @@ get_room_context_adk = FunctionTool(get_room_context)
 request_login_adk = FunctionTool(request_login)
 retrieve_knowledge_adk = FunctionTool(retrieve_knowledge)
 search_listino_adk = FunctionTool(search_listino)
+get_company_info_adk = FunctionTool(get_company_info)
+check_service_area_adk = FunctionTool(check_service_area)
 search_prezzario_adk = FunctionTool(search_prezzario)
 retrieve_price_by_code_adk = FunctionTool(retrieve_price_by_code)
 save_contact_phone_adk = FunctionTool(save_contact_phone)
