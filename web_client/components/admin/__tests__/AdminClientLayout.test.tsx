@@ -86,6 +86,7 @@ describe('AdminClientLayout', () => {
       ['Dashboard', '/admin'],
       ['Preventivi', '/admin/quotes'],
       ['Listino', '/admin/price-book'],
+      ['Società', '/admin/company'],
       ['Portfolio', '/admin/portfolio'],
       ['Recensioni', '/admin/testimonials'],
       ['GDPR', '/admin/gdpr'],
