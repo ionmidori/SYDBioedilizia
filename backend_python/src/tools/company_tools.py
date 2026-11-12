@@ -97,32 +97,42 @@ def _place_key(text: str) -> str:
     return key.removeprefix("comune di ").strip()
 
 
+def _squeezed(text: str) -> str:
+    return _place_key(text).replace(" ", "")
+
+
 def _find_place(places: list[str], name: str) -> str | None:
     """The comune called `name`: same name whatever the spaces ("Montecompatri" =
     "Monte Compatri"), or the beginning of ONE comune's name only ("Guidonia" →
-    "Guidonia Montecelio"; "Monte" names several comuni: no guess)."""
+    "Guidonia Montecelio"; "Monte" names several comuni: no guess). A name with
+    a qualifier ("Gallicano (LU)", "Genzano, Basilicata") must match whole: its
+    beginning may be a homonym outside the area."""
     key = _place_key(name)
     if not key:
         return None
-    squeezed = key.replace(" ", "")
-    exact = next((p for p in places if _place_key(p).replace(" ", "") == squeezed), None)
-    if exact is not None:
+    exact = next((p for p in places if _squeezed(p) == key.replace(" ", "")), None)
+    if exact is not None or re.search(r"[,(]", name):
         return exact
     starting = [p for p in places if _place_key(p).startswith(key + " ")]
     return starting[0] if len(starting) == 1 else None
 
 
 def service_area(info: CompanyInfo, localita: str, comune: str = "") -> str:
-    """SERVITA / NON_SERVITA for a place, on the comuni (and their districts) of the company info."""
+    """SERVITA / NON_SERVITA for a place, on the comuni (and their districts) of the company info.
+
+    When the model names the comune the place belongs to, that comune decides
+    (Garbatella → Roma; "Marano" in "Marano di Napoli" is not Marano Equo).
+    """
     if not _place_key(localita):
         return "Indica la località da verificare."
     area = info.service_area
-    found = _find_place(area.places, localita)
-    if found is None:
-        locality = next((loc for loc in area.localities if _place_key(loc.name) == _place_key(localita)), None)
-        found = _find_place(area.places, locality.comune) if locality is not None else None
-    if found is None and comune:
+    if comune.strip():
         found = _find_place(area.places, comune)
+    else:
+        found = _find_place(area.places, localita)
+        if found is None:
+            locality = next((loc for loc in area.localities if _squeezed(loc.name) == _squeezed(localita)), None)
+            found = _find_place(area.places, locality.comune) if locality is not None else None
     name = localita.strip()
     if found is None:
         return f"{AREA_NOT_SERVED}: {name} non è tra i comuni della zona servita ({area.summary})."

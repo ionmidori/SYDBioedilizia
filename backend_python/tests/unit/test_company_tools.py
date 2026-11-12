@@ -134,3 +134,19 @@ async def test_a_guest_uses_the_company_tools_without_any_account_lookup():
         area = await tools.check_service_area("Velletri")
     assert section.startswith(f"{SECTION_EMPTY}:") and area.startswith(f"{AREA_SERVED}:")
     lookup.assert_not_awaited()
+
+
+# Second review: a prefix must never make an out-of-area homonym "served".
+@pytest.mark.parametrize(
+    ("localita", "comune"),
+    [("Gallicano (LU)", ""), ("Genzano (PZ)", ""), ("Marano", "Marano di Napoli"),
+     ("Anguillara", "Anguillara Veneta"), ("Albano", "Albano Sant'Alessandro")],
+)
+def test_an_out_of_area_homonym_is_not_served(localita, comune):
+    assert service_area(seed_info(), localita, comune).startswith(f"{AREA_NOT_SERVED}:")
+
+
+def test_the_comune_given_by_the_model_decides():
+    assert service_area(seed_info(), "Garbatella", "Roma").startswith(f"{AREA_SERVED}:")
+    assert service_area(seed_info(), "Velletri", "Velletri").startswith(f"{AREA_SERVED}:")
+    assert service_area(seed_info(), "Guidonia", "Guidonia").startswith(f"{AREA_SERVED}:")

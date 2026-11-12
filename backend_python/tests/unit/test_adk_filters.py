@@ -201,6 +201,16 @@ class TestFilterAgentOutput:
         assert await filter_agent_output(msg) == msg
 
     @pytest.mark.asyncio
+    async def test_an_email_on_its_own_line_in_the_company_info_is_not_a_leak(self):
+        """Second review: read from the JSON dump, the escaped newline glued an "n" to the address."""
+        info = company_info.seed_info()
+        pagamenti = next(s for s in info.sections if s.slug == "pagamenti")
+        pagamenti.blocks.append(TextBlock(type="p", text="Fatture alla PEC:\namministrazione@pec.syd.example"))
+        CompanyInfoService.apply(info, 2)
+        msg = "Puoi scrivere alla PEC amministrazione@pec.syd.example"
+        assert await filter_agent_output(msg) == msg
+
+    @pytest.mark.asyncio
     async def test_the_log_says_which_kind_of_leak(self, caplog):
         """The reason (never the text) is what told the 9 Nov masking apart."""
         with caplog.at_level("WARNING"):

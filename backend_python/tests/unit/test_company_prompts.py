@@ -83,7 +83,7 @@ def test_only_the_system_block_and_the_tools_are_sources():
 def test_the_router_gives_the_company_rules_precedence():
     prompt = str(agents.syd_orchestrator.static_instruction)
     assert "hanno la precedenza sulle righe di rendering e preventivo" in prompt
-    assert "salvo le domande sulla società" in prompt
+    assert "salvo le righe sulla società" in _flat(prompt)
 
 
 def test_no_login_for_work_not_in_the_list():
@@ -99,9 +99,55 @@ def test_the_quote_scope_refers_to_the_list_not_its_own():
 
 # ── Owner's decision, 12 Nov 2026: a site outside the served area during a quote ──
 
+OWNER_SENTENCE = (
+    "SYD opera a [Zona servita]: in base alle informazioni che ho, [località] non rientra nella zona "
+    "servita, quindi il lavoro non verrà eseguito."
+)
+
+
+def _flat(text: str) -> str:
+    return " ".join(text.split())
+
+
 def test_a_quote_for_a_site_outside_the_area_warns_first_then_continues():
-    rule = COMPANY_INFO_PROTOCOL
-    assert "CANTIERE FUORI ZONA" in rule
-    assert "quindi il lavoro non verrà eseguito" in rule
-    assert rule.index("CANTIERE FUORI ZONA") < rule.index("poi puoi proseguire con il preventivo")
+    rule = _flat(COMPANY_INFO_PROTOCOL)
+    assert "2bis. CANTIERE FUORI ZONA" in rule and "vedi 2bis" in rule
+    assert OWNER_SENTENCE in rule  # word for word
     assert "CANTIERE FUORI ZONA" in MODE_B_SURVEYOR
+
+
+def test_the_out_of_zone_warning_ends_its_turn_without_a_login():
+    """Second review: warning and login card in the same turn, or the warning repeated."""
+    rule = _flat(COMPANY_INFO_PROTOCOL)
+    assert "Nel turno dell'avviso NON chiamare strumenti di preventivo né request_login_adk" in rule
+    assert "Vuoi proseguire comunque con il preventivo?" in rule
+    assert "non ripetere l'avviso" in rule
+
+
+def test_an_unknown_place_is_asked_not_refused():
+    assert "chiedi all'utente in quale comune si trova" in _flat(COMPANY_INFO_PROTOCOL)
+
+
+def test_a_price_question_follows_the_role_rules():
+    assert "segui le regole del tuo ruolo" in _flat(COMPANY_INFO_PROTOCOL)
+    assert "come di consueto" not in COMPANY_INFO_PROTOCOL
+
+
+def test_the_short_lines_carry_the_doubt_rule():
+    """Second review: the lines the model reads first still refused on the old literal wording."""
+    router = _flat(str(agents.syd_orchestrator.static_instruction))
+    for text in (_flat(MODE_A_DESIGNER), _flat(MODE_B_SURVEYOR), router):
+        assert "CHIARAMENTE estraneo" in text and "nel dubbio procedi" in text
+    assert "CONTROLLO 0 (prima dell'AUTH_GATE" in MODE_A_DESIGNER and "CONTROLLO 0 (prima dell'AUTH_GATE" in MODE_B_SURVEYOR
+    assert "PRIMA DI TUTTO: se il lavoro" not in MODE_A_DESIGNER + MODE_B_SURVEYOR
+
+
+def test_the_router_leaves_the_site_warning_to_the_quote_agent():
+    assert "l'avviso CANTIERE FUORI ZONA lo dà l'agente `quote`" in _flat(str(agents.syd_orchestrator.static_instruction))
+
+
+def test_the_guest_exception_is_not_a_step():
+    from src.adk.session_context import _GUEST_RULE
+
+    assert "ECCEZIONE" in _GUEST_RULE and "CANTIERE FUORI ZONA" in _GUEST_RULE
+    assert "0)" not in _GUEST_RULE

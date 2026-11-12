@@ -58,8 +58,22 @@ def _company_emails() -> frozenset[str]:
     a customer's included, is still masked.
     """
     info = CompanyInfoService.snapshot()
-    found = {m.group(0).lower() for m in _EMAIL_PATTERN.finditer(info.model_dump_json())}
+    # The texts themselves, not the JSON dump: there a newline is the two
+    # characters "\n", and "\namministrazione@..." would read as "namministrazione@...".
+    text = "\n".join(_strings(info.model_dump()))
+    found = {m.group(0).lower() for m in _EMAIL_PATTERN.finditer(text)}
     return frozenset(found | {info.identity.email.lower()})
+
+
+def _strings(value: object) -> list[str]:
+    """Every string inside a dumped model (dicts, lists, nested)."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [s for item in value.values() for s in _strings(item)]
+    if isinstance(value, list):
+        return [s for item in value for s in _strings(item)]
+    return []
 
 
 def _leak_reason(text: str, allowed_emails: frozenset[str], *, final: bool) -> str | None:
