@@ -78,9 +78,9 @@ class RoomRepository:
     async def save_intervention_spec(self, project_id: str, room_id: str, spec: RoomInterventionSpec) -> None:
         """Replace the room's intervention spec, leaving brief and summary alone.
 
-        No precondition: the quote tool is the only writer of the field, and the
-        brief refresh that meets the newer document ends in `conflict` and retries
-        on the next turn. NotFound (a GoogleAPIError) if the room does not exist."""
+        No precondition: only the quote tool and the confirmation card write the
+        field (through `SpecStore`), and the brief refresh that meets the newer
+        document ends in `conflict` and retries on the next turn. NotFound (a GoogleAPIError) if the room does not exist."""
         await self._project(project_id).collection(ROOMS).document(room_id).update(
             {"intervention_spec": spec.model_dump(), "updated_at": utc_now()}
         )

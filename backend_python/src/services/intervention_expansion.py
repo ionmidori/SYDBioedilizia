@@ -371,7 +371,7 @@ def _requested_actions(analysis: InsightAnalysis) -> dict[str, ElementAction]:
     return actions
 
 
-_ACTION_LABELS: Mapping[ElementAction, str] = {"replace": "sostituisci", "reuse": "riutilizza", "keep": "lascia in posa"}
+ACTION_LABELS: Mapping[ElementAction, str] = {"replace": "sostituisci", "reuse": "riutilizza", "keep": "lascia in posa"}
 
 
 def _flag_shared_choices(assemblies: Sequence[Assembly], actions: Mapping[str, ElementAction], draft: _Draft) -> None:
@@ -385,7 +385,7 @@ def _flag_shared_choices(assemblies: Sequence[Assembly], actions: Mapping[str, E
             label = next(e.label for e in owners[0].elements if e.element == element)
             draft.warnings.append(ExpansionWarning(
                 "admin_check",
-                f"\"{_ACTION_LABELS[action]}\" su {label} applicato a {', '.join(a.name for a in owners)}: "
+                f"\"{ACTION_LABELS[action]}\" su {label} applicato a {', '.join(a.name for a in owners)}: "
                 "verificare a quale stanza si riferisce",
             ))
 

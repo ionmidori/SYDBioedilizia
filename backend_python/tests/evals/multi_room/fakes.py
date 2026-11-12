@@ -38,6 +38,7 @@ from google.api_core.exceptions import NotFound
 from google.genai import types
 from src.core.exceptions import ProjectFileNotFoundError, RoomNotFoundError
 from src.core.money import sum_amounts
+from src.repositories.spec_store import CHAT_SPEC_KEY
 from src.schemas.intervention_spec import RoomInterventionSpec
 from src.schemas.quote import QuoteRequest, QuoteSchema
 from src.schemas.room import DEFAULT_ROOM_ID, RoomCreate, RoomSchema
@@ -80,16 +81,8 @@ class FakeRoomRepository:
         {"id": KITCHEN_PHOTOS[1], "type": "image", "url": photo_url(KITCHEN_PHOTOS[1]), "roomId": KITCHEN_ROOM_ID},
     ])
 
-    # Intervention specs saved by the quote tool, by room.
-    specs: dict[str, RoomInterventionSpec] = field(default_factory=dict)
-
     async def list_rooms(self, project_id: str) -> list[RoomSchema]:
         return list(self.rooms.values())
-
-    async def save_intervention_spec(self, project_id: str, room_id: str, spec: RoomInterventionSpec) -> None:
-        if room_id not in self.rooms:
-            raise NotFound(f"room {room_id}")
-        self.specs[room_id] = spec
 
     async def get_room(self, project_id: str, room_id: str) -> RoomSchema | None:
         return self.rooms.get(room_id)
@@ -135,6 +128,22 @@ class FakeRoomRepository:
         if doc is None:
             raise ProjectFileNotFoundError(project_id, file_id)
         doc["roomId"] = room_id
+
+
+@dataclass
+class FakeSpecStore:
+    """`SpecStore` over a dict, by section key; ignores the project id (one eval project)."""
+
+    rooms: FakeRoomRepository
+    specs: dict[str, RoomInterventionSpec] = field(default_factory=dict)
+
+    async def load_all(self, project_id: str) -> dict[str, RoomInterventionSpec]:
+        return dict(self.specs)
+
+    async def save(self, project_id: str, section_key: str, spec: RoomInterventionSpec) -> None:
+        if section_key not in (*self.rooms.rooms, DEFAULT_ROOM_ID, CHAT_SPEC_KEY):
+            raise NotFound(f"room {section_key}")
+        self.specs[section_key] = spec
 
 
 @dataclass
@@ -592,6 +601,7 @@ def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
             "src.tools.quote_tools.get_room_repository",
         ):
             stack.enter_context(patch(target, return_value=repo))
+        stack.enter_context(patch("src.tools.quote_tools.get_spec_store", return_value=FakeSpecStore(repo)))
         stack.enter_context(patch("src.adk.tools.latest_uploaded_photo_url", new=AsyncMock(return_value=newest_project_photo)))
         # The gate itself (not only the account lookup): the dev auth bypass of a local .env would open it.
         stack.enter_context(patch("src.adk.tools._is_guest", new=AsyncMock(return_value=guest)))

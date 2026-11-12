@@ -1,5 +1,6 @@
-"""Intervention spec of a room, as stored in `projects/{pid}/rooms/{rid}.intervention_spec`
-(Phase 140, step 1).
+"""Intervention spec of a quote unit (Phase 140, step 1): a room's is stored in
+`projects/{pid}/rooms/{rid}.intervention_spec`, the others by `SpecStore`
+(`src/repositories/spec_store.py`).
 
 What the quote of the room was computed from: the packages and their conditions,
 the client's choice per element, the single extra items, the work outside the

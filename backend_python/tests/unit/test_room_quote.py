@@ -9,7 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from google.api_core.exceptions import GoogleAPICallError, NotFound
 from pydantic import ValidationError
 from src.core.money import sum_amounts
-from src.schemas.intervention_spec import StoredMeasure, StoredPackage
+from src.repositories.spec_store import CHAT_SPEC_KEY
+from src.schemas.intervention_spec import RoomInterventionSpec, StoredElementChoice, StoredMeasure, StoredPackage
 from src.schemas.quote import ManualWorkItem
 from src.schemas.room import DEFAULT_ROOM_ID, RoomBrief, RoomSchema
 from src.services.assembly_library import load_library
@@ -110,16 +111,19 @@ def _engine(analyses: dict[str, InsightAnalysis]):
 
 
 @contextmanager
-def _project(rooms=ROOMS, files=FILES, history=HISTORY, analyses=None, engine=None):
+def _project(rooms=ROOMS, files=FILES, history=HISTORY, analyses=None, engine=None, specs=None):
     repo = MagicMock()
     repo.list_rooms = AsyncMock(return_value=rooms)
     repo.list_files = AsyncMock(return_value=files)
     repo.files_for_room = AsyncMock(side_effect=_files_for_room(files))
-    repo.save_intervention_spec = AsyncMock()
+    store = MagicMock()
+    store.load_all = AsyncMock(return_value=specs or {})
+    store.save = AsyncMock()
     saved = AsyncMock(return_value=DraftSaveResult(DraftSaveOutcome.CREATED, "draft", "PRV-2026-0042", 1))
     analyze = engine or _engine(analyses or ANALYSES)
     with patch.object(quote_tools, "get_room_repository", return_value=repo), \
-         patch.object(quote_tools, "ConversationRepository") as conversations, \
+         patch.object(quote_tools, "get_spec_store", return_value=store), \
+       patch.object(quote_tools, "ConversationRepository") as conversations, \
          patch.object(quote_tools, "get_insight_engine") as get_engine, \
          patch.object(quote_tools, "_run_measurement_vision", AsyncMock(return_value="\n\n## Misure: 6 mq")) as measure, \
          patch.object(quote_tools, "_structural_delta", AsyncMock(return_value="\n\n## Delta")) as delta, \
@@ -128,7 +132,7 @@ def _project(rooms=ROOMS, files=FILES, history=HISTORY, analyses=None, engine=No
          patch.object(quote_tools, "get_async_firestore_client"):
         conversations.return_value.get_context = AsyncMock(side_effect=_history(history))
         get_engine.return_value.analyze_project_for_quote = analyze
-        yield {"analyze": analyze, "measure": measure, "delta": delta, "saved": saved, "repo": repo}
+        yield {"analyze": analyze, "measure": measure, "delta": delta, "saved": saved, "repo": repo, "store": store}
 
 
 async def _quote() -> str:
@@ -416,8 +420,8 @@ def _bathroom(**fields: Any) -> InsightAnalysis:
     return InsightAnalysis(**{**spec, **fields})
 
 
-def _saved_specs(repo: MagicMock) -> dict[str, Any]:
-    calls = repo.save_intervention_spec.await_args_list
+def _saved_specs(store: MagicMock) -> dict[str, Any]:
+    calls = store.save.await_args_list
     assert all(call.args[0] == PID for call in calls)
     return {call.args[1]: call.args[2] for call in calls}
 
@@ -462,7 +466,7 @@ async def test_a_missing_measure_is_taken_from_the_room_brief():
 
     quote = mocks["saved"].await_args.args[2]
     assert {i.sku: i.qty for i in quote.items if i.room_id == "bagno1"}["BAG-RIV-001"] == 13.86
-    assert _saved_specs(mocks["repo"])["bagno1"].measures == [StoredMeasure(name="mq", value=6.0, source="brief")]
+    assert _saved_specs(mocks["store"])["bagno1"].measures == [StoredMeasure(name="mq", value=6.0, source="brief")]
 
 
 async def test_a_room_with_only_packages_is_not_stopped_by_minor_questions():
@@ -530,7 +534,7 @@ async def test_the_spec_is_saved_on_each_room_with_the_extras_kept():
     with _project(analyses={**ANALYSES, "Bagno": analysis}) as mocks:
         await _quote()
 
-    specs = _saved_specs(mocks["repo"])
+    specs = _saved_specs(mocks["store"])
     assert set(specs) == {"bagno1", "cucina1", DEFAULT_ROOM_ID}  # "Generale" too: its document exists
     spec = specs["bagno1"]
     assert spec.packages == [StoredPackage(assembly_id="ASM-BAGNO-FULL")]
@@ -542,7 +546,7 @@ async def test_the_spec_is_saved_on_each_room_with_the_extras_kept():
 
 async def test_a_spec_save_failure_does_not_block_the_quote(caplog):
     with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks:
-        mocks["repo"].save_intervention_spec.side_effect = NotFound("room deleted")
+        mocks["store"].save.side_effect = NotFound("room deleted")
         reply = await _quote()
 
     mocks["saved"].assert_awaited_once()
@@ -556,7 +560,7 @@ async def test_without_the_library_the_single_lines_still_make_the_quote():
 
     quote = mocks["saved"].await_args.args[2]
     assert [i.sku for i in quote.items if i.room_id == "bagno1"] == ["BAG-SAN-001"]
-    mocks["repo"].save_intervention_spec.assert_not_awaited()
+    mocks["store"].save.assert_not_awaited()
 
 
 async def test_a_chat_without_rooms_asks_for_the_missing_measure():
@@ -568,7 +572,8 @@ async def test_a_chat_without_rooms_asks_for_the_missing_measure():
 
     assert MEASURE_QUESTIONS["mq"] in reply
     mocks["saved"].assert_not_awaited()
-    mocks["repo"].save_intervention_spec.assert_not_awaited()  # no room holds a whole-chat spec
+    # Saved before the gate, with what the card asks for.
+    assert _saved_specs(mocks["store"])[CHAT_SPEC_KEY].missing_measures == ["mq"]
 
 
 async def test_the_disposal_share_is_asked_only_outside_the_chosen_packages():
@@ -587,7 +592,7 @@ async def test_a_spec_that_cannot_be_built_does_not_block_the_quote(caplog):
         await _quote()
 
     mocks["saved"].assert_awaited_once()
-    mocks["repo"].save_intervention_spec.assert_not_awaited()
+    mocks["store"].save.assert_not_awaited()
     assert "Intervention spec not saved" in caplog.text
 
 
@@ -627,7 +632,7 @@ async def test_the_draft_carries_the_spec_of_each_quoted_room():
 
     specs = _draft_specs(mocks["saved"])
     assert set(specs) == {"bagno1", "cucina1"}, "one spec per quoted room"
-    assert specs["bagno1"] == _saved_specs(mocks["repo"])["bagno1"], "the same spec as the room's"
+    assert specs["bagno1"] == _saved_specs(mocks["store"])["bagno1"], "the same spec as the room's"
     assert specs["bagno1"].packages == [StoredPackage(assembly_id="ASM-BAGNO-FULL")]
 
 
@@ -640,7 +645,7 @@ async def test_the_draft_of_a_chat_without_rooms_carries_its_spec_without_a_room
     specs = _draft_specs(mocks["saved"])
     assert list(specs) == [None]
     assert specs[None].measures == [StoredMeasure(name="mq", value=6.0, source="declared")]
-    mocks["repo"].save_intervention_spec.assert_not_awaited()
+    assert set(_saved_specs(mocks["store"])) == {CHAT_SPEC_KEY}
 
 
 async def test_without_the_library_the_draft_has_no_spec():
@@ -648,3 +653,86 @@ async def test_without_the_library_the_draft_has_no_spec():
         await _quote()
 
     assert mocks["saved"].await_args.kwargs["specs"] == []
+
+
+# ── Phase 140 step 3: the client's confirmations survive a new analysis ──────
+
+
+def _stored(**fields: Any) -> RoomInterventionSpec:
+    return RoomInterventionSpec.model_validate({"library_version": "2.1.0", "generated_at": utc_now(), **fields})
+
+
+async def test_confirmed_measure_used_in_expansion():
+    """The client confirmed 8 mq on the card; the new analysis says 6: the lines use 8,
+    the 6 is a proposal for the client and a check for the team."""
+    stored = _stored(measures=[{"name": "mq", "value": 8, "source": "confirmed"}])
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}, specs={"bagno1": stored}) as mocks:
+        await _quote()
+
+    quote = mocks["saved"].await_args.args[2]
+    bagno = {i.sku: i.qty for i in quote.items if i.room_id == "bagno1"}
+    assert bagno["BAG-RIV-001"] == 18.48 and bagno["MUR-004"] == 17.6  # 8 * 2.2 * 1.05, 8 * 2.2
+    assert _saved_specs(mocks["store"])["bagno1"].measures == [
+        StoredMeasure(name="mq", value=8.0, source="confirmed", proposed=6.0)
+    ]
+    request = mocks["saved"].await_args.args[3]
+    checks = [w for w in request.ai_warnings if w.kind == "admin_check" and "confermato 8" in w.message]
+    assert len(checks) == 1 and checks[0].room_id == "bagno1"
+
+
+async def test_confirmed_choice_used_in_expansion():
+    stored = _stored(element_choices=[{"element": "sanitari", "action": "replace", "confirmed": True}])
+    analysis = _bathroom(element_choices=[ElementChoice(element="sanitari", action="keep")])
+    with _project(analyses={**ANALYSES, "Bagno": analysis}, specs={"bagno1": stored}) as mocks:
+        await _quote()
+
+    request = mocks["saved"].await_args.args[3]
+    assert all(m.origin != "reuse" for m in request.manual_work)  # replaced, not taken off and put back
+    assert _saved_specs(mocks["store"])["bagno1"].element_choices == [
+        StoredElementChoice(element="sanitari", action="replace", confirmed=True)
+    ]
+
+
+async def test_spec_saved_for_chat_without_rooms():
+    files = [_file("f_vecchia", DEFAULT_ROOM_ID)]
+    history = [{"role": "user", "content": "Rifaccio il bagno"}]
+    with _project(rooms=ROOMS[:1], files=files, history=history, engine=AsyncMock(return_value=_bathroom())) as mocks:
+        await _quote()
+
+    mocks["saved"].assert_awaited_once()
+    spec = _saved_specs(mocks["store"])[CHAT_SPEC_KEY]
+    assert spec.measures == [StoredMeasure(name="mq", value=6.0, source="declared")]
+    assert spec.missing_measures == [] and spec.conflicts == {}
+
+
+async def test_missing_measures_saved_before_gate():
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom(measures=[])}) as mocks:
+        reply = await _quote()
+
+    assert MEASURE_QUESTIONS["mq"] in reply
+    mocks["saved"].assert_not_awaited()
+    assert _saved_specs(mocks["store"])["bagno1"].missing_measures == ["mq"]
+
+
+async def test_conflicting_measures_are_saved_for_the_card():
+    files = [_file("f_vecchia", DEFAULT_ROOM_ID)]
+    history = [{"role": "user", "content": "Bagno da 6 mq e uno da 9"}]
+    analysis = _bathroom(measures=[SpecMeasure(name="mq", value=6, source="declared"),
+                                   SpecMeasure(name="mq", value=9, source="declared")])
+    with _project(rooms=ROOMS[:1], files=files, history=history, engine=AsyncMock(return_value=analysis)) as mocks:
+        await _quote()
+
+    spec = _saved_specs(mocks["store"])[CHAT_SPEC_KEY]
+    assert spec.conflicts == {"mq": [6.0, 9.0]} and spec.missing_measures == ["mq"]
+
+
+async def test_specs_not_readable_are_not_overwritten(caplog):
+    """A confirmation the analysis could not read must not be replaced by the model's values."""
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks:
+        mocks["store"].load_all.side_effect = GoogleAPICallError("unavailable")
+        reply = await _quote()
+
+    assert "PRV-2026-0042" in reply
+    mocks["store"].save.assert_not_awaited()
+    assert "Intervention specs not readable" in caplog.text
+    assert PID not in caplog.text

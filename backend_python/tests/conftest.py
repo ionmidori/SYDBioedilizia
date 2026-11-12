@@ -78,20 +78,25 @@ def _reset_genai_client_cache():
 def _orchestrator_without_rooms():
     """A chat turn (and a quote) reads the project's rooms, looks up its media and
     reads the house quote in Firestore: tests that drive the orchestrator or
-    `suggest_quote_items` get a project without rooms, registered files or quote
-    (room and quote tests patch `get_room_repository` / `read_quote_status`
-    themselves). Patched only in the modules already loaded, like
-    `_reset_adk_session_sync`."""
+    `suggest_quote_items` get a project without rooms, registered files, quote or
+    intervention specs (room and quote tests patch `get_room_repository` /
+    `read_quote_status` / `get_spec_store` themselves). Patched only in the
+    modules already loaded, like `_reset_adk_session_sync`."""
     modules = [sys.modules.get(name) for name in ("src.adk.adk_orchestrator", "src.tools.quote_tools")]
     repo = MagicMock()
     repo.list_rooms = AsyncMock(return_value=[])
     repo.list_files = AsyncMock(return_value=[])
     repo.find_file_by_storage_path = AsyncMock(return_value=None)
+    specs = MagicMock()
+    specs.load_all = AsyncMock(return_value={})
+    specs.save = AsyncMock()
     with ExitStack() as stack:
         for module in modules:
             if module is not None:
                 stack.enter_context(patch.object(module, "get_room_repository", return_value=repo))
                 stack.enter_context(patch.object(module, "read_quote_status", new=AsyncMock(return_value=None)))
+                if hasattr(module, "get_spec_store"):
+                    stack.enter_context(patch.object(module, "get_spec_store", return_value=specs))
         yield
 
 

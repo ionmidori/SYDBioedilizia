@@ -2,7 +2,8 @@ import asyncio
 import hashlib
 import logging
 from collections import OrderedDict
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import Any
 
@@ -15,6 +16,7 @@ from src.core.money import to_decimal
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import ConversationRepository
 from src.repositories.room_repository import get_room_repository
+from src.repositories.spec_store import CHAT_SPEC_KEY, get_spec_store
 from src.schemas.assembly_library import AssemblyLibrary
 from src.schemas.intervention_spec import RoomInterventionSpec
 from src.schemas.quote import ManualWorkItem, QuoteAiWarning, QuoteRequest, RevisionRoomSpec
@@ -26,6 +28,7 @@ from src.services.intervention_expansion import (
     MIN_QTY,
     ExpandedLine,
     Expansion,
+    ExpansionWarning,
     expand,
     resolve_measures,
     spec_from_analysis,
@@ -36,6 +39,7 @@ from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_
 from src.services.quote_followup import FollowupResult, relay_client_request
 from src.services.quote_state import QuoteStatus, ai_draft_action
 from src.services.room_aggregation import aggregate_rooms, load_rules, room_sections
+from src.services.spec_confirmation import apply_confirmations, expansion_inputs
 from src.tools.room_tools import brief_lines, room_of
 from src.utils.datetime_utils import utc_now
 from src.utils.download import MediaUnavailableError, download_session_media, session_media_path
@@ -423,9 +427,6 @@ class _QuoteUnit:
     context: str
     media: list[str]
     general: bool = False
-    # Room document that stores the unit's intervention spec (None: none does,
-    # e.g. the whole chat of a project without rooms).
-    spec_room_id: str | None = None
 
     @property
     def section_id(self) -> str | None:
@@ -433,6 +434,11 @@ class _QuoteUnit:
         if self.general:
             return DEFAULT_ROOM_ID
         return self.room.room_id if self.room else None
+
+    @property
+    def spec_key(self) -> str:
+        """Where the unit's intervention spec is stored (`SpecStore`): its section, or the whole chat."""
+        return self.section_id or CHAT_SPEC_KEY
 
 
 @dataclass(frozen=True)
@@ -583,8 +589,7 @@ async def _general_unit(
     )
     logger.info("[QuoteTool] General context ready.", extra={"messages": len(messages), "media": len(media)})
     return _QuoteUnit(
-        room=None, context=context, media=[_file_ref(f) for f in reversed(media)], general=True,
-        spec_room_id=DEFAULT_ROOM_ID if generale_room else None,
+        room=None, context=context, media=[_file_ref(f) for f in reversed(media)], general=True
     )
 
 
@@ -637,9 +642,7 @@ async def _room_unit(
         extra={"room_id": room.room_id, "messages": len(room_messages), "media": len(media),
                "measured": bool(measurement_context), "render_delta": bool(structural_delta)},
     )
-    return _QuoteUnit(
-        room=room, context=context, media=[_file_ref(f) for f in reversed(media)], spec_room_id=room.room_id
-    )
+    return _QuoteUnit(room=room, context=context, media=[_file_ref(f) for f in reversed(media)])
 
 
 async def _rooms_to_quote(
@@ -663,41 +666,68 @@ async def _rooms_to_quote(
     return to_quote, rooms, {f["id"]: f for f in files}
 
 
-def _spec_warning(room_id: str | None, exc: Exception) -> None:
+def _spec_warning(section_key: str, exc: Exception) -> None:
     # No project id: it may be the chat session id, an access token for guests
     # (CodeQL py/clear-text-logging).
     logger.warning(
         "[QuoteTool] Intervention spec not saved.",
-        extra={"room_id": room_id, "error_type": type(exc).__name__},
+        extra={"section_key": section_key, "error_type": type(exc).__name__},
     )
 
 
-def _build_spec(
-    unit: _QuoteUnit, analysis: InsightAnalysis, measures: dict[str, Decimal], library: AssemblyLibrary | None
-) -> RoomInterventionSpec | None:
-    """The spec the unit's lines were expanded from (None: no library, or it cannot
-    be built). Best-effort: the quote never depends on it."""
-    if library is None:
-        return None
+async def _stored_specs(project_id: str) -> dict[str, RoomInterventionSpec] | None:
+    """The specs stored for the project, with the client's confirmations. None when
+    they cannot be read: no spec is saved then, so no confirmation is overwritten."""
     try:
-        return spec_from_analysis(analysis, measures, library_version=library.version, now=utc_now())
-    except ValidationError as exc:
-        _spec_warning(unit.spec_room_id, exc)
-        return None
-
-
-async def _save_spec(project_id: str, room_id: str, spec: RoomInterventionSpec) -> None:
-    """Store the spec on the room. Best-effort: a deleted room, a Firestore error
-    only log a warning."""
-    try:
-        await get_room_repository().save_intervention_spec(project_id, room_id, spec)
+        return await get_spec_store().load_all(project_id)
     except GoogleAPIError as exc:
-        _spec_warning(room_id, exc)
+        logger.warning(
+            "[QuoteTool] Intervention specs not readable: none saved this turn.",
+            extra={"error_type": type(exc).__name__},
+        )
+        return None
 
 
-async def _analyse(unit: _QuoteUnit, session_id: str, project_id: str) -> _UnitResult:
+def _build_spec(
+    unit: _QuoteUnit,
+    analysis: InsightAnalysis,
+    measures: Mapping[str, Decimal],
+    library: AssemblyLibrary | None,
+    stored: RoomInterventionSpec | None,
+    expansion: Expansion,
+) -> tuple[RoomInterventionSpec | None, list[str]]:
+    """The spec the unit's lines were expanded from, with the client's confirmations
+    and what the card asks for, and the team's checks on the confirmed values.
+    (None, []): no library, or the spec cannot be built. Best-effort: the quote
+    never depends on it."""
+    if library is None:
+        return None, []
+    try:
+        fresh = spec_from_analysis(analysis, measures, library_version=library.version, now=utc_now())
+    except ValidationError as exc:
+        _spec_warning(unit.spec_key, exc)
+        return None, []
+    merged, notes = apply_confirmations(fresh, stored)
+    conflicts = {name: [float(value) for value in values] for name, values in expansion.conflicts.items()}
+    spec = merged.model_copy(update={"missing_measures": list(expansion.missing_measures), "conflicts": conflicts})
+    return spec, notes
+
+
+async def _save_spec(project_id: str, section_key: str, spec: RoomInterventionSpec) -> None:
+    """Store the unit's spec. Best-effort: a deleted room, a Firestore error only
+    log a warning."""
+    try:
+        await get_spec_store().save(project_id, section_key, spec)
+    except GoogleAPIError as exc:
+        _spec_warning(section_key, exc)
+
+
+async def _analyse(
+    unit: _QuoteUnit, session_id: str, project_id: str, stored_specs: Mapping[str, RoomInterventionSpec] | None
+) -> _UnitResult:
     """InsightEngine on one unit, then SKU and quantity validation, then the
-    expansion of the spec into lines by code (and the spec stored on the room)."""
+    expansion of the spec into lines by code, with what the client confirmed on
+    the card (`stored_specs`, None: not readable), and the spec stored."""
     # 7. Analyze with Insight Engine (uses Gemini response_schema structured output)
     analysis = await get_insight_engine().analyze_project_for_quote(
         [{"role": "user", "content": unit.context}], unit.media, session_id=session_id
@@ -716,11 +746,17 @@ async def _analyse(unit: _QuoteUnit, session_id: str, project_id: str) -> _UnitR
     library = load_library()
     # "Generale" has no brief of its own measures: its floor is not the rest of the home's.
     measures = resolve_measures(validated, unit.room.brief if unit.room else None)
+    stored = stored_specs.get(unit.spec_key) if stored_specs is not None else None
+    for_expansion, used = expansion_inputs(validated, measures, stored)
     units = {str(item["sku"]): str(item["unit"]) for item in PricingService.load_price_book()}
-    expansion = expand(validated, library or _NO_LIBRARY, units, measures)
-    spec = _build_spec(unit, validated, measures, library)
-    if spec is not None and unit.spec_room_id is not None:
-        await _save_spec(project_id, unit.spec_room_id, spec)
+    expansion = expand(for_expansion, library or _NO_LIBRARY, units, used)
+    # Built from the model's values: one that differs from a confirmed value is a proposal.
+    spec, notes = _build_spec(unit, validated, measures, library, stored, expansion)
+    if notes:
+        checks = [ExpansionWarning("admin_check", note) for note in notes]
+        expansion = replace(expansion, warnings=[*expansion.warnings, *checks])
+    if spec is not None and stored_specs is not None:
+        await _save_spec(project_id, unit.spec_key, spec)
     return _UnitResult(unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, spec=spec)
 
 
@@ -894,7 +930,9 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # 1. Load context (wide window: the original photo analysis and every room discussed)
         repo = ConversationRepository()
         history = await repo.get_context(session_id, limit=_QUOTE_HISTORY_MESSAGES)
-        to_quote, all_rooms, project_files = await _rooms_to_quote(target_project_id, history)
+        (to_quote, all_rooms, project_files), stored_specs = await asyncio.gather(
+            _rooms_to_quote(target_project_id, history), _stored_specs(target_project_id)
+        )
 
         # A room that cannot be analysed (model or Firestore error) stops the
         # home quote: the other rooms are cancelled, no partial quote is saved.
@@ -909,13 +947,13 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                     others = [r.label for r in to_quote if r.room_id != room.room_id]
                     async with semaphore:
                         unit = await _room_unit(room, others, general, project_files, session_id, target_project_id)
-                        return await _analyse(unit, session_id, target_project_id)
+                        return await _analyse(unit, session_id, target_project_id, stored_specs)
 
                 async def analyse_rest_of_home() -> _UnitResult | None:
                     generale = next((r for r in all_rooms if r.room_id == DEFAULT_ROOM_ID), None)
                     async with semaphore:
                         unit = await _general_unit(general, generale, [r.label for r in to_quote], target_project_id)
-                        return await _analyse(unit, session_id, target_project_id) if unit else None
+                        return await _analyse(unit, session_id, target_project_id, stored_specs) if unit else None
 
                 async with asyncio.TaskGroup() as group:
                     tasks = [group.create_task(analyse_room(room)) for room in to_quote]
@@ -926,7 +964,8 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 if rest is not None and (rest.proposed_lines or rest.expansion.manual_work):
                     results.append(rest)
             else:
-                results = [await _analyse(await _single_unit(history, session_id), session_id, target_project_id)]
+                unit = await _single_unit(history, session_id)
+                results = [await _analyse(unit, session_id, target_project_id, stored_specs)]
         except* (InsightEngineError, GoogleAPIError, ValidationError) as errors:
             failure = errors
         if failure is not None:
