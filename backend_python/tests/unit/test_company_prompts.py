@@ -151,3 +151,13 @@ def test_the_guest_exception_is_not_a_step():
 
     assert "ECCEZIONE" in _GUEST_RULE and "CANTIERE FUORI ZONA" in _GUEST_RULE
     assert "0)" not in _GUEST_RULE
+
+
+# ── Owner's decision, 12 Nov 2026: the quote always asks the comune of the site ──
+
+def test_the_quote_always_asks_the_comune_of_the_site():
+    flow = _flat(MODE_B_SURVEYOR)
+    assert "COMUNE DEL CANTIERE" in flow
+    assert "In quale comune si trova l'immobile?" in flow
+    assert flow.index("COMUNE DEL CANTIERE") < flow.index("STEP CONFERMA DELLA REGISTRAZIONE")
+    assert "Hai raccolto Comune del cantiere + Scope + Metriche" in flow  # registration waits for it
