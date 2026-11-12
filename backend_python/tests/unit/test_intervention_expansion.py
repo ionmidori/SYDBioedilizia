@@ -432,3 +432,16 @@ def test_a_choice_on_an_element_of_several_packages_is_flagged(
     assert "Ristrutturazione Bagno Completa" in warning.message and "Ristrutturazione Cucina Completa" in warning.message
     single = _run(library, units, _analysis(_BATH, elements={"pavimento": "keep"}), mq="6")
     assert "admin_check" not in _kinds(single), "one package: the choice is unambiguous"
+
+
+def test_line_records_formula_measures(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    """Phase 140 step 3: each line says which measures its formula used (price range)."""
+    result = _run(library, units, _analysis(("ASM-BAGNO-FULL", [])), mq="6")
+    by_sku = {line.sku: line for line in result.lines}
+    assert by_sku["BAG-RIV-001"].measures == ("mq",)
+    assert by_sku["DEM-006"].measures == ()
+    rule = _run(library, units, _analysis(extras=[("DEM-002", 20)]), mq="20")
+    smal = next(line for line in rule.lines if line.sku == "SMAL-001")
+    extra = next(line for line in rule.lines if line.sku == "DEM-002")
+    assert (smal.origin, smal.measures) == ("rule", ("mq",))
+    assert (extra.origin, extra.measures) == ("extra", ())

@@ -94,6 +94,8 @@ class ExpandedLine:
     assembly_id: str | None = None
     # Short name of the work (library note or rule), used when the line has to be quoted by hand.
     note: str = ""
+    # Measures the line's formula used, sorted (none for extra lines: the model gave the qty).
+    measures: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -233,6 +235,10 @@ class _Draft:
         return Expansion(list(self.lines), list(self.manual_work), list(self.warnings), list(self.missing_measures))
 
 
+def _formula_measures(formula: str) -> tuple[str, ...]:
+    return tuple(sorted(formula_variables(formula)))
+
+
 def _measures_text(formula: str, measures: Mapping[str, Decimal]) -> str:
     used = sorted(name for name in measures if name in formula_variables(formula))
     values = ", ".join(f"{name}={measures[name].normalize():f}" for name in used)
@@ -318,6 +324,7 @@ def _expand_package(
             origin="package",
             assembly_id=assembly.id,
             note=item.note,
+            measures=_formula_measures(item.qty_formula),
         ))
     for manual in assembly.manual_items:
         draft.add_manual(manual.work, "package")
@@ -504,6 +511,7 @@ def _apply_rules(library: AssemblyLibrary, measures: Mapping[str, Decimal], draf
                     draft.lines.append(ExpandedLine(
                         sku=sku, qty=qty, origin="rule", note=notes.get(sku, rule.rule),
                         reasoning=f"{rule.rule} ({_measures_text(rule.requires_qty_formula, measures)})",
+                        measures=_formula_measures(rule.requires_qty_formula),
                     ))
                     present.add(sku)
             if rule.requires_admin_flag:
