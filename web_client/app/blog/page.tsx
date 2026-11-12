@@ -6,7 +6,7 @@ import { Navbar } from "@/components/sections/Navbar";
 import { Footer } from "@/components/sections/Footer";
 import { BLOG_POSTS } from "@/lib/blog";
 import { BLOG_LOGO_URL, serializeJsonLd } from "@/lib/blog/seo";
-import { COMPANY } from "@/lib/company";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Blog Ristrutturazioni Roma | SYD Bioedilizia",
@@ -24,10 +24,10 @@ export default function BlogIndexPage() {
     name: "Blog Ristrutturazioni Roma | SYD Bioedilizia",
     description:
       "Approfondimenti, guide e consigli sulle ristrutturazioni d'interni, bioedilizia e riqualificazione energetica.",
-    url: `${COMPANY.url}/blog`,
+    url: `${SITE_URL}/blog`,
     publisher: {
       "@type": "Organization",
-      name: COMPANY.name,
+      name: SITE_NAME,
       logo: {
         "@type": "ImageObject",
         url: BLOG_LOGO_URL,
@@ -39,7 +39,7 @@ export default function BlogIndexPage() {
       description: post.excerpt,
       image: post.image,
       datePublished: post.datePublished,
-      url: `${COMPANY.url}/blog/${post.slug}`,
+      url: `${SITE_URL}/blog/${post.slug}`,
     })),
   };
 

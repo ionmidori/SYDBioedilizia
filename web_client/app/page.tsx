@@ -6,9 +6,9 @@ import { Testimonials } from '@/components/sections/Testimonials';
 import { Footer } from '@/components/sections/Footer';
 import ChatWidget from '@/components/chat/ChatWidget';
 import { Suspense } from 'react';
-import { COMPANY } from '@/lib/company';
-import { STRUCTURED_DATA_LOGO } from '@/lib/brand';
+import { serializeJsonLd } from '@/lib/blog/seo';
 import { getCompanyInfo } from '@/lib/company-info/server';
+import { businessJsonLd } from '@/lib/company-info/structured-data';
 import { getPortfolio } from '@/lib/portfolio/server';
 import { portfolioShareImage } from '@/lib/portfolio/structured-data';
 import { shareMetadata } from '@/lib/site-share';
@@ -25,55 +25,8 @@ export default async function Home() {
   // in the HTML, with no flash of the placeholder set while the browser fetches.
   const portfolio = await getPortfolio();
   const companyInfo = await getCompanyInfo();
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "GeneralContractor",
-    "@id": `${COMPANY.url}/#business`,
-    "name": "SYD BIOEDILIZIA",
-    "legalName": COMPANY.legalName,
-    "description": "Leader a Roma e Provincia: ristrutturazioni tradizionali e bioedilizia.",
-    "url": COMPANY.url,
-    "logo": `${COMPANY.url}${STRUCTURED_DATA_LOGO.url}`,
-    "image": `${COMPANY.url}${STRUCTURED_DATA_LOGO.url}`,
-    "telephone": COMPANY.phone,
-    "email": COMPANY.email,
-    "vatID": `IT${COMPANY.vatId}`,
-    "address": {
-      "@type": "PostalAddress",
-      "streetAddress": COMPANY.address.street,
-      "postalCode": COMPANY.address.postalCode,
-      "addressLocality": COMPANY.address.city,
-      "addressRegion": COMPANY.address.region,
-      "addressCountry": COMPANY.address.country
-    },
-    "areaServed": [
-      { "@type": "City", "name": "Roma" },
-      { "@type": "City", "name": "Fiumicino" },
-      { "@type": "City", "name": "Pomezia" },
-      { "@type": "City", "name": "Tivoli" },
-      { "@type": "City", "name": "Albano Laziale" },
-      { "@type": "City", "name": "Cerveteri" },
-      { "@type": "City", "name": "Bracciano" },
-      { "@type": "City", "name": "Ciampino" },
-      { "@type": "City", "name": "Ladispoli" },
-      { "@type": "City", "name": "Frascati" },
-      { "@type": "City", "name": "Acilia" },
-      { "@type": "AdministrativeArea", "name": "Provincia di Roma" }
-    ],
-    "knowsAbout": [
-      "Ristrutturazioni Tradizionali",
-      "Bioedilizia",
-      "Design d'Interni",
-      "Efficientamento Energetico",
-      "Rifacimento Bagni",
-      "Ristrutturazione Completa Appartamenti",
-      "Sostituzione Infissi",
-      "Installazione Climatizzatori",
-      "Rifacimento Impianti Elettrici",
-      "Posa Piastrelle"
-    ],
-    "priceRange": "€€€"
-  };
+  // GeneralContractor JSON-LD from the company info (contacts, area, hours, works).
+  const jsonLd = businessJsonLd(companyInfo);
 
   return (
     // overflow-x-clip, not -hidden: `hidden` makes this element a scroll container,
@@ -82,7 +35,8 @@ export default async function Home() {
     <main className="min-h-screen bg-canvas text-ink overflow-x-clip selection:bg-primary/30">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // Company texts are edited in the admin console: `<` is escaped so none can close the script.
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
       />
       <Navbar />
       {/* Narrative header block: subtle Statuario marble texture runs across Hero & Services,

@@ -7,7 +7,7 @@
  *     FAQ text are decoded — readers used to see "sull&apos;esistente".
  *  2. FAQ questions are <h3> (were <h4>, skipping a level under the <h2>).
  *  3. Callout text is wrapped in a <p> (one article had it bare in a <div>).
- *  4. JSON-LD URLs use COMPANY.url (were https://sydbioedilizia.it) and a
+ *  4. JSON-LD URLs use SITE_URL (were https://sydbioedilizia.it) and a
  *     publisher logo that exists (was /images/logo.png, a 404).
  *  5. Articles that had no og:article:author now carry the company name.
  *
@@ -22,7 +22,7 @@ import BlogArticlePage, {
 } from "@/app/blog/[slug]/page";
 import { BLOG_POSTS } from "@/lib/blog";
 import { BLOG_LOGO_URL } from "@/lib/blog/seo";
-import { COMPANY } from "@/lib/company";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { captureArticle, normalise } from "../__test-utils__/capture";
 
 jest.mock("@/components/sections/Navbar", () => ({ Navbar: () => null }));
@@ -126,7 +126,7 @@ describe.each(BLOG_POSTS.map((p) => [p.slug, p] as const))(
       expect(metadata.alternates?.canonical).toBe(fixture.metadata.canonical);
       if (fixture.metadata.publishedTime)
         expect(og.publishedTime).toBe(fixture.metadata.publishedTime);
-      expect(og.authors).toEqual(fixture.metadata.authors ?? [COMPANY.name]);
+      expect(og.authors).toEqual(fixture.metadata.authors ?? [SITE_NAME]);
     });
 
     it("keeps the card title shown on the /blog index", () => {
@@ -160,7 +160,7 @@ describe.each(BLOG_POSTS.map((p) => [p.slug, p] as const))(
         name: string;
       }>;
       expect(crumbs.map((c) => c.name)).toEqual(oldCrumbs.map((c) => c.name));
-      expect(crumbs[2].item).toBe(`${COMPANY.url}/blog/${slug}`);
+      expect(crumbs[2].item).toBe(`${SITE_URL}/blog/${slug}`);
 
       const qa = (g: Array<Record<string, unknown>>) =>
         (

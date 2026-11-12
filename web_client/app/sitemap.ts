@@ -1,9 +1,9 @@
 import { MetadataRoute } from 'next';
 import { BLOG_POSTS } from '@/lib/blog';
-import { COMPANY } from '@/lib/company';
+import { SITE_URL } from '@/lib/site';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = COMPANY.url;
+  const baseUrl = SITE_URL;
 
   const staticRoutes: MetadataRoute.Sitemap = [
     {
