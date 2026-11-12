@@ -46,7 +46,7 @@ function fold(line: string): string {
     return parts.join('\r\n ');
 }
 
-/** "+393755463599": the number with its country code, digits only. */
+/** "+393331234567": the number with its country code, digits only. */
 const e164 = (number: string): string => `+${whatsappHref(number).replace('https://wa.me/', '')}`;
 
 export function buildVCard(identity: Identity, siteUrl: string): string {

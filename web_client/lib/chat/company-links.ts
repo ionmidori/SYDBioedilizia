@@ -19,7 +19,7 @@ export interface ContactRule {
     href: string;
 }
 
-/** The separator a number may have between two digits: "375 546 3599", "375-546-3599". */
+/** The separator a number may have between two digits: "333 123 4567", "333-123-4567". */
 const SEPARATOR = '[\\s.\\-]?';
 
 const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
