@@ -1,11 +1,19 @@
 'use client';
 
 import { motion, useReducedMotion } from 'framer-motion';
-import { CheckCircle, Leaf, Shield, Award, Sparkles } from 'lucide-react';
+import { CheckCircle, Leaf } from 'lucide-react';
+import { FAQAnswer } from '@/components/faq/FAQAnswer';
 import { Button } from '@/components/ui/button';
+import { openChat } from '@/lib/chat-events';
+import { COMPANY_ICONS } from '@/lib/company-info/icons';
 import { M3Spring } from '@/lib/m3-motion';
+import type { About as AboutInfo, ServiceItem } from '@/types/company-info';
 
-export function About() {
+/**
+ * /chi-siamo. Every text comes from the company info (`about`, `services`),
+ * edited in the admin console; layout and animations are fixed here.
+ */
+export function About({ about, services }: { about: AboutInfo; services: ServiceItem[] }) {
     const reduceMotion = useReducedMotion();
 
     return (
@@ -26,7 +34,7 @@ export function About() {
                         transition={M3Spring.gentle}
                         className="text-3xl md:text-5xl font-serif font-bold text-ink"
                     >
-                        Chi Siamo
+                        {about.title}
                     </motion.h1>
                     <motion.div
                         initial={reduceMotion ? false : { opacity: 0, scaleX: 0 }}
@@ -42,7 +50,7 @@ export function About() {
                         transition={{ delay: 0.25 }}
                         className="text-xl md:text-2xl text-ink font-light max-w-3xl mx-auto"
                     >
-                        Energia Giovane, Esperienza Solida
+                        {about.subtitle}
                     </motion.p>
                 </div>
 
@@ -58,13 +66,7 @@ export function About() {
                     >
                         {/* Company Intro */}
                         <div className="prose prose-lg text-ink leading-relaxed font-light">
-                            <p>
-                                <span className="text-accent-ink wordmark">SYD BIOEDILIZIA</span>
-                                &nbsp;è una realtà operativa in tutta la Provincia di Roma, nata per offrire a privati e aziende soluzioni edili complete e personalizzate.
-                            </p>
-                            <p className="mt-4">
-                                Sebbene l&apos;azienda sia giovane, le nostre fondamenta sono storiche: il nostro lavoro si basa sulla competenza di un team di tecnici con <span className="text-ink font-medium">oltre 30 anni di esperienza</span> sul campo, supportati oggi dalle tecnologie più avanzate.
-                            </p>
+                            <FAQAnswer blocks={about.intro} />
                         </div>
 
                         {/* Philosophy Box */}
@@ -74,27 +76,30 @@ export function About() {
                             </div>
                             <h3 className="text-2xl font-serif font-bold text-ink mb-4 flex items-center gap-3">
                                 <Leaf className="w-6 h-6 text-primary-ink" />
-                                La Nostra Filosofia
+                                {about.philosophy_title}
                             </h3>
-                            <p className="text-ink mb-6 font-light">
-                                Il nostro nome è una garanzia: siamo specialisti dell&apos;isolamento termico e del benessere abitativo. Utilizziamo esclusivamente materiali certificati che rispettano i <span className="text-primary-ink font-medium">Criteri Minimi Ambientali (CAM)</span>, privilegiando prodotti naturali e traspiranti.
-                            </p>
+                            <div className="text-ink mb-6 font-light">
+                                <FAQAnswer blocks={about.philosophy} />
+                            </div>
 
-                            <h4 className="font-serif font-bold text-primary-ink text-lg mb-4">Le nostre eccellenze tecniche:</h4>
-                            <ul className="space-y-3">
-                                <li className="flex items-start gap-3">
-                                    <Award className="w-5 h-5 text-primary-ink mt-1 shrink-0" />
-                                    <span className="text-sm text-ink"><strong>Sistemi a cappotto certificati:</strong> Siamo installatori qualificati secondo la norma UNI 11716.</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <Shield className="w-5 h-5 text-primary-ink mt-1 shrink-0" />
-                                    <span className="text-sm text-ink"><strong>Sicurezza totale:</strong> Utilizziamo isolanti termoregolatori in Classe A1 (incombustibili).</span>
-                                </li>
-                                <li className="flex items-start gap-3">
-                                    <Sparkles className="w-5 h-5 text-primary-ink mt-1 shrink-0" />
-                                    <span className="text-sm text-ink"><strong>Salubrità dell&apos;aria:</strong> Impieghiamo solo vernici naturali, inodori e lavabili.</span>
-                                </li>
-                            </ul>
+                            {about.excellences.length > 0 && (
+                                <>
+                                    <h4 className="font-serif font-bold text-primary-ink text-lg mb-4">{about.excellences_title}</h4>
+                                    <ul className="space-y-3">
+                                        {about.excellences.map((excellence) => {
+                                            const Icon = COMPANY_ICONS[excellence.icon];
+                                            return (
+                                                <li key={excellence.title} className="flex items-start gap-3">
+                                                    <Icon className="w-5 h-5 text-primary-ink mt-1 shrink-0" />
+                                                    <span className="text-sm text-ink">
+                                                        <strong>{excellence.title}:</strong> {excellence.text}
+                                                    </span>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </>
+                            )}
                         </div>
                     </motion.div>
 
@@ -109,27 +114,18 @@ export function About() {
                         {/* What We Do */}
                         <div>
                             <h3 className="text-2xl font-serif font-bold text-ink mb-6">
-                                Cosa Facciamo: <br />
-                                <span className="text-accent-ink">Costruzioni e Ristrutturazioni Chiavi in Mano</span>
+                                {about.services_title} <br />
+                                <span className="text-accent-ink">{about.services_subtitle}</span>
                             </h3>
-                            <p className="text-ink mb-6 font-light leading-relaxed">
-                                Ci occupiamo di edilizia a 360°, dalla costruzione ex novo alla riqualificazione di appartamenti, ville, condomini, uffici e spazi commerciali. Gestiamo internamente ogni fase del cantiere grazie a personale qualificato.
-                            </p>
+                            <div className="text-ink mb-6 font-light leading-relaxed">
+                                <FAQAnswer blocks={about.services_intro} />
+                            </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {[
-                                    "Rifacimento tetti",
-                                    "Impermeabilizzazioni",
-                                    "Ristrutturazione Bagni",
-                                    "Nuovi Impianti",
-                                    "Posa Pavimenti",
-                                    "Cartongesso Design",
-                                    "Opere di Finitura",
-                                    "Tinteggiatura Naturale"
-                                ].map((service, i) => (
-                                    <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-primary-subtle border border-primary/10 hover:border-primary/30 transition-colors">
+                                {services.map((service) => (
+                                    <div key={service.title} className="flex items-center gap-3 p-3 rounded-lg bg-primary-subtle border border-primary/10 hover:border-primary/30 transition-colors">
                                         <CheckCircle className="w-5 h-5 text-primary-ink" />
-                                        <span className="text-sm text-ink font-medium">{service}</span>
+                                        <span className="text-sm text-ink font-medium">{service.title}</span>
                                     </div>
                                 ))}
                             </div>
@@ -137,18 +133,21 @@ export function About() {
 
                         {/* Why Choose Us */}
                         <div className="bg-surface p-8 rounded-2xl border border-line shadow-xs">
-                            <h3 className="text-2xl font-serif font-bold text-ink mb-4">Perché Scegliere <span className="wordmark">SYD BIOEDILIZIA</span></h3>
-                            <p className="text-ink mb-6 leading-relaxed">
-                                Non offriamo solo lavorazioni di alta qualità. Ti supportiamo anche nella burocrazia, guidandoti nell&apos;accesso alle <strong>detrazioni fiscali</strong> e agli <strong>Ecobonus</strong> per interventi come l&apos;insufflaggio termico e la riqualificazione energetica.
-                            </p>
+                            <h3 className="text-2xl font-serif font-bold text-ink mb-4">{about.why_title}</h3>
+                            <div className="text-ink mb-6 leading-relaxed">
+                                <FAQAnswer blocks={about.why_choose} />
+                            </div>
+                            {/* The quote comes first: the site visit is asked for after receiving it
+                                (the note under the button says so). */}
                             <Button
                                 className="w-full bg-primary hover:bg-primary-hover text-on-primary font-bold py-6 text-lg shadow-lg"
-                                onClick={() => {
-                                    window.location.href = 'tel:+393755463599';
-                                }}
+                                onClick={() => openChat()}
                             >
-                                Richiedi Sopralluogo Gratuito
+                                {about.cta_label}
                             </Button>
+                            {about.cta_note && (
+                                <p className="mt-4 text-sm text-ink-muted text-center">{about.cta_note}</p>
+                            )}
                         </div>
                     </motion.div>
                 </div>
@@ -156,4 +155,3 @@ export function About() {
         </section>
     );
 }
-

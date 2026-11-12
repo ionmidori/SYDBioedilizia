@@ -8,6 +8,7 @@ import ChatWidget from '@/components/chat/ChatWidget';
 import { Suspense } from 'react';
 import { COMPANY } from '@/lib/company';
 import { STRUCTURED_DATA_LOGO } from '@/lib/brand';
+import { getCompanyInfo } from '@/lib/company-info/server';
 import { getPortfolio } from '@/lib/portfolio/server';
 import { portfolioShareImage } from '@/lib/portfolio/structured-data';
 import { shareMetadata } from '@/lib/site-share';
@@ -23,6 +24,7 @@ export default async function Home() {
   // Rendered on the server (ISR, see lib/portfolio/server.ts): the real projects are
   // in the HTML, with no flash of the placeholder set while the browser fetches.
   const portfolio = await getPortfolio();
+  const companyInfo = await getCompanyInfo();
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "GeneralContractor",
@@ -88,7 +90,7 @@ export default async function Home() {
       <div className="relative">
         <div className="hero-services-marble" aria-hidden="true" />
         <Hero portfolio={portfolio} />
-        <Services />
+        <Services items={companyInfo.home_services} />
       </div>
       <WhatWeDo />
       <Testimonials />

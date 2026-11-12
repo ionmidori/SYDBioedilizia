@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Services } from '@/components/sections/Services';
-import { services } from '@/lib/services-data';
+import { SEED_COMPANY_INFO } from '@/lib/company-info/seed';
 import { CHAT_EVENTS } from '@/lib/chat-events';
 
 const push = jest.fn();
@@ -18,13 +18,7 @@ jest.mock('@/components/auth/AuthDialog', () => ({
 }));
 
 // Every title is reworded: the click must still follow `action`, never the text.
-jest.mock('@/lib/services-data', () => {
-    const actual = jest.requireActual('@/lib/services-data');
-    return {
-        ...actual,
-        services: actual.services.map((s: { title: string }) => ({ ...s, title: `${s.title} (nuova)` })),
-    };
-});
+const services = SEED_COMPANY_INFO.home_services.map((s) => ({ ...s, title: `${s.title} (nuova)` }));
 
 /** Both the mobile stack and the desktop grid render each card as a button. */
 const mobileCard = (id: string) => {
@@ -43,9 +37,14 @@ describe('Services — click actions', () => {
         services.forEach((s) => expect(['dashboard', 'chat']).toContain(s.action));
     });
 
+    it('renders nothing when the company info has no service cards', () => {
+        const { container } = render(<Services items={[]} />);
+        expect(container).toBeEmptyDOMElement();
+    });
+
     it('asks a guest to log in from the dashboard card, even with a reworded title', () => {
         const dashboard = services.find((s) => s.action === 'dashboard');
-        render(<Services />);
+        render(<Services items={services} />);
 
         fireEvent.click(mobileCard(dashboard!.id));
 
@@ -56,7 +55,7 @@ describe('Services — click actions', () => {
     it('takes a signed-in user straight to the dashboard', () => {
         mockUser = { isAnonymous: false };
         const dashboard = services.find((s) => s.action === 'dashboard');
-        render(<Services />);
+        render(<Services items={services} />);
 
         fireEvent.click(mobileCard(dashboard!.id));
 
@@ -66,7 +65,7 @@ describe('Services — click actions', () => {
     it('opens the chat from every chat card', () => {
         const onOpen = jest.fn();
         window.addEventListener(CHAT_EVENTS.open, onOpen);
-        render(<Services />);
+        render(<Services items={services} />);
 
         const chatCards = services.filter((s) => s.action === 'chat');
         chatCards.forEach((s) => fireEvent.click(mobileCard(s.id)));
@@ -79,7 +78,7 @@ describe('Services — click actions', () => {
     it('activates desktop service cards via Enter or Space keyboard events', () => {
         const onOpen = jest.fn();
         window.addEventListener(CHAT_EVENTS.open, onOpen);
-        render(<Services />);
+        render(<Services items={services} />);
 
         const chatService = services.find((s) => s.action === 'chat')!;
         const desktopCard = screen.getAllByRole('button', {

@@ -96,6 +96,7 @@ export const serviceAreaSchema = z
 export const serviceItemSchema = z
   .object({ title: z.string().trim().min(1).max(80), description: z.string().trim().max(300).default('') })
   .strict();
+export type ServiceItem = z.infer<typeof serviceItemSchema>;
 export const servicesSchema = z
   .object({ summary: z.string().trim().min(1).max(300), items: z.array(serviceItemSchema).min(1).max(100) })
   .strict();
@@ -157,6 +158,8 @@ export const aboutSchema = z
     cta_note: z.string().trim().max(300).default(''),
   })
   .strict();
+
+export type About = z.infer<typeof aboutSchema>;
 
 function duplicates(values: string[]): string[] {
   const seen = new Set<string>();
