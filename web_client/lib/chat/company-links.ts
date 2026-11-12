@@ -31,11 +31,19 @@ function nationalDigits(number: string): string {
     return digits.startsWith('0039') ? digits.slice(4) : digits;
 }
 
-/** The number, with or without "+39" / "0039", not glued to other digits. */
-function phoneRule(number: string, href: string): ContactRule {
-    const national = nationalDigits(number).split('').join(SEPARATOR);
+/**
+ * Fewer digits than this is not a phone number to look for. The company info is edited in the
+ * admin console: a phone saved as "Chiamaci" (no digits) would make a pattern matching the empty
+ * string everywhere, and "06" would link dates.
+ */
+const MIN_PHONE_DIGITS = 6;
+
+/** The number, with or without "+39" / "0039", not glued to other digits; null when too short. */
+function phoneRule(number: string, href: string): ContactRule | null {
+    const digits = nationalDigits(number);
+    if (digits.length < MIN_PHONE_DIGITS) return null;
     return {
-        pattern: new RegExp(`(^|[^\\d+])((?:(?:\\+|00)39${SEPARATOR})?${national})(?!\\d)`, 'g'),
+        pattern: new RegExp(`(^|[^\\d+])((?:(?:\\+|00)39${SEPARATOR})?${digits.split('').join(SEPARATOR)})(?!\\d)`, 'g'),
         href,
     };
 }
@@ -57,7 +65,7 @@ export function contactRules(identity: Identity): ContactRule[] {
     if (identity.whatsapp && whatsappHref(identity.whatsapp) !== whatsappHref(identity.phone)) {
         rules.push(phoneRule(identity.whatsapp, whatsappHref(identity.whatsapp)));
     }
-    return rules;
+    return rules.filter((rule): rule is ContactRule => rule !== null);
 }
 
 interface Hit {

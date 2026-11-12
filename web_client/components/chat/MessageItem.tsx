@@ -17,7 +17,7 @@ import Image from 'next/image';
 import { Message, ToolInvocation } from '@/types/chat';
 import { getVisibleText, stripDuplicateImages } from '@/lib/chat/message-text';
 import { useSmoothText } from '@/hooks/useSmoothText';
-import { MemoizedMarkdown } from '@/components/chat/MemoizedMarkdown';
+import { MemoizedMarkdown, safeUrlTransform, type UrlTransform } from '@/components/chat/MemoizedMarkdown';
 import { ContactActions } from '@/components/chat/ContactActions';
 import { useCompanyIdentity } from '@/components/providers/CompanyIdentityProvider';
 import { contactRules, mentionsCompanyContact, remarkCompanyLinks } from '@/lib/chat/company-links';
@@ -145,6 +145,12 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
     const isAssistant = message.role === 'assistant';
     const rules = useMemo(() => (identity && isAssistant ? contactRules(identity) : []), [identity, isAssistant]);
     const remarkPlugins = useMemo(() => (rules.length > 0 ? [remarkCompanyLinks(rules)] : undefined), [rules]);
+    // A `tel:` link survives only when it is a company number: never one the model wrote itself
+    // (e.g. after a prompt injection). Every other URL goes through the usual safe filter.
+    const urlTransform = useMemo<UrlTransform>(() => {
+        const companyLinks = new Set(rules.map((rule) => rule.href));
+        return (url) => (companyLinks.has(url) ? url : safeUrlTransform(url));
+    }, [rules]);
     // The visible text decides: this component cannot know when the reply is complete without
     // subscribing to the chat context (which re-renders every message on every token).
     const showContactActions = useMemo(() => mentionsCompanyContact(formattedText, rules), [formattedText, rules]);
@@ -315,7 +321,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                         )}>
                             {/* The login card carries its own text: the reply is not repeated above it. */}
                             {formattedText && !showLoginCard && (
-                                <MemoizedMarkdown components={markdownComponents} remarkPlugins={remarkPlugins}>
+                                <MemoizedMarkdown components={markdownComponents} remarkPlugins={remarkPlugins} urlTransform={urlTransform}>
                                     {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
                                     {formattedText.startsWith('...') ? formattedText.substring(3) : formattedText}
                                 </MemoizedMarkdown>

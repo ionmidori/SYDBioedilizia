@@ -7,6 +7,8 @@ import type { Message } from '@/types/chat';
 
 // --- Mocks ---
 let mockUser: { isAnonymous: boolean } | null = null;
+// The url transform the last rendered Markdown block received (react-markdown is mocked below).
+let lastUrlTransform: ((url: string) => string) | undefined;
 jest.mock('@/hooks/useAuth', () => ({
     useAuth: () => ({ user: mockUser }),
 }));
@@ -29,9 +31,10 @@ jest.mock('../ToolStatus', () => ({
 // ESM-only module not transformed by Jest — render children as plain text.
 jest.mock('react-markdown', () => ({
     __esModule: true,
-    default: ({ children, remarkPlugins }: { children?: React.ReactNode; remarkPlugins?: unknown[] }) => (
-        <div data-testid="markdown" data-plugins={remarkPlugins?.length ?? 0}>{children}</div>
-    ),
+    default: ({ children, remarkPlugins, urlTransform }: { children?: React.ReactNode; remarkPlugins?: unknown[]; urlTransform?: (url: string) => string }) => {
+        lastUrlTransform = urlTransform;
+        return <div data-testid="markdown" data-plugins={remarkPlugins?.length ?? 0}>{children}</div>;
+    },
 }));
 
 // Heavy / Firebase-touching children — stub them out.
@@ -187,6 +190,20 @@ describe('MessageItem — company contacts (Phase 141)', () => {
         renderWithCompany(<MessageItem message={say('user', 'Il mio numero è +39 06 1234567')} sessionId="s1" onImageClick={onImage} />);
         expect(screen.getByTestId('markdown')).toHaveAttribute('data-plugins', '0');
         expect(screen.queryByRole('link', { name: 'Chiama' })).not.toBeInTheDocument();
+    });
+
+    // Final review: the model must not be able to write a working `tel:` link to any number.
+    it('lets through a tel: link to the company phone only', () => {
+        renderWithCompany(<MessageItem message={say('assistant', 'Chiamaci al +39 06 1234567')} sessionId="s1" onImageClick={onImage} />);
+        expect(lastUrlTransform?.('tel:+39061234567')).toBe('tel:+39061234567');
+        expect(lastUrlTransform?.('tel:+39899123456')).toBe('');
+        expect(lastUrlTransform?.('javascript:alert(1)')).toBe('');
+        expect(lastUrlTransform?.('https://esempio.it')).toBe('https://esempio.it');
+    });
+
+    it('lets through no tel: link at all in what the user writes', () => {
+        renderWithCompany(<MessageItem message={say('user', 'Il mio numero è +39 06 1234567')} sessionId="s1" onImageClick={onImage} />);
+        expect(lastUrlTransform?.('tel:+39061234567')).toBe('');
     });
 
     it('still renders the reply without company info', () => {

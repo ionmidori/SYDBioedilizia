@@ -103,6 +103,25 @@ describe('what the plugin leaves alone', () => {
     });
 });
 
+// Final review: the company info is edited in the admin console. A phone with no digits ("Chiamaci",
+// "+39") made a pattern that matches the empty string everywhere (an empty link at almost every
+// position); a too-short one ("06") linked dates. Such a number makes no rule.
+describe('a phone the console saved with too few digits', () => {
+    it.each(['Chiamaci', '+39', '06', '+39 12345'])('makes no phone rule from "%s"', (phone) => {
+        const rules = contactRules({ ...identity, phone, whatsapp: phone });
+        expect(rules.map((r) => r.href)).toEqual(['mailto:sydbioedilizia@gmail.com']);
+        expect(mentionsCompanyContact('Ci vediamo il 12/06/2025 alle 10, chiamaci', rules)).toBe(false);
+        expect(links(linkify('Ci vediamo il 12/06/2025, chiamaci', { ...identity, phone, whatsapp: null }))).toEqual([]);
+    });
+
+    it('still links a number with six digits or more', () => {
+        expect(contactRules({ ...identity, phone: '06 123456', whatsapp: null }).map((r) => r.href)).toEqual([
+            'tel:06123456',
+            'mailto:sydbioedilizia@gmail.com',
+        ]);
+    });
+});
+
 describe('mentionsCompanyContact', () => {
     const rules = contactRules(identity);
 
