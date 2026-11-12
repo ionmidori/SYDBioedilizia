@@ -39,7 +39,7 @@ from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_
 from src.services.quote_followup import FollowupResult, relay_client_request
 from src.services.quote_state import QuoteStatus, ai_draft_action
 from src.services.room_aggregation import aggregate_rooms, load_rules, room_sections
-from src.services.spec_confirmation import apply_confirmations, expansion_inputs
+from src.services.spec_confirmation import apply_confirmations, choice_checks, expansion_inputs
 from src.tools.room_tools import brief_lines, room_of
 from src.utils.datetime_utils import utc_now
 from src.utils.download import MediaUnavailableError, download_session_media, session_media_path
@@ -693,31 +693,28 @@ def _build_spec(
     analysis: InsightAnalysis,
     measures: Mapping[str, Decimal],
     library: AssemblyLibrary | None,
-    stored: RoomInterventionSpec | None,
     expansion: Expansion,
-) -> tuple[RoomInterventionSpec | None, list[str]]:
-    """The spec the unit's lines were expanded from, with the client's confirmations
-    and what the card asks for, and the team's checks on the confirmed values.
-    (None, []): no library, or the spec cannot be built. Best-effort: the quote
-    never depends on it."""
+) -> RoomInterventionSpec | None:
+    """The spec of the model's analysis, with what the card asks for (missing
+    measures, conflicting values). None: no library, or it cannot be built.
+    Best-effort: the quote never depends on it."""
     if library is None:
-        return None, []
+        return None
     try:
         fresh = spec_from_analysis(analysis, measures, library_version=library.version, now=utc_now())
     except ValidationError as exc:
         _spec_warning(unit.spec_key, exc)
-        return None, []
-    merged, notes = apply_confirmations(fresh, stored)
+        return None
     conflicts = {name: [float(value) for value in values] for name, values in expansion.conflicts.items()}
-    spec = merged.model_copy(update={"missing_measures": list(expansion.missing_measures), "conflicts": conflicts})
-    return spec, notes
+    return fresh.model_copy(update={"missing_measures": list(expansion.missing_measures), "conflicts": conflicts})
 
 
-async def _save_spec(project_id: str, section_key: str, spec: RoomInterventionSpec) -> None:
-    """Store the unit's spec. Best-effort: a deleted room, a Firestore error only
-    log a warning."""
+async def _save_spec(project_id: str, section_key: str, fresh: RoomInterventionSpec) -> None:
+    """Store the unit's spec with the confirmations stored at the time of the write
+    (one made during the analysis included). Best-effort: a deleted room, a
+    Firestore error only log a warning."""
     try:
-        await get_spec_store().save(project_id, section_key, spec)
+        await get_spec_store().update(project_id, section_key, lambda current: apply_confirmations(fresh, current)[0])
     except GoogleAPIError as exc:
         _spec_warning(section_key, exc)
 
@@ -751,12 +748,17 @@ async def _analyse(
     units = {str(item["sku"]): str(item["unit"]) for item in PricingService.load_price_book()}
     expansion = expand(for_expansion, library or _NO_LIBRARY, units, used)
     # Built from the model's values: one that differs from a confirmed value is a proposal.
-    spec, notes = _build_spec(unit, validated, measures, library, stored, expansion)
+    fresh = _build_spec(unit, validated, measures, library, expansion)
+    spec: RoomInterventionSpec | None = None
+    notes = choice_checks(validated, stored)
+    if fresh is not None:
+        spec, measure_notes = apply_confirmations(fresh, stored)
+        notes = [*measure_notes, *notes]
     if notes:
         checks = [ExpansionWarning("admin_check", note) for note in notes]
         expansion = replace(expansion, warnings=[*expansion.warnings, *checks])
-    if spec is not None and stored_specs is not None:
-        await _save_spec(project_id, unit.spec_key, spec)
+    if fresh is not None and stored_specs is not None:
+        await _save_spec(project_id, unit.spec_key, fresh)
     return _UnitResult(unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, spec=spec)
 
 

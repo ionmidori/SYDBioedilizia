@@ -9,7 +9,6 @@ from src.core.exceptions import ProjectFileNotFoundError, RoomLimitError, RoomNo
 from src.repositories import room_repository
 from src.repositories.conversation_repository import ConversationRepository
 from src.repositories.room_repository import DEFAULT_ROOM_ID, MAX_ROOMS_PER_PROJECT, RoomRepository
-from src.schemas.intervention_spec import RoomInterventionSpec, StoredMeasure, StoredPackage
 from src.schemas.room import RoomBrief, RoomCreate, RoomSchema, RoomUpdate
 from tests.unit.firestore_fakes import FakeDb
 
@@ -197,50 +196,3 @@ async def test_brief_is_written_only_if_the_room_did_not_change_meanwhile(db):
 
 async def test_versioned_read_of_a_missing_room_is_none(db):
     assert await RoomRepository().get_room_versioned(PID, "missing") is None
-
-
-# ── Intervention spec (Phase 140, step 1) ────────────────────────────────────
-
-def _stored_spec() -> RoomInterventionSpec:
-    return RoomInterventionSpec(
-        measures=[StoredMeasure(name="mq", value=6.0, source="declared")],
-        packages=[StoredPackage(assembly_id="ASM-BAGNO-FULL")],
-        library_version="2.1.0",
-        generated_at=T0,
-    )
-
-
-async def test_save_spec_touches_only_its_field(db):
-    """The quote tool and the background brief refresh write the same document:
-    the spec write leaves brief and summary as they are."""
-    repo = RoomRepository()
-    with patch.object(room_repository, "utc_now", return_value=T0):
-        bagno = await repo.create_room(PID, RoomCreate(label="Bagno", room_type="bagno"))
-    _, version = await repo.get_room_versioned(PID, bagno.room_id)
-    await repo.update_brief(PID, bagno.room_id, brief=RoomBrief(floor_mq=5.0), summary="Bagno 5 mq",
-                            expected_update_time=version)
-    before = db.get_data("projects", PID, "rooms", bagno.room_id)
-
-    later = T0 + timedelta(hours=1)
-    with patch.object(room_repository, "utc_now", return_value=later):
-        await repo.save_intervention_spec(PID, bagno.room_id, _stored_spec())
-
-    after = db.get_data("projects", PID, "rooms", bagno.room_id)
-    assert {k for k in after if after.get(k) != before.get(k)} == {"intervention_spec", "updated_at"}
-    assert after["updated_at"] == later
-    room = await repo.get_room(PID, bagno.room_id)
-    assert room is not None and room.intervention_spec == _stored_spec()
-
-
-async def test_spec_survives_a_rename_and_a_brief_refresh(db):
-    repo = RoomRepository()
-    bagno = await repo.create_room(PID, RoomCreate(label="Bagno", room_type="bagno"))
-    await repo.save_intervention_spec(PID, bagno.room_id, _stored_spec())
-
-    await repo.update_room(PID, bagno.room_id, RoomUpdate(label="Bagno grande"))
-    _, version = await repo.get_room_versioned(PID, bagno.room_id)
-    await repo.update_brief(PID, bagno.room_id, brief=RoomBrief(floor_mq=7.0), summary=None,
-                            expected_update_time=version)
-
-    room = await repo.get_room(PID, bagno.room_id)
-    assert room is not None and room.label == "Bagno grande" and room.intervention_spec == _stored_spec()

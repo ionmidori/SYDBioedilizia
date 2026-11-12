@@ -38,7 +38,7 @@ from google.api_core.exceptions import NotFound
 from google.genai import types
 from src.core.exceptions import ProjectFileNotFoundError, RoomNotFoundError
 from src.core.money import sum_amounts
-from src.repositories.spec_store import CHAT_SPEC_KEY
+from src.repositories.spec_store import CHAT_SPEC_KEY, SpecChange
 from src.schemas.intervention_spec import RoomInterventionSpec
 from src.schemas.quote import QuoteRequest, QuoteSchema
 from src.schemas.room import DEFAULT_ROOM_ID, RoomCreate, RoomSchema
@@ -140,10 +140,11 @@ class FakeSpecStore:
     async def load_all(self, project_id: str) -> dict[str, RoomInterventionSpec]:
         return dict(self.specs)
 
-    async def save(self, project_id: str, section_key: str, spec: RoomInterventionSpec) -> None:
+    async def update(self, project_id: str, section_key: str, change: SpecChange) -> RoomInterventionSpec:
         if section_key not in (*self.rooms.rooms, DEFAULT_ROOM_ID, CHAT_SPEC_KEY):
             raise NotFound(f"room {section_key}")
-        self.specs[section_key] = spec
+        self.specs[section_key] = change(self.specs.get(section_key))
+        return self.specs[section_key]
 
 
 @dataclass

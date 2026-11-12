@@ -8,7 +8,7 @@ from decimal import Decimal
 
 from src.schemas.intervention_spec import RoomInterventionSpec, StoredElementChoice, StoredMeasure
 from src.services.insight_engine import ElementChoice, InsightAnalysis, SpecMeasure
-from src.services.spec_confirmation import apply_confirmations, expansion_inputs
+from src.services.spec_confirmation import apply_confirmations, choice_checks, expansion_inputs
 
 T0 = datetime(2026, 11, 12, 9, 0, tzinfo=UTC)
 
@@ -83,7 +83,33 @@ def test_confirmed_choice_wins() -> None:
         StoredElementChoice(element="sanitari", action="replace", confirmed=True),
         StoredElementChoice(element="piatto_doccia", action="reuse"),
     ]
-    assert len(notes) == 1 and "sanitari" in notes[0]
+    assert notes == []  # the choices are checked against the analysis: choice_checks
+
+
+def test_choice_checks_compare_the_model_explicit_choices() -> None:
+    """The stored spec never keeps "replace": the analysis says what the model chose."""
+    stored = _spec(choices=[
+        StoredElementChoice(element="sanitari", action="keep", confirmed=True),
+        StoredElementChoice(element="piatto_doccia", action="replace", confirmed=True),
+        StoredElementChoice(element="rubinetteria", action="reuse", confirmed=True),
+        StoredElementChoice(element="mobile_bagno", action="keep"),  # not confirmed
+    ])
+    analysis = InsightAnalysis(summary="Bagno", element_choices=[
+        ElementChoice(element="sanitari", action="replace"),
+        ElementChoice(element="piatto_doccia", action="keep"),
+        ElementChoice(element="mobile_bagno", action="replace"),
+    ])
+    notes = choice_checks(analysis, stored)
+
+    assert len(notes) == 2
+    assert "sanitari" in notes[0] and "lascia in posa" in notes[0] and "sostituisci" in notes[0]
+    assert "piatto_doccia" in notes[1]
+
+
+def test_choice_checks_without_confirmations() -> None:
+    analysis = InsightAnalysis(summary="Bagno", element_choices=[ElementChoice(element="sanitari", action="keep")])
+    assert choice_checks(analysis, None) == []
+    assert choice_checks(analysis, _spec(choices=[StoredElementChoice(element="sanitari", action="keep")])) == []
 
 
 def test_the_rest_of_the_spec_comes_from_the_new_analysis() -> None:

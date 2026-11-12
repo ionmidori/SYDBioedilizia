@@ -12,7 +12,7 @@ from src.core.money import to_decimal
 from src.schemas.assembly_library import MEASURE_LABELS
 from src.schemas.intervention_spec import RoomInterventionSpec, StoredElementChoice, StoredMeasure
 from src.services.insight_engine import ElementChoice, InsightAnalysis
-from src.services.intervention_expansion import ACTION_LABELS
+from src.services.intervention_expansion import ACTION_LABELS, requested_actions
 
 
 def _number(value: float) -> str:
@@ -47,7 +47,8 @@ def apply_confirmations(
     fresh: RoomInterventionSpec, stored: RoomInterventionSpec | None
 ) -> tuple[RoomInterventionSpec, list[str]]:
     """The spec of a new analysis (`fresh`) with what the client confirmed in the
-    stored one, and the team's checks for the values the two disagree on.
+    stored one, and the team's checks for the measures the two disagree on (the
+    element choices are checked against the analysis: `choice_checks`).
 
     Everything else (packages, extra items, unconfirmed values) comes from `fresh`."""
     if stored is None:
@@ -59,15 +60,22 @@ def apply_confirmations(
     measures += [m for name, m in confirmed.items() if name not in by_name]
 
     chosen = _confirmed_choices(stored)
-    for choice in fresh.element_choices:
-        kept = chosen.get(choice.element)
-        if kept is not None and kept.action != choice.action:
-            notes.append(
-                f"{choice.element}: il cliente ha confermato \"{ACTION_LABELS[kept.action]}\", la nuova analisi "
-                f"indica \"{ACTION_LABELS[choice.action]}\". Usata la scelta confermata"
-            )
     choices = [*chosen.values(), *(c for c in fresh.element_choices if c.element not in chosen)]
     return fresh.model_copy(update={"measures": measures, "element_choices": choices}), notes
+
+
+def choice_checks(analysis: InsightAnalysis, stored: RoomInterventionSpec | None) -> list[str]:
+    """The team's checks for the confirmed element choices the model's analysis
+    contradicts. Read from the analysis: the spec never stores a "replace"."""
+    if stored is None:
+        return []
+    model = requested_actions(analysis)
+    return [
+        f"{element}: il cliente ha confermato \"{ACTION_LABELS[kept.action]}\", la nuova analisi "
+        f"indica \"{ACTION_LABELS[model[element]]}\". Usata la scelta confermata"
+        for element, kept in _confirmed_choices(stored).items()
+        if element in model and model[element] != kept.action
+    ]
 
 
 def expansion_inputs(

@@ -73,7 +73,7 @@ class RoomSchema(BaseModel):
     brief: RoomBrief = Field(default_factory=RoomBrief)
     reference_photo_id: str | None = Field(default=None, description="Id of the `files` document measured for this room")
     summary: str | None = Field(default=None, max_length=500, description="One-line summary for the room index")
-    # Written only by RoomRepository.save_intervention_spec (a partial update). exclude=True
+    # Written only by SpecStore.update (a partial update). exclude=True
     # keeps it out of the API and of model_dump(): never write a whole RoomSchema dump
     # over an existing room document, or the spec is lost.
     intervention_spec: RoomInterventionSpec | None = Field(

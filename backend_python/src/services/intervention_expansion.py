@@ -363,7 +363,7 @@ def _dropped_lines(decisions: Sequence[_ElementDecision]) -> set[tuple[str, str]
     return {(d.assembly_id, sku) for d in decisions for sku in d.dropped_skus()}
 
 
-def _requested_actions(analysis: InsightAnalysis) -> dict[str, ElementAction]:
+def requested_actions(analysis: InsightAnalysis) -> dict[str, ElementAction]:
     """Element → action; the first choice of an element wins."""
     actions: dict[str, ElementAction] = {}
     for choice in analysis.element_choices:
@@ -574,7 +574,7 @@ def expand(
         chosen.append(assembly)
         _expand_package(assembly, conditions, measures, draft)
     covered = {line.sku for line in draft.lines}
-    actions = _requested_actions(analysis)
+    actions = requested_actions(analysis)
     _flag_shared_choices(chosen, actions, draft)
     _apply_elements(_decide_elements(chosen, actions, draft), draft)
     _add_extras(analysis.suggestions, covered, price_book_units, draft)
@@ -613,7 +613,7 @@ def spec_from_analysis(
         ],
         element_choices=[
             StoredElementChoice(element=element, action=action)
-            for element, action in _requested_actions(analysis).items()
+            for element, action in requested_actions(analysis).items()
             if action != "replace"
         ],
         extra_items=[StoredExtraItem(sku=item.sku, qty=item.qty) for item in analysis.suggestions],
