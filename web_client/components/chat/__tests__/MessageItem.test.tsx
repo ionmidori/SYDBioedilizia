@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MessageItem } from '../MessageItem';
 import { renderWithCompany } from '@/test-utils/company';
@@ -210,5 +210,53 @@ describe('MessageItem — company contacts (Phase 141)', () => {
         renderWithCompany(<MessageItem message={say('assistant', 'Chiamaci al +39 06 1234567')} sessionId="s1" onImageClick={onImage} />, null);
         expect(screen.getByText('Chiamaci al +39 06 1234567')).toBeInTheDocument();
         expect(screen.getByTestId('markdown')).toHaveAttribute('data-plugins', '0');
+    });
+});
+
+describe('MessageItem — welcome quick actions', () => {
+    const welcomeMessage = {
+        id: 'welcome-msg',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'Ciao! Come posso aiutarti oggi?' }],
+    } as unknown as Message;
+
+    it('renders simplified quote/render cards and the company info card, forwarding exact prompts on click', () => {
+        const onQuickPrompt = jest.fn();
+        renderWithCompany(
+            <MessageItem
+                message={welcomeMessage}
+                sessionId="s1"
+                onImageClick={jest.fn()}
+                onQuickPrompt={onQuickPrompt}
+            />,
+        );
+
+        const quoteButton = screen.getByRole('button', { name: 'Voglio fare un preventivo' });
+        const renderButton = screen.getByRole('button', { name: 'Voglio fare un rendering' });
+        const materialsButton = screen.getByRole('button', { name: /Materiali e design/i });
+        const companyButton = screen.getByRole('button', { name: /Informazioni generali sulla società/i });
+
+        expect(quoteButton).toHaveTextContent('Voglio fare un preventivo');
+        expect(renderButton).toHaveTextContent('Voglio fare un rendering');
+        expect(materialsButton).toBeInTheDocument();
+        expect(companyButton).toBeInTheDocument();
+
+        fireEvent.click(quoteButton);
+        expect(onQuickPrompt).toHaveBeenCalledWith('Voglio fare un preventivo');
+
+        fireEvent.click(renderButton);
+        expect(onQuickPrompt).toHaveBeenCalledWith('Voglio fare un rendering');
+
+        fireEvent.click(companyButton);
+        expect(onQuickPrompt).toHaveBeenCalledWith(
+            'Vorrei informazioni generali sulla società (chi siete, cosa fate, zone servite e come contattarvi)',
+        );
+    });
+
+    it('does not render quick action cards when onQuickPrompt is omitted', () => {
+        renderWithCompany(
+            <MessageItem message={welcomeMessage} sessionId="s1" onImageClick={jest.fn()} />,
+        );
+        expect(screen.queryByRole('group', { name: 'Azioni rapide' })).not.toBeInTheDocument();
     });
 });
