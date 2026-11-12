@@ -274,6 +274,7 @@ Non stai partendo da zero — stai prezzando la trasformazione dalla stanza orig
 
 <sydbioedilizia_scope>
 PRIMA DI TUTTO: se il lavoro chiesto non è tra i "Lavori svolti" della SCHEDA SYD, applica la regola LAVORO FUORI ELENCO del protocollo company_info e non procedere.
+Se il cantiere è in una località indicata dall'utente, applica la regola CANTIERE FUORI ZONA del protocollo company_info.
 
 BOUNDARY ASSOLUTA — SOLO RISTRUTTURAZIONE EDILE:
 

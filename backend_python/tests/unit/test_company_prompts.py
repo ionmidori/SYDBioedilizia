@@ -95,3 +95,13 @@ def test_no_login_for_work_not_in_the_list():
 def test_the_quote_scope_refers_to_the_list_not_its_own():
     assert 'lavori edili tra i "Lavori svolti" della SCHEDA SYD' in MODE_B_SURVEYOR
     assert "ESCLUSIVAMENTE:\ndemolizioni" not in MODE_B_SURVEYOR
+
+
+# ── Owner's decision, 12 Nov 2026: a site outside the served area during a quote ──
+
+def test_a_quote_for_a_site_outside_the_area_warns_first_then_continues():
+    rule = COMPANY_INFO_PROTOCOL
+    assert "CANTIERE FUORI ZONA" in rule
+    assert "quindi il lavoro non verrà eseguito" in rule
+    assert rule.index("CANTIERE FUORI ZONA") < rule.index("poi puoi proseguire con il preventivo")
+    assert "CANTIERE FUORI ZONA" in MODE_B_SURVEYOR
