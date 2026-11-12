@@ -12,7 +12,7 @@ background brief refresh owns `brief` only. `RoomSchema` leaves the spec out of
 every serialization: the client reads it through the confirmation API.
 """
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,6 +21,8 @@ from src.schemas.assembly_library import ElementAction
 # "brief": the measure came from the room brief (scheda stanza), not from the model.
 # "confirmed": the client confirmed it on the card; only the card writes it.
 StoredMeasureSource = Literal["declared", "photo", "estimated", "brief", "confirmed"]
+# Same bound as RoomBrief and SpecMeasure: a home measure.
+MeasureValue = Annotated[float, Field(ge=0, le=10_000)]
 
 
 class StoredMeasure(BaseModel):
@@ -28,12 +30,11 @@ class StoredMeasure(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
-    # Same bound as RoomBrief and SpecMeasure: a home measure.
-    value: float = Field(ge=0, le=10_000)
+    value: MeasureValue
     source: StoredMeasureSource
     # A confirmed measure the model later gave with another value: shown to the
     # client as a proposal, never used until the client confirms it.
-    proposed: float | None = Field(default=None, ge=0, le=10_000)
+    proposed: MeasureValue | None = None
 
 
 class StoredPackage(BaseModel):
@@ -76,6 +77,6 @@ class RoomInterventionSpec(BaseModel):
     # Measures a formula needed and nobody gave: the card asks for them.
     missing_measures: list[str] = Field(default_factory=list)
     # Measure → the different values the model gave for it (several rooms in one unit?).
-    conflicts: dict[str, list[float]] = Field(default_factory=dict)
+    conflicts: dict[str, list[MeasureValue]] = Field(default_factory=dict)
     library_version: str
     generated_at: datetime

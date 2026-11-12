@@ -87,11 +87,18 @@ def test_manual_work_widens_high_capped(policy: PriceRangePolicy, manual: int, h
     assert (result.low, result.high) == (Decimal("950.00"), high)
 
 
-def test_precision_rounds_to_the_step(policy: PriceRangePolicy) -> None:
-    # low 750, high 1250 · 1.1 = 1375 → 1 − 625/2125 = 70.6 % → 70.
-    result = _one(_line("mq"), {"mq": "estimated"}, policy, manual=1)
+@pytest.mark.parametrize(("source", "manual", "precision"), [
+    # low 750, high 1250 · 1.1 = 1375 → 1 − 625/2125 = 70.6 % → 70 (down).
+    pytest.param("estimated", 1, 70, id="down"),
+    # low 950, high 1050 · 1.4 = 1470 → 1 − 520/2420 = 78.5 % → 80 (up: not a floor).
+    pytest.param("confirmed", 4, 80, id="up"),
+])
+def test_precision_rounds_to_the_nearest_step(
+    policy: PriceRangePolicy, source: StoredMeasureSource, manual: int, precision: int
+) -> None:
+    result = _one(_line("mq"), {"mq": source}, policy, manual=manual)
     assert result is not None
-    assert result.precision == 70
+    assert result.precision == precision
 
 
 def test_vat_scaling(policy: PriceRangePolicy) -> None:

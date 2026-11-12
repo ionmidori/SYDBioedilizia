@@ -6,8 +6,9 @@ carries its `room_id`. Documents are stored as `RoomSchema.model_dump()`
 (snake_case, like the API), written only by the backend.
 
 **Golden Sync**: mirrored by the zod schemas in `web_client/types/room.ts`, except
-`intervention_spec` (Phase 140): backend-only until step 3, excluded from every
-serialization of the room (the client's `roomSchema` is strict).
+`intervention_spec` (Phase 140): excluded from every serialization of the room
+(the client's `roomSchema` is strict); the client reads it through the
+confirmation API (step 3).
 """
 import re
 from datetime import UTC, datetime

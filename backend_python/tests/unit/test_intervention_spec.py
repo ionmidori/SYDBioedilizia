@@ -93,7 +93,12 @@ def test_room_serialization_leaves_the_spec_out() -> None:
 
 def test_step3_fields_default_for_specs_stored_before_them() -> None:
     """Phase 140 step 3: a spec saved by step 1 still reads, with the new fields empty."""
-    spec = RoomInterventionSpec.model_validate(_spec().model_dump(exclude={"missing_measures", "conflicts"}))
+    old = _spec().model_dump(exclude={"missing_measures", "conflicts"})
+    for measure in old["measures"]:
+        del measure["proposed"]
+    for choice in old["element_choices"]:
+        del choice["confirmed"]
+    spec = RoomInterventionSpec.model_validate(old)
     assert spec.missing_measures == [] and spec.conflicts == {}
     assert all(m.proposed is None for m in spec.measures)
     assert all(not c.confirmed for c in spec.element_choices)
@@ -110,6 +115,12 @@ def test_confirmed_source_and_confirmation_marks_are_stored() -> None:
     assert spec.measures == [StoredMeasure(name="mq", value=8.0, source="confirmed", proposed=6.0)]
     assert spec.element_choices[0].confirmed is True
     assert spec.missing_measures == ["mq_pareti"] and spec.conflicts == {"ml_perimetro": [9.0, 12.0]}
+
+
+def test_conflict_values_have_the_measure_bounds() -> None:
+    data = {**_spec().model_dump(), "conflicts": {"mq": [6.0, 10_001.0]}}
+    with pytest.raises(ValidationError):
+        RoomInterventionSpec.model_validate(data)
 
 
 def test_proposed_measure_has_the_measure_bounds() -> None:
