@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from google.api_core.exceptions import GoogleAPICallError
 from src.core.exceptions import (
     InvalidQuoteTransitionError,
     MediaNotFoundError,
@@ -15,8 +16,11 @@ from src.core.exceptions import (
     QuoteNotFoundError,
     QuoteVersionConflictError,
 )
-from src.schemas.quote import QuoteItem, QuoteSchema
+from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteSchema
 from src.services import admin_quotes as svc
+from src.services import learning_ledger
+from src.services.quote_diff import diff_items
+from src.services.quote_drafts import build_revision
 from tests.unit.firestore_fakes import FakeDb, FakeTransaction
 
 PID = "p1"
@@ -365,3 +369,130 @@ async def test_a_revision_the_admin_opens_is_not_the_client_revision(seed):
     _seed(db, client_revision=True, **seed)
     await svc.reopen_tx(tx(db), db, PID, ADMIN, "Prezzi del materiale cambiati", NOW)
     assert "client_revision" not in db.get_data(*QUOTE)
+
+
+# ── Phase 140 step 2: the learning ledger, written with the approval ──────────
+
+LEDGER = "learning_ledger"
+REVISIONS = (*QUOTE, "revisions")
+
+
+def _revision(version: int, items: list[dict], actor_kind: str = "ai") -> dict:
+    return build_revision(
+        version, [QuoteItem(**i) for i in items], QuoteFinancials(), None, actor_kind,
+        None if actor_kind == "ai" else ADMIN, NOW - timedelta(hours=10 - version),
+    )
+
+
+def _seed_revisions(db: FakeDb, *actors: str, items: list[dict] | None = None) -> None:
+    for version, actor in enumerate(actors, start=1):
+        db.put(*REVISIONS, str(version), _revision(version, items or [_item()], actor))
+
+
+def _ledger(db: FakeDb) -> dict[str, dict]:
+    return {p[1]: d for p, d in db.docs.items() if p[0] == LEDGER}
+
+
+async def test_ledger_records_the_net_diff_from_the_last_ai_revision():
+    db = FakeDb()
+    ai_items = [_item(), _item("PAV-001", 20.0, 40.0)]
+    _seed(db, status="in_review", version=1, items=ai_items)
+    _seed_revisions(db, "ai", items=ai_items)
+    await svc.edit_tx(tx(db), db, PID, ADMIN, 1, NOW, items=[QuoteItem(**_item(qty=15.0))])
+    await svc.edit_tx(tx(db), db, PID, ADMIN, 2, NOW, items=[
+        QuoteItem(**_item(qty=15.0)), QuoteItem(**_item("DEM-001", 5.0, 30.0))
+    ])
+
+    transaction = tx(db)
+    await svc.approve_tx(transaction, db, PID, ADMIN, 3, NOW)
+
+    entry = _ledger(db)["PRV-2026-0001_r3"]
+    approved_items = db.get_data(*QUOTE)["items"]
+    assert (entry["ai_version"], entry["approved_version"], entry["approved_by"]) == (1, 3, ADMIN)
+    assert entry["changes"] == [c.model_dump() for c in diff_items(ai_items, approved_items)]
+    assert {(c["change"], c["sku"]) for c in entry["changes"]} == {
+        ("changed", "PIT-001"), ("removed", "PAV-001"), ("added", "DEM-001")
+    }
+    assert REVISIONS in transaction.reads, "the AI revision is read inside the approval transaction"
+    assert all(path[: len(QUOTE)] == QUOTE for path in transaction.reads), "no room read: no contention"
+
+
+async def test_an_approval_without_edits_records_no_changes():
+    db = FakeDb()
+    _seed(db, version=1)
+    _seed_revisions(db, "ai", items=db.get_data(*QUOTE)["items"])
+    await svc.approve_tx(tx(db), db, PID, ADMIN, 1, NOW)
+    assert _ledger(db)["PRV-2026-0001_r1"]["changes"] == []
+
+
+
+async def test_the_last_ai_revision_up_to_the_approved_version_wins():
+    db = FakeDb()
+    _seed(db, version=4)
+    _seed_revisions(db, "ai", "admin", "ai", "admin", "ai")  # v5: an AI revision after the approved one
+    await svc.approve_tx(tx(db), db, PID, ADMIN, 4, NOW)
+    assert _ledger(db)["PRV-2026-0001_r4"]["ai_version"] == 3
+
+
+async def test_an_ai_revision_beyond_the_lookback_records_nothing_and_says_so(caplog):
+    db = FakeDb()
+    versions = learning_ledger.AI_REVISION_LOOKBACK + 1
+    _seed(db, version=versions)
+    _seed_revisions(db, "ai", *["admin"] * learning_ledger.AI_REVISION_LOOKBACK)
+    result, _ = await svc.approve_tx(tx(db), db, PID, ADMIN, versions, NOW)
+    assert result.status == "approved" and _ledger(db) == {}
+    assert "beyond the lookback window" in caplog.text
+
+
+async def test_approval_without_ai_revision_still_approves():
+    db = FakeDb()
+    _seed(db)
+    _seed_revisions(db, "admin", "admin")
+    result, _ = await svc.approve_tx(tx(db), db, PID, ADMIN, 2, NOW)
+    assert result.status == "approved" and _ledger(db) == {}
+
+
+@pytest.mark.parametrize("seed", [
+    {"quote_number": None},
+    {"items": [{"sku": "PIT-001"}]},  # a legacy quote whose lines no longer validate
+])
+async def test_an_approval_whose_entry_cannot_be_built_still_approves(seed):
+    db = FakeDb()
+    _seed(db, **seed)
+    _seed_revisions(db, "ai")
+    result, _ = await svc.approve_tx(tx(db), db, PID, ADMIN, 2, NOW)
+    assert result.status == "approved" and _ledger(db) == {}
+
+
+async def test_approving_the_same_version_again_overwrites_its_entry_and_a_new_version_adds_one():
+    db = FakeDb()
+    _seed(db, version=1)
+    _seed_revisions(db, "ai")
+    await svc.approve_tx(tx(db), db, PID, ADMIN, 1, NOW)
+    await svc.reopen_tx(tx(db), db, PID, ADMIN, "ricontrollo", NOW)
+    later = NOW + timedelta(hours=1)
+    await svc.approve_tx(tx(db), db, PID, ADMIN, 1, later)
+    assert list(_ledger(db)) == ["PRV-2026-0001_r1"]
+    assert _ledger(db)["PRV-2026-0001_r1"]["approved_at"] == later
+
+    await svc.reopen_tx(tx(db), db, PID, ADMIN, "ancora", later)
+    await svc.edit_tx(tx(db), db, PID, ADMIN, 1, later, admin_notes="x")
+    await svc.approve_tx(tx(db), db, PID, ADMIN, 2, later)
+    assert sorted(_ledger(db)) == ["PRV-2026-0001_r1", "PRV-2026-0001_r2"]
+
+
+class _FailingLedgerWrite(FakeTransaction):
+    def set(self, ref, data, merge=False):
+        if ref.path[0] == LEDGER:
+            raise GoogleAPICallError("write failed")
+        super().set(ref, data, merge=merge)
+
+
+async def test_a_ledger_write_error_propagates_out_of_the_approval_transaction():
+    # Same transaction: in Firestore the commit then fails as a whole (the fake applies
+    # writes at once, so only the propagation is checked here).
+    db = FakeDb()
+    _seed(db)
+    _seed_revisions(db, "ai")
+    with pytest.raises(GoogleAPICallError):
+        await svc.approve_tx(_FailingLedgerWrite(db), db, PID, ADMIN, 2, NOW)
