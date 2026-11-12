@@ -61,7 +61,7 @@ export function QuoteInbox() {
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="PRV-2026-0042, Rossi o email"
-              className="w-full pl-9 pr-8 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-hidden focus:border-accent"
+              className="w-full pl-9 pr-8 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-hidden focus:border-primary"
             />
             {query && (
               <button
@@ -79,7 +79,7 @@ export function QuoteInbox() {
           </div>
           <button
             type="submit"
-            className="px-3 py-2 rounded-xl bg-accent-subtle border border-line text-accent-ink text-sm cursor-pointer"
+            className="px-3 py-2 rounded-xl bg-primary-subtle border border-primary/25 text-primary-ink hover:bg-primary hover:text-on-primary transition-colors text-sm font-medium cursor-pointer"
           >
             Cerca
           </button>
@@ -95,9 +95,9 @@ export function QuoteInbox() {
             aria-selected={filter.id === filterId}
             onClick={() => setFilterId(filter.id)}
             className={cn(
-              'px-3 py-1.5 rounded-lg text-sm whitespace-nowrap cursor-pointer border',
+              'px-3 py-1.5 rounded-lg text-sm whitespace-nowrap cursor-pointer border transition-colors',
               filter.id === filterId
-                ? 'bg-accent-subtle border-accent text-accent-ink'
+                ? 'bg-primary-subtle border-primary text-primary-ink font-medium'
                 : 'border-transparent text-ink-muted hover:bg-surface',
             )}
           >
@@ -108,7 +108,7 @@ export function QuoteInbox() {
 
       {quotes.isPending ? (
         <div className="py-16 flex justify-center" data-testid="inbox-loading">
-          <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
+          <Loader2 className="w-6 h-6 animate-spin text-primary-ink" aria-label="Caricamento" />
         </div>
       ) : quotes.isError ? (
         <p role="alert" className="py-10 text-center text-sm text-danger-ink">
@@ -151,12 +151,12 @@ function InboxRow({ row }: { row: AdminQuoteListItem }) {
     <li data-testid="inbox-row">
       <Link
         href={`/admin/quotes/${encodeURIComponent(row.project_id)}`}
-        className="block rounded-2xl glass border border-line transition-colors p-4"
+        className="block rounded-2xl bg-surface shadow-1 border border-line hover:border-primary/50 hover:shadow-2 transition-all p-4"
       >
         <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline gap-x-2">
-              <span className="font-semibold tabular-nums text-accent-ink" data-testid="inbox-number">
+              <span className="font-semibold tabular-nums text-primary-ink" data-testid="inbox-number">
                 {row.quote_number ?? 'Senza numero'}
               </span>
               <span className="text-ink-subtle">·</span>

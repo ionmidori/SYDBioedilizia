@@ -95,7 +95,7 @@ export function TextField({
                 readOnly={readOnly}
                 aria-invalid={error ? true : undefined}
                 aria-describedby={describedBy(id, error, hint)}
-                className={`${CONTROL} ${error ? 'border-danger' : 'border-line focus:border-accent'}`}
+                className={`${CONTROL} ${error ? 'border-danger' : 'border-line focus:border-primary'}`}
             />
             <Notes id={id} error={error} hint={hint} />
         </div>
@@ -168,7 +168,7 @@ export function TextAreaField({
                 readOnly={readOnly}
                 aria-invalid={error ? true : undefined}
                 aria-describedby={describedBy(id, error, hint)}
-                className={`${CONTROL} ${error ? 'border-danger' : 'border-line focus:border-accent'}`}
+                className={`${CONTROL} ${error ? 'border-danger' : 'border-line focus:border-primary'}`}
             />
             <Notes id={id} error={error} hint={hint} />
         </div>
@@ -242,7 +242,7 @@ export function SelectField({
                 onChange={(event) => onChange(event.target.value)}
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? `${id}-error` : undefined}
-                className={`${CONTROL} ${error ? 'border-danger' : 'border-line focus:border-accent'}`}
+                className={`${CONTROL} ${error ? 'border-danger' : 'border-line focus:border-primary'}`}
             >
                 {options.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -326,7 +326,7 @@ export function AddButton({ onClick, disabled, children }: { onClick: () => void
 /** The heading of a group of fields inside a tab. */
 export function GroupTitle({ id, children }: { id: string; children: ReactNode }) {
     return (
-        <h2 id={id} className="text-sm font-semibold uppercase tracking-wide text-accent-ink">
+        <h2 id={id} className="text-sm font-semibold uppercase tracking-wide text-primary-ink">
             {children}
         </h2>
     );

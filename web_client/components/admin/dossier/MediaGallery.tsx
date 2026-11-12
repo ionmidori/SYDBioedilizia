@@ -74,8 +74,8 @@ export function MediaGallery({ projectId, media }: { projectId: string; media: D
 
   if (media.length === 0) {
     return (
-      <section className="glass rounded-2xl p-4 border border-line" data-testid="gallery-empty">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-2">Foto e render</h2>
+      <section className="bg-surface shadow-1 rounded-2xl p-4 border border-line" data-testid="gallery-empty">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-primary-ink mb-2">Foto e render</h2>
         <p className="text-sm text-ink-muted">Il cliente non ha allegato foto e non ci sono render.</p>
       </section>
     );
@@ -90,8 +90,8 @@ export function MediaGallery({ projectId, media }: { projectId: string; media: D
   };
 
   return (
-    <section className="glass rounded-2xl p-4 border border-line space-y-4" data-testid="media-gallery">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink">Foto e render</h2>
+    <section className="bg-surface shadow-1 rounded-2xl p-4 border border-line space-y-4" data-testid="media-gallery">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-primary-ink">Foto e render</h2>
       {GROUPS.map((group) => {
         const items = media.filter((m) => group.kinds.includes(m.kind));
         if (items.length === 0) return null;
@@ -124,7 +124,7 @@ export function MediaGallery({ projectId, media }: { projectId: string; media: D
 
       <Dialog open={!!current} onOpenChange={(open) => !open && setOpenId(null)}>
         <DialogContent
-          className="max-w-4xl bg-canvas border-line text-ink"
+          className="max-w-4xl bg-surface border-line text-ink"
           onKeyDown={(event) => {
             if (event.key === 'ArrowRight') step(1);
             if (event.key === 'ArrowLeft') step(-1);
@@ -166,7 +166,7 @@ export function MediaGallery({ projectId, media }: { projectId: string; media: D
                   <button
                     type="button"
                     onClick={() => void download(current.media_id)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-subtle border border-line text-accent-ink cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-subtle border border-primary/25 text-primary-ink hover:bg-primary hover:text-on-primary transition-colors cursor-pointer"
                   >
                     <Download className="w-4 h-4" aria-hidden /> Scarica
                   </button>
@@ -207,9 +207,9 @@ function MediaTile({
           rel="noopener noreferrer"
           aria-disabled={!target}
           data-testid="media-link"
-          className="flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-line bg-surface p-3 text-center text-sm hover:border-accent"
+          className="flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-line bg-surface p-3 text-center text-sm hover:border-primary/50 transition-colors"
         >
-          <Icon className="w-6 h-6 text-accent-ink" aria-hidden />
+          <Icon className="w-6 h-6 text-primary-ink" aria-hidden />
           <span className="inline-flex items-center gap-1 text-ink-muted">
             {target ? 'Apri' : 'Non disponibile'} {target && <ExternalLink className="w-3.5 h-3.5" aria-hidden />}
           </span>
@@ -241,7 +241,7 @@ function MediaTile({
         onClick={onOpen}
         aria-label={`Ingrandisci: ${media.label}`}
         data-testid="gallery-thumb"
-        className="block aspect-square w-full overflow-hidden rounded-xl border border-line hover:border-accent cursor-zoom-in"
+        className="block aspect-square w-full overflow-hidden rounded-xl border border-line hover:border-primary/50 transition-colors cursor-zoom-in"
       >
         <img src={url} alt={media.label} loading="lazy" onError={onError} className="h-full w-full object-cover" />
       </button>

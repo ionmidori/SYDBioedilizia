@@ -37,7 +37,7 @@ export function PortfolioManager() {
           type="button"
           onClick={() => setEditing(null)}
           data-testid="portfolio-add"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary transition-colors text-sm font-medium cursor-pointer"
         >
           <Plus className="w-4 h-4" aria-hidden /> Aggiungi progetto
         </button>
@@ -47,7 +47,7 @@ export function PortfolioManager() {
 
       {portfolio.isPending ? (
         <div className="py-16 flex justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
+          <Loader2 className="w-6 h-6 animate-spin text-primary-ink" aria-label="Caricamento" />
         </div>
       ) : portfolio.isError ? (
         <p role="alert" className="py-10 text-center text-sm text-danger-ink">
@@ -60,7 +60,7 @@ export function PortfolioManager() {
       ) : (
         <ul className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {portfolio.data.items.map((project) => (
-            <li key={project.id} className="glass rounded-2xl border border-line overflow-hidden flex flex-col" data-testid="portfolio-card">
+            <li key={project.id} className="bg-surface shadow-1 rounded-2xl border border-line overflow-hidden flex flex-col" data-testid="portfolio-card">
               <div className="aspect-[4/3] bg-surface flex items-center justify-center text-ink-subtle">
                 {project.image_url ? (
                   <img src={project.image_url} alt={project.title} loading="lazy" className="w-full h-full object-cover" />
@@ -125,7 +125,7 @@ export function PortfolioManager() {
       />
 
       <Dialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
-        <DialogContent className="max-w-md bg-canvas border-line text-ink">
+        <DialogContent className="max-w-md bg-surface border-line text-ink">
           <DialogHeader>
             <DialogTitle>Eliminare il progetto?</DialogTitle>
             <DialogDescription>

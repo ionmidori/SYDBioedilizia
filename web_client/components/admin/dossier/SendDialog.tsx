@@ -28,7 +28,7 @@ export function parseCc(raw: string): string[] {
 }
 
 const INPUT =
-  'w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-accent';
+  'w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-primary';
 
 /**
  * Send the approved PDF. Everything is pre-filled from the server (recipient,
@@ -37,7 +37,7 @@ const INPUT =
 export function SendDialog({ projectId, open, onOpenChange, ...rest }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-canvas border-line text-ink">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-surface border-line text-ink">
         <DialogHeader>
           <DialogTitle>Invia il preventivo al cliente</DialogTitle>
           <DialogDescription>
@@ -61,7 +61,7 @@ function SendDialogBody({
   if (defaults.isPending) {
     return (
       <div className="py-10 flex justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary-ink" aria-label="Caricamento" />
       </div>
     );
   }
@@ -209,7 +209,7 @@ function SendForm({
             target="_blank"
             rel="noopener noreferrer"
             data-testid="send-pdf-preview"
-            className="text-accent-ink hover:underline"
+            className="text-primary-ink hover:underline"
           >
             Apri anteprima PDF
           </a>
@@ -225,14 +225,14 @@ function SendForm({
       )}
 
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface cursor-pointer">
+        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface-muted transition-colors cursor-pointer">
           Annulla
         </button>
         <button
           type="submit"
           disabled={!canSend}
           data-testid="send-confirm"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
         >
           {send.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
           Invia email

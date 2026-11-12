@@ -81,7 +81,7 @@ export function PriceBookEditor() {
   if (book.isPending) {
     return (
       <div className="py-16 flex justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary-ink" aria-label="Caricamento" />
       </div>
     );
   }
@@ -266,7 +266,7 @@ export function PriceBookEditor() {
             }}
             placeholder="Cerca per SKU, descrizione, categoria…"
             data-testid="pb-search"
-            className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-hidden focus:border-accent"
+            className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-hidden focus:border-primary"
           />
         </div>
         <label className="sr-only" htmlFor="pb-category">
@@ -322,7 +322,7 @@ export function PriceBookEditor() {
             onClick={startSave}
             disabled={!dirty || stale || busy}
             data-testid="pb-save"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary transition-colors text-sm font-medium disabled:opacity-50 cursor-pointer"
           >
             <Save className="w-4 h-4" aria-hidden />
             Salva{dirty ? ` (${changes})` : ''}

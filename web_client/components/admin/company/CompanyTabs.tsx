@@ -53,7 +53,7 @@ export function CompanyTabs({ active, onSelect, errorTabs }: Props) {
                         onKeyDown={(event) => onKeyDown(event, index)}
                         className={cn(
                             'relative inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-sm cursor-pointer focus:outline-hidden focus-visible:ring-2 ring-ring',
-                            selected ? 'bg-accent text-on-accent font-medium' : 'border border-line text-ink hover:bg-surface',
+                            selected ? 'bg-primary text-on-primary font-medium shadow-xs' : 'border border-line bg-surface text-ink hover:bg-primary-subtle hover:text-primary-ink hover:border-primary/40',
                         )}
                     >
                         {tab.label}

@@ -25,7 +25,7 @@ interface Props {
 export function SaveDialog({ open, onOpenChange, ...rest }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-canvas border-line text-ink">
+      <DialogContent className="max-w-md bg-surface border-line text-ink">
         {open && <SaveForm {...rest} onCancel={() => onOpenChange(false)} />}
       </DialogContent>
     </Dialog>
@@ -67,19 +67,19 @@ function SaveForm({
           maxLength={500}
           placeholder={reasonPlaceholder}
           data-testid="save-reason"
-          className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-accent"
+          className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-primary"
         />
       </label>
       <ErrorBanner error={error} onReload={onReload} />
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface cursor-pointer">
+        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface-muted transition-colors cursor-pointer">
           Annulla
         </button>
         <button
           type="submit"
           disabled={pending}
           data-testid="save-confirm"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
         >
           {pending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
           {confirmLabel}

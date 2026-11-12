@@ -20,7 +20,7 @@ export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif';
 
 const FIELD =
-  'w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-accent';
+  'w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-primary';
 
 interface FormState {
   title: string;
@@ -88,7 +88,7 @@ interface Props {
 export function PortfolioForm({ project, open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-canvas border-line text-ink">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-surface border-line text-ink">
         <DialogHeader>
           <DialogTitle>{project ? 'Modifica progetto' : 'Nuovo progetto'}</DialogTitle>
           <DialogDescription>Quello che salvi compare nella galleria del sito pubblico.</DialogDescription>
@@ -196,7 +196,7 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
             />
             <p className="text-xs text-ink-muted">JPG, PNG, WebP o GIF, max 10 MB. Viene ridimensionata e ripulita dai dati nascosti (posizione GPS inclusa).</p>
             {(upload.isPending || preparing) && (
-              <p className="inline-flex items-center gap-1.5 text-xs text-accent-ink" role="status">
+              <p className="inline-flex items-center gap-1.5 text-xs text-primary-ink" role="status">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden /> Caricamento in corso…
               </p>
             )}
@@ -273,14 +273,14 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
       <ErrorBanner error={create.error ?? update.error} />
 
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onDone} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface cursor-pointer">
+        <button type="button" onClick={onDone} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface-muted transition-colors cursor-pointer">
           Annulla
         </button>
         <button
           type="submit"
           disabled={saving || upload.isPending || preparing}
           data-testid="portfolio-save"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
         >
           {saving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
           Salva progetto

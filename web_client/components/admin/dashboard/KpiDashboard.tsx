@@ -18,11 +18,11 @@ function Kpi({ label, value, hint, testId, href }: { label: string; value: strin
       {hint && <p className="mt-0.5 text-[11px] text-ink-muted">{hint}</p>}
     </>
   );
-  const box = 'glass rounded-2xl p-4 border border-line block h-full';
+  const box = 'bg-surface shadow-1 rounded-2xl p-4 border border-line block h-full';
   return (
     <li>
       {href ? (
-        <Link href={href} className={`${box} hover:border-line transition-colors`}>
+        <Link href={href} className={`${box} hover:border-primary/50 hover:shadow-2 transition-all`}>
           {body}
         </Link>
       ) : (
@@ -51,7 +51,7 @@ export function KpiDashboard() {
   if (kpis.isPending) {
     return (
       <div className="py-16 flex justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
+        <Loader2 className="w-6 h-6 animate-spin text-primary-ink" aria-label="Caricamento" />
       </div>
     );
   }
@@ -78,7 +78,7 @@ export function KpiDashboard() {
           type="button"
           onClick={() => void kpis.refetch()}
           disabled={kpis.isFetching}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line text-sm hover:bg-surface disabled:opacity-50 cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line bg-surface text-sm hover:bg-primary-subtle hover:text-primary-ink hover:border-primary/40 transition-colors disabled:opacity-50 cursor-pointer"
         >
           <RefreshCw className={`w-4 h-4 ${kpis.isFetching ? 'animate-spin' : ''}`} aria-hidden /> Aggiorna
         </button>
@@ -109,8 +109,8 @@ export function KpiDashboard() {
       )}
 
       <div className="grid lg:grid-cols-3 gap-4 items-start">
-        <section className="lg:col-span-2 glass rounded-2xl p-4 border border-line">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">
+        <section className="lg:col-span-2 bg-surface shadow-1 rounded-2xl p-4 border border-line">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-primary-ink mb-3">
             Approvazioni settimanali (ultime 8 settimane)
           </h2>
           {data.weekly_approvals.every((w) => w.approvals === 0) ? (
@@ -122,8 +122,8 @@ export function KpiDashboard() {
           )}
         </section>
 
-        <section className="glass rounded-2xl p-4 border border-line" data-testid="recent-approvals">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">Ultimi approvati</h2>
+        <section className="bg-surface shadow-1 rounded-2xl p-4 border border-line" data-testid="recent-approvals">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-primary-ink mb-3">Ultimi approvati</h2>
           {data.recent_approvals.length === 0 ? (
             <p className="text-sm text-ink-muted">Nessun preventivo approvato.</p>
           ) : (
@@ -132,7 +132,7 @@ export function KpiDashboard() {
                 <li key={r.project_id}>
                   <Link
                     href={`/admin/quotes/${encodeURIComponent(r.project_id)}`}
-                    className="flex items-baseline justify-between gap-3 py-2 hover:text-accent-ink"
+                    className="flex items-baseline justify-between gap-3 py-2 hover:text-primary-ink transition-colors"
                   >
                     <span className="min-w-0">
                       <span className="block font-medium tabular-nums">{r.quote_number ?? 'Senza numero'}</span>
@@ -147,8 +147,8 @@ export function KpiDashboard() {
         </section>
       </div>
 
-      <section className="glass rounded-2xl p-4 border border-line">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">Stato delle recensioni</h2>
+      <section className="bg-surface shadow-1 rounded-2xl p-4 border border-line">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-primary-ink mb-3">Stato delle recensioni</h2>
         <dl className="grid grid-cols-3 gap-3 text-center">
           {(
             [

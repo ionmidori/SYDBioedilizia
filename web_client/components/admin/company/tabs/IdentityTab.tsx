@@ -16,7 +16,7 @@ export function IdentityTab({ info, onChange, issues }: TabProps) {
     return (
         <div className="space-y-8">
             <section aria-labelledby="company-identity-company" className="space-y-4">
-                <h2 id="company-identity-company" className="text-sm font-semibold uppercase tracking-wide text-accent-ink">
+                <h2 id="company-identity-company" className="text-sm font-semibold uppercase tracking-wide text-primary-ink">
                     Dati societari
                 </h2>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -31,7 +31,7 @@ export function IdentityTab({ info, onChange, issues }: TabProps) {
             </section>
 
             <section aria-labelledby="company-identity-contacts" className="space-y-4">
-                <h2 id="company-identity-contacts" className="text-sm font-semibold uppercase tracking-wide text-accent-ink">
+                <h2 id="company-identity-contacts" className="text-sm font-semibold uppercase tracking-wide text-primary-ink">
                     Contatti
                 </h2>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -56,7 +56,7 @@ export function IdentityTab({ info, onChange, issues }: TabProps) {
             </section>
 
             <section aria-labelledby="company-identity-address" className="space-y-4">
-                <h2 id="company-identity-address" className="text-sm font-semibold uppercase tracking-wide text-accent-ink">
+                <h2 id="company-identity-address" className="text-sm font-semibold uppercase tracking-wide text-primary-ink">
                     Sede
                 </h2>
                 <div className="grid gap-4 md:grid-cols-2">

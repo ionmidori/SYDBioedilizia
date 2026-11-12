@@ -95,7 +95,7 @@ export function CompanyInfoEditor() {
     if (query.isPending) {
         return (
             <div className="py-16 flex justify-center">
-                <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
+                <Loader2 className="w-6 h-6 animate-spin text-primary-ink" aria-label="Caricamento" />
             </div>
         );
     }
@@ -228,7 +228,7 @@ export function CompanyInfoEditor() {
                         onClick={startSave}
                         disabled={!dirty || stale || busy}
                         data-testid="company-save"
-                        className="inline-flex min-h-11 items-center gap-1.5 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
+                        className="inline-flex min-h-11 items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
                     >
                         <Save className="w-4 h-4" aria-hidden />
                         Salva{dirty ? ` (${parts.length})` : ''}
