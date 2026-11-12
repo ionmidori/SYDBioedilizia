@@ -15,6 +15,7 @@ interface ChatMessagesProps {
     typingMessage?: string | null;
     sessionId?: string | null;
     onImageClick?: (url: string) => void;
+    onQuickPrompt?: (prompt: string) => void;
 
     // Status Logic 
     statusMessage?: string | null;
@@ -37,6 +38,7 @@ const ChatMessagesComponent = ({
     typingMessage,
     sessionId,
     onImageClick,
+    onQuickPrompt,
     statusMessage,
     data, // Capture data
     messagesContainerRef,
@@ -83,7 +85,7 @@ const ChatMessagesComponent = ({
         <div
             ref={messagesContainerRef}
             data-testid="chat-messages"
-            className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent overscroll-contain touch-pan-y"
+            className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-line-strong/30 hover:scrollbar-thumb-line-strong/50 scrollbar-track-transparent overscroll-contain touch-pan-y"
             style={scrollStyle}
         >
             {/* No `layout` / popLayout: messages never reorder, and layout (FLIP)
@@ -96,6 +98,7 @@ const ChatMessagesComponent = ({
                             message={msg}
                             sessionId={sessionId || ""}
                             onImageClick={onImageClick || noopImageClick}
+                            onQuickPrompt={msg.id === 'welcome-msg' && !isLoading ? onQuickPrompt : undefined}
                             historyMessage={msg.id ? historyById.get(msg.id) : undefined}
                             animate={!!msg.id && liveReplyIds.has(msg.id)}
                         />

@@ -210,9 +210,8 @@ export function ChatInput({
 
     return (
         <div
-            className="px-4 border-t border-line backdrop-blur-md flex-shrink-0 w-full"
+            className="px-4 bg-surface border-t border-line flex-shrink-0 w-full"
             style={{
-                backgroundColor: 'color-mix(in oklab, var(--color-canvas) 95%, transparent)',
                 paddingTop: '10px',
                 paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)', // Explicit safe area + 24px
             }}
@@ -225,9 +224,9 @@ export function ChatInput({
                         variant="ghost"
                         size="icon"
                         className={cn(
-                            'text-ink-muted hover:text-accent-ink shrink-0 relative',
-                            'hover:bg-accent-subtle transition-all w-11 h-11 sm:w-10 sm:h-10',
-                            'focus-visible:ring-2 focus-visible:ring-ring rounded-full',
+                            'text-ink-muted hover:text-primary-ink shrink-0 relative',
+                            'hover:bg-primary-subtle transition-all w-11 h-11 sm:w-10 sm:h-10',
+                            'focus-visible:ring-2 focus-visible:ring-ring rounded-full cursor-pointer',
                             'mb-1' // Align with Send button
                         )}
                         onClick={() => setIsAttachMenuOpen(!isAttachMenuOpen)}
@@ -382,11 +381,11 @@ export function ChatInput({
                     {/* Text Input Area */}
                     <div
                         className={cn(
-                            'bg-canvas/30 border border-line rounded-2xl',
+                            'bg-surface-muted/60 focus-within:bg-surface border border-line focus-within:border-primary rounded-2xl',
                             'flex items-center p-1 transition-all duration-300',
                             'focus-within:ring-1 focus-within:ring-ring',
                             'min-h-[44px]', // Enforce min-height on wrapper
-                            isFocused && 'ring-1 ring-ring',
+                            isFocused && 'ring-1 ring-ring bg-surface border-primary',
                             'mb-1' // Align with buttons
                         )}
                     >
@@ -401,7 +400,7 @@ export function ChatInput({
                             }
                             aria-label="Messaggio chat"
                             className={cn(
-                                'w-full bg-transparent text-ink caret-accent-ink',
+                                'w-full bg-transparent text-ink caret-primary-ink',
                                 'placeholder:text-ink-muted px-3 py-2',
                                 'text-base md:text-sm', // Mobile: 16px (no zoom), Desktop: 14px
                                 'max-h-24 min-h-[24px] focus:outline-hidden resize-none', // Reduced min-h to let wrapper control height
@@ -426,8 +425,8 @@ export function ChatInput({
                         'w-11 h-11 sm:w-10 sm:h-10',
                         'focus-visible:ring-2 focus-visible:ring-ring',
                         !isSendDisabled
-                            ? 'bg-primary hover:bg-primary-hover text-on-primary shadow-lg'
-                            : 'bg-accent-subtle text-ink-subtle'
+                            ? 'bg-primary hover:bg-primary-hover text-on-primary shadow-md cursor-pointer'
+                            : 'bg-surface-muted text-ink-subtle'
                     )}
                     size="icon"
                     aria-label="Invia messaggio"
@@ -442,7 +441,7 @@ export function ChatInput({
                 trattati secondo la nostra{' '}
                 <Link
                     href="/privacy"
-                    className="underline hover:text-accent-ink transition-colors"
+                    className="underline hover:text-primary-ink transition-colors"
                 >
                     Informativa sulla Privacy
                 </Link>

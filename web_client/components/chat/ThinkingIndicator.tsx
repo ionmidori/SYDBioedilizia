@@ -40,7 +40,7 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
     return (
         <div data-testid="thinking-indicator" className="flex flex-col gap-2 min-w-[200px] max-w-full">
             {/* Header / Summary */}
-            <div className="flex items-center justify-between gap-3 text-accent-ink text-sm h-8">
+            <div className="flex items-center justify-between gap-3 text-primary-ink text-sm h-8">
                 <div className="flex items-center gap-3">
                     <M3LoaderShape />
                     
@@ -63,7 +63,7 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
                 {reasoningData && (
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
-                        className="p-1 hover:bg-accent-subtle rounded-full transition-colors"
+                        className="p-1 hover:bg-primary-subtle rounded-full transition-colors"
                     >
                         {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                     </button>

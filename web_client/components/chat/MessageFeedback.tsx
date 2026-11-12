@@ -90,7 +90,7 @@ export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, se
                 disabled={submitting}
                 aria-label="Utile"
                 className={cn(
-                    "p-1.5 rounded-full transition-all duration-200 hover:bg-accent-subtle",
+                    "p-1.5 rounded-full transition-all duration-200 hover:bg-primary-subtle",
                     "min-h-[32px] min-w-[32px] flex items-center justify-center", // Enhanced tap target for mobile
                     rating === 1
                         ? "text-success-ink scale-110"
@@ -104,7 +104,7 @@ export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, se
                 disabled={submitting}
                 aria-label="Non utile"
                 className={cn(
-                    "p-1.5 rounded-full transition-all duration-200 hover:bg-accent-subtle",
+                    "p-1.5 rounded-full transition-all duration-200 hover:bg-primary-subtle",
                     "min-h-[32px] min-w-[32px] flex items-center justify-center", // Enhanced tap target for mobile
                     rating === -1
                         ? "text-danger-ink scale-110"
