@@ -6,6 +6,13 @@ import ChiSiamoPage, { metadata as chiSiamoMetadata } from '@/app/chi-siamo/page
 import { metadata as faqMetadata } from '@/app/faq/page';
 import { metadata as blogIndexMetadata } from '@/app/blog/page';
 import { generateMetadata as progettiMetadata } from '@/app/progetti/page';
+import * as privacyPageModule from '@/app/privacy/page';
+import * as cookiePageModule from '@/app/cookie-policy/page';
+import TermsPage, * as termsPageModule from '@/app/terms/page';
+import * as verifyPageModule from '@/app/auth/verify/page';
+import * as maintenancePageModule from '@/app/maintenance/page';
+import { metadata as dashboardMetadata } from '@/app/dashboard/layout';
+import { CompanyIdentityProvider } from '@/components/providers/CompanyIdentityProvider';
 import sitemap from '@/app/sitemap';
 import robots from '@/app/robots';
 import { BLOG_POSTS } from '@/lib/blog';
@@ -29,7 +36,8 @@ jest.mock('@/app/progetti/ProjectsArchiveClient', () => ({ ProjectsArchiveClient
 jest.mock('@/components/providers/AppCheckProvider', () => ({ AppCheckProvider: ({ children }: { children: ReactNode }) => children }));
 jest.mock('@/components/providers/AuthProvider', () => ({ AuthProvider: ({ children }: { children: ReactNode }) => children }));
 jest.mock('@/components/providers/QueryProvider', () => ({ __esModule: true, default: ({ children }: { children: ReactNode }) => children }));
-jest.mock('@/components/providers/CompanyIdentityProvider', () => ({ CompanyIdentityProvider: ({ children }: { children: ReactNode }) => children }));
+jest.mock('@/components/dashboard/DashboardClientLayout', () => ({ DashboardClientLayout: ({ children }: { children: ReactNode }) => children }));
+jest.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ completeMagicLink: jest.fn() }) }));
 jest.mock('@/components/chat/ChatProvider', () => ({ ChatProvider: ({ children }: { children: ReactNode }) => children }));
 jest.mock('@vercel/speed-insights/next', () => ({ SpeedInsights: () => null }));
 jest.mock('@vercel/analytics/next', () => ({ Analytics: () => null }));
@@ -100,5 +108,43 @@ describe('SEO metadata core', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('gives legal pages distinct metadata without SYD suffix and complete Terms copy', () => {
+    const privacyMeta = (privacyPageModule as { metadata?: typeof rootMetadata }).metadata;
+    const cookieMeta = (cookiePageModule as { metadata?: typeof rootMetadata }).metadata;
+    const termsMeta = (termsPageModule as { metadata?: typeof rootMetadata }).metadata;
+
+    expect(privacyMeta?.alternates?.canonical).toBe('/privacy');
+    expect(String(privacyMeta?.title)).not.toMatch(/SYD/i);
+    expect(privacyMeta?.description?.length).toBeGreaterThanOrEqual(80);
+
+    expect(cookieMeta?.alternates?.canonical).toBe('/cookie-policy');
+    expect(String(cookieMeta?.title)).not.toMatch(/SYD/i);
+    expect(cookieMeta?.description?.length).toBeGreaterThanOrEqual(80);
+
+    expect(termsMeta?.alternates?.canonical).toBe('/terms');
+    expect(String(termsMeta?.title)).not.toMatch(/SYD/i);
+    expect(termsMeta?.robots).toBeUndefined();
+
+    const { container } = render(
+      <CompanyIdentityProvider identity={SEED_COMPANY_INFO.identity}>
+        <TermsPage />
+      </CompanyIdentityProvider>
+    );
+    const text = container.textContent ?? '';
+    expect(text).not.toContain('Sezione in fase di aggiornamento legale');
+    expect(text).toContain(SEED_COMPANY_INFO.identity.legal_name);
+    expect(text).toContain(SEED_COMPANY_INFO.identity.vat_id);
+    expect(text).toContain('Roma');
+  });
+
+  it('sets noindex,nofollow on auth verify, maintenance, and dashboard', () => {
+    const verifyMeta = (verifyPageModule as { metadata?: typeof rootMetadata }).metadata;
+    const maintenanceMeta = (maintenancePageModule as { metadata?: typeof rootMetadata }).metadata;
+
+    expect(verifyMeta?.robots).toEqual({ index: false, follow: false });
+    expect(maintenanceMeta?.robots).toEqual({ index: false, follow: false });
+    expect(dashboardMetadata.robots).toEqual({ index: false, follow: false });
   });
 });
