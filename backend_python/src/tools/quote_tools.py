@@ -426,6 +426,9 @@ _MAX_QUESTIONS = 2
 _CLIENT_MANUAL_WORK_SHOWN = 5
 # The confirmation card (chat, signed-in clients) asks for the measures: no amount, ever.
 _CARD_MEASURES_NOTE = "Conferma le misure nella scheda qui sotto: preparo il preventivo appena sono complete."
+# Heading of the measures the lines used while a new value waits on the card: the
+# agent repeats them word for word (MODE_B_SURVEYOR STEP 1, "MISURE E STATO").
+MEASURES_TO_REPORT = "MISURE DA RIPORTARE AL CLIENTE, parola per parola, prima di tutto il resto:"
 _CARD_DRAFT_NOTE = (
     "Puoi confermare misure e lavori nella scheda qui sotto: la richiesta si aggiorna da sola e diventa più precisa."
 )
@@ -1187,13 +1190,16 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 "Il team esaminerà le modifiche e riceverai il preventivo aggiornato via email.\n\n"
                 "Vuoi che invii ora la revisione al team?"
             )
+        # The values the lines used come first, under their own heading: in the middle
+        # of the reply flash-lite skipped them and told "recepito 8 mq" (eval room_correction).
+        proposals = _proposals_note(results)
         response = (
-            f"{headline}\n\n"
+            (f"{MEASURES_TO_REPORT}\n{proposals}\n\n" if proposals else "")
+            + f"{headline}\n\n"
             f"Ho registrato la tua richiesta di preventivo{reference}: ho identificato "
             f"{len(quote.items)} lavorazioni{sections} da sottoporre al nostro team tecnico.\n\n"
             "Il team esaminerà la richiesta, definirà le voci e i prezzi e "
             "riceverai il preventivo dettagliato via email dopo la revisione.\n\n"
-            + (f"{proposals}\n\n" if (proposals := _proposals_note(results)) else "")
             + (f"{_CARD_DRAFT_NOTE}\n\n" if any(r.card_to_confirm for r in results) else "")
             + "Vuoi che invii ora la richiesta al team?"
         )

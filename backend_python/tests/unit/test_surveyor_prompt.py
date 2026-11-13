@@ -1,6 +1,7 @@
 """Phase 140 step 3: the quote agent leaves the measures to the confirmation card
 when the quote tool points to it (no measure question twice, no amount)."""
 from src.prompts.components.modes import MODE_B_SURVEYOR
+from src.tools.quote_tools import MEASURES_TO_REPORT
 
 _STEP_1 = MODE_B_SURVEYOR.split("**STEP 1 ")[1].split("**STEP 2 ")[0]
 
@@ -47,3 +48,5 @@ def test_the_measures_are_not_collected_in_words_before_the_tool():
 def test_values_and_state_are_reported_only_as_the_tool_gives_them():
     """The agent told "recepisco 8 mq" while the lines used the confirmed 5 (PR 1 · E)."""
     assert "calcolato su" in _STEP_1 and "come li riporta lo strumento" in _STEP_1
+    # The rule names the heading the tool puts first (quote_tools.MEASURES_TO_REPORT).
+    assert MEASURES_TO_REPORT in _STEP_1 and "parola per parola" in _STEP_1

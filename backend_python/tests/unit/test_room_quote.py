@@ -30,6 +30,7 @@ from src.tools.quote_tools import (
     _CARD_DRAFT_NOTE,
     _CARD_MEASURES_NOTE,
     _ROOM_ANALYSIS_CONCURRENCY,
+    MEASURES_TO_REPORT,
     suggest_quote_items_wrapper,
 )
 from src.utils.datetime_utils import utc_now
@@ -1019,6 +1020,8 @@ async def test_the_reply_says_which_value_was_used_and_where_the_new_one_waits()
         "Il nuovo valore 6 m² è nella scheda qui sotto: confermalo lì per usarlo."
     ) in reply
     assert "€" not in reply
+    # First, under its own heading: flash-lite skipped it in the middle of the reply (eval room_correction).
+    assert reply.startswith(f"{MEASURES_TO_REPORT}\n**Bagno** — pavimento della stanza: calcolato su 8 m²")
 
 
 async def test_no_value_note_without_a_proposal():
