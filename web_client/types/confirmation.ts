@@ -9,7 +9,7 @@
 import { z } from 'zod';
 
 // MeasureValue in schemas/intervention_spec.py.
-const MEASURE_MAX = 10_000;
+export const MEASURE_MAX = 10_000;
 const measureValueSchema = z.number().min(0).max(MEASURE_MAX);
 // _MAX_CHOICES in schemas/confirmation.py (the measures are checked by name there).
 const MAX_CHOICES = 32;

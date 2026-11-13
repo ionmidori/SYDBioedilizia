@@ -13,6 +13,7 @@ import { useAdkStreamEvents } from '@/hooks/useAdkStreamEvents';
 import { useProjectRooms } from '@/hooks/useProjectRooms';
 import { useActiveRoom } from '@/hooks/useActiveRoom';
 import { useChatMoveRecovery, type SentTurn } from '@/hooks/useChatMoveRecovery';
+import { useRefreshConfirmations } from '@/hooks/use-confirmations';
 import { useRefreshHouseQuote } from '@/hooks/use-house-quote';
 import { auth } from '@/lib/firebase';
 
@@ -68,6 +69,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     // The agent writes the quote of the house during a turn (Phase 139 dashboard).
     const refreshHouseQuote = useRefreshHouseQuote();
+    // ...and the specs behind the confirmation card.
+    const refreshConfirmations = useRefreshConfirmations();
 
     const chatHelpers = useChat({
         // No id yet (the user's chat is being asked for): a placeholder chat that
@@ -81,6 +84,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         onFinish(message) {
             markChatFinish();
             void refreshHouseQuote();
+            void refreshConfirmations();
             logger.debug('[ChatProvider] Turn finished. Last message:', message);
         },
         onError: (err) => {

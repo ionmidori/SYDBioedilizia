@@ -29,7 +29,7 @@ export function ElementChoiceField({ choice, value, disabled, onChange }: Elemen
         className="inline-flex rounded-xl border border-line-strong bg-surface p-0.5"
       >
         {choice.options.map((action) => (
-          <label key={action} className="cursor-pointer">
+          <label key={action} className="relative cursor-pointer">
             <input
               type="radio"
               name={groupId}
@@ -39,7 +39,7 @@ export function ElementChoiceField({ choice, value, disabled, onChange }: Elemen
               onChange={() => onChange(action)}
               className="peer sr-only"
             />
-            <span className="block min-h-9 rounded-[10px] px-3 py-2 text-xs font-medium text-ink-muted transition-colors peer-checked:bg-primary peer-checked:text-on-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-disabled:opacity-60">
+            <span className="block min-h-11 rounded-[10px] px-3 py-3 md:min-h-9 md:py-2 text-xs font-medium text-ink-muted transition-colors peer-checked:bg-primary peer-checked:text-on-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-disabled:opacity-60">
               {ACTION_LABEL[action]}
             </span>
           </label>

@@ -215,6 +215,53 @@ describe('ConfirmationCard — after the client confirms', () => {
   });
 });
 
+describe('ConfirmationCard — one confirmation at a time', () => {
+  it('locks every section while one is being saved', async () => {
+    getState.mockResolvedValue(
+      state({ sections: [bagno({ measures: [] }), bagno({ section_key: 'cucina1', label: 'Cucina', measures: [] })] }),
+    );
+    confirm.mockReturnValue(new Promise(() => undefined));
+    const user = userEvent.setup();
+    renderCard();
+
+    const [first] = await screen.findAllByRole('button', { name: 'Conferma' });
+    await user.click(first);
+
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('button', { name: /Salvo|Conferma/ }).every((b) => (b as HTMLButtonElement).disabled),
+      ).toBe(true),
+    );
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('says a value out of range is the problem, not an empty field', async () => {
+    const user = userEvent.setup();
+    renderCard();
+
+    const input = await screen.findByLabelText('Superficie pavimento');
+    await user.clear(input);
+    await user.type(input, '20000');
+    await user.type(screen.getByLabelText('Superficie pareti'), '18');
+
+    expect(await confirmButton()).toBeDisabled();
+    expect(screen.getByText('Ogni misura va da 0 a 10.000.')).toBeInTheDocument();
+    expect(screen.queryByText('Indica tutte le misure per confermare.')).not.toBeInTheDocument();
+  });
+
+  it('closes once everything is confirmed and the estimate has no precision to show', async () => {
+    const done = state({ sections: [], precision: null });
+    confirm.mockResolvedValue({ recalculated: false, blocked_sections: [], state: done });
+    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] })] })).mockResolvedValue(done);
+    const user = userEvent.setup();
+    const { container } = renderCard();
+
+    await user.click(await confirmButton());
+
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
+  });
+});
+
 describe('ConfirmationCard — when there is nothing to do', () => {
   it('is read-only once the quote is no longer a draft', async () => {
     getState.mockResolvedValue(state({ editable: false }));

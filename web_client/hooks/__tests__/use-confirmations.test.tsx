@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useConfirmationMutation, useConfirmations } from '../use-confirmations';
+import { useConfirmationMutation, useConfirmations, useRefreshConfirmations } from '../use-confirmations';
 import { confirmationsApi } from '@/lib/confirmations-api';
 
 jest.mock('@/lib/confirmations-api', () => ({
@@ -85,5 +85,46 @@ describe('useConfirmationMutation', () => {
 
     const keys = invalidate.mock.calls.map(([filters]) => filters?.queryKey);
     expect(keys).toContainEqual(['confirmations', 'chat-1']);
+  });
+});
+
+describe('useRefreshConfirmations', () => {
+  it('reads the card again after a chat turn: the agent may have changed the specs', async () => {
+    getState.mockResolvedValueOnce(STATE).mockResolvedValueOnce({ ...STATE, precision: 80 });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(() => ({ card: useConfirmations('chat-1'), refresh: useRefreshConfirmations() }), {
+      wrapper: wrapperWith(client),
+    });
+    await waitFor(() => expect(result.current.card.data).toEqual(STATE));
+
+    await act(() => result.current.refresh());
+
+    await waitFor(() => expect(result.current.card.data?.precision).toBe(80));
+  });
+});
+
+describe('useConfirmationMutation — pending until the card is read again', () => {
+  it('stays pending while the card is read again, so nobody confirms twice', async () => {
+    let finishRead: (state: typeof STATE) => void = () => undefined;
+    getState.mockResolvedValueOnce(STATE).mockReturnValueOnce(new Promise((resolve) => (finishRead = resolve)));
+    confirm.mockResolvedValue({ recalculated: true, blocked_sections: [], state: STATE });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(
+      () => ({ card: useConfirmations('chat-1'), save: useConfirmationMutation('chat-1') }),
+      {
+        wrapper: wrapperWith(client),
+      },
+    );
+    await waitFor(() => expect(result.current.card.data).toEqual(STATE));
+    const update = { measures: [{ name: 'mq', value: 6 }], element_choices: [] };
+
+    act(() => {
+      result.current.save.mutate({ sectionKey: 'bagno1', update });
+    });
+    await waitFor(() => expect(getState).toHaveBeenCalledTimes(2));
+    expect(result.current.save.isPending).toBe(true);
+
+    await act(async () => finishRead(STATE));
+    await waitFor(() => expect(result.current.save.isPending).toBe(false));
   });
 });

@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import type { MeasureSource, MeasureState } from '@/types/confirmation';
+import { MEASURE_MAX, type MeasureSource, type MeasureState } from '@/types/confirmation';
 
 /** Where a value comes from, as the client reads it (`null` source: nobody gave it yet). */
 const SOURCE_LABEL: Record<MeasureSource, string> = {
@@ -10,9 +10,6 @@ const SOURCE_LABEL: Record<MeasureSource, string> = {
   confirmed: 'confermata',
 };
 const NO_VALUE_LABEL = 'da indicare';
-
-// MeasureValue in schemas/intervention_spec.py (types/confirmation.ts checks the same range).
-const MEASURE_MAX = 10_000;
 
 const formatNumber = (value: number) => value.toLocaleString('it-IT');
 // The backend labels start in lower case ("pavimento della stanza (m²)").
@@ -29,6 +26,7 @@ interface MeasureFieldProps {
 /** One measure of a section: the value to confirm, where it comes from, quick picks for other values. */
 export function MeasureField({ measure, value, disabled, onChange }: MeasureFieldProps) {
   const inputId = useId();
+  const noteId = `${inputId}-note`;
   const { proposed, candidates } = measure;
   // The values the chat gave besides the one in the input: one tap to take them.
   const picks = [...new Set([...(proposed === null ? [] : [proposed]), ...candidates])].filter(
@@ -48,18 +46,19 @@ export function MeasureField({ measure, value, disabled, onChange }: MeasureFiel
           step="any"
           min={0}
           max={MEASURE_MAX}
+          aria-describedby={noteId}
           value={value}
           disabled={disabled}
           onChange={(event) => onChange(event.target.value)}
           className="w-28 rounded-lg border border-line-strong bg-surface px-2.5 py-1.5 text-right text-base tabular-nums text-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 md:text-sm"
         />
       </div>
-      <p className="text-xs text-ink-muted">
+      <p id={noteId} className="text-xs text-ink-muted">
         {measure.source === null ? NO_VALUE_LABEL : SOURCE_LABEL[measure.source]}
+        {proposed !== null && (
+          <span className="block text-warning-ink">Nuova indicazione dalla chat: {formatNumber(proposed)}</span>
+        )}
       </p>
-      {proposed !== null && (
-        <p className="text-xs text-warning-ink">Nuova indicazione dalla chat: {formatNumber(proposed)}</p>
-      )}
       {!disabled && picks.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {picks.map((pick) => (
@@ -67,7 +66,7 @@ export function MeasureField({ measure, value, disabled, onChange }: MeasureFiel
               key={pick}
               type="button"
               onClick={() => onChange(String(pick))}
-              className="min-h-9 cursor-pointer rounded-lg border border-line bg-surface px-3 text-xs font-medium text-primary-ink transition-colors hover:bg-surface-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+              className="min-h-11 cursor-pointer rounded-lg md:min-h-9 border border-line bg-surface px-3 text-xs font-medium text-primary-ink transition-colors hover:bg-surface-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             >
               Usa {formatNumber(pick)}
             </button>

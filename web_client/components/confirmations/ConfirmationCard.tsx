@@ -24,7 +24,8 @@ export function ConfirmationCard({ projectId }: { projectId: string }) {
 
   if (!data) return null;
   const pending = data.sections.filter((section) => section.pending);
-  if (pending.length === 0 && !mutation.isSuccess) return null;
+  // Everything confirmed: the card stays only to say how precise the estimate is.
+  if (pending.length === 0 && !(mutation.isSuccess && data.precision !== null)) return null;
 
   return (
     <section
@@ -39,6 +40,7 @@ export function ConfirmationCard({ projectId }: { projectId: string }) {
           section={section}
           editable={data.editable}
           saving={mutation.isPending && mutation.variables?.sectionKey === section.section_key}
+          locked={mutation.isPending}
           onConfirm={(update) => mutation.mutate({ sectionKey: section.section_key, update })}
         />
       ))}
