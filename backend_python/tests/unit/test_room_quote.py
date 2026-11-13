@@ -1030,3 +1030,28 @@ async def test_no_value_note_without_a_proposal():
         reply = await _quote()
 
     assert "calcolato su" not in reply
+
+
+async def test_a_revision_reply_also_reports_the_values_first():
+    """A client who already received the quote corrects a measure: the revision path
+    returned before the note and the agent said "recepito" (final review, PR 1)."""
+    stored = _stored(measures=[{"name": "mq", "value": 8, "source": "confirmed"}])
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}, specs={"bagno1": stored}) as mocks:
+        mocks["saved"].return_value = DraftSaveResult(DraftSaveOutcome.REVISED, "draft", "PRV-2026-0042", 2, True)
+        reply = await _quote()
+
+    assert reply.startswith(f"{MEASURES_TO_REPORT}\n**Bagno** — pavimento della stanza: calcolato su 8 m²")
+    assert "nuova revisione" in reply
+
+
+async def test_questions_for_one_room_still_report_the_values_of_another():
+    stored = _stored(measures=[{"name": "mq", "value": 8, "source": "confirmed"}])
+    cucina = InsightAnalysis(
+        summary="Cucina da definire", completeness_score=0.3,
+        missing_info=["Il top lo vuoi in quarzo o in laminato?"], suggestions=[_s("CUC-TOP-002", 3)],
+    )
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom(), "Cucina": cucina}, specs={"bagno1": stored}):
+        reply = await _quote()
+
+    assert reply.startswith(f"{MEASURES_TO_REPORT}\n**Bagno** — pavimento della stanza: calcolato su 8 m²")
+    assert "quarzo o in laminato" in reply

@@ -1006,6 +1006,14 @@ def _proposals_note(results: list[_UnitResult]) -> str:
     return "\n".join(notes)
 
 
+def _measures_block(results: list[_UnitResult]) -> str:
+    """The values the lines used while a new one waits on the card, first in every
+    reply under their own heading: in the middle of the reply flash-lite skipped
+    them and told "recepito 8 mq" (eval room_correction)."""
+    proposals = _proposals_note(results)
+    return f"{MEASURES_TO_REPORT}\n{proposals}\n\n" if proposals else ""
+
+
 def _manual_work_note(manual_work: list[ManualWorkItem]) -> str:
     """The works the technician quotes by hand, told to the client. A line the live
     price book lacks is left out: it is the team's catalogue, not the client's request."""
@@ -1123,7 +1131,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         results = await _with_late_confirmations(results, target_project_id)
         refusal = _rooms_reply(results) if to_quote else _single_unit_reply(results[0])
         if refusal is not None:
-            return refusal
+            return _measures_block(results) + refusal
 
         # 8. Prices, one quote for the home (project-wide lines once, in "Generale"),
         # totals and price range: the pipeline the confirmation card uses too.
@@ -1184,17 +1192,15 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 else ""
             )
             return (
-                f"{headline}\n\n"
+                _measures_block(results)
+                + f"{headline}\n\n"
                 f"Ho preparato una nuova revisione del preventivo{reference}: ho identificato "
                 f"{len(quote.items)} lavorazioni{sections} da sottoporre al nostro team tecnico.{still_valid}\n\n"
                 "Il team esaminerà le modifiche e riceverai il preventivo aggiornato via email.\n\n"
                 "Vuoi che invii ora la revisione al team?"
             )
-        # The values the lines used come first, under their own heading: in the middle
-        # of the reply flash-lite skipped them and told "recepito 8 mq" (eval room_correction).
-        proposals = _proposals_note(results)
         response = (
-            (f"{MEASURES_TO_REPORT}\n{proposals}\n\n" if proposals else "")
+            _measures_block(results)
             + f"{headline}\n\n"
             f"Ho registrato la tua richiesta di preventivo{reference}: ho identificato "
             f"{len(quote.items)} lavorazioni{sections} da sottoporre al nostro team tecnico.\n\n"

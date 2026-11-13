@@ -137,3 +137,34 @@ def test_a_yes_with_more_work_or_a_doubt_is_refused(answer):
 def test_a_send_word_about_something_else_is_no_send_question():
     """ "Vuoi inviare altre foto?" is not the question about sending the request."""
     assert consent_refusal(_history("Vuoi inviare altre foto del bagno?"), TURN, _user("sì")) is not None
+
+
+@pytest.mark.parametrize("answer", [
+    "Ok, aspettiamo", "Ok annulliamo", "Sì, inviala domani", "va bene, più tardi", "Ok ci penso", "Ok fermati",
+    "sì dopo", "ok stop",
+])
+def test_a_yes_for_later_is_refused(answer):
+    assert consent_refusal(_history(), TURN, _user(answer)) is not None
+
+
+def test_an_acute_accent_yes_counts():
+    assert consent_refusal(_history(), TURN, _user("Sí, invia")) is None
+
+
+@pytest.mark.parametrize("reply", [
+    "Ti invieremo il preventivo via email. Posso aiutarti con altro?",
+    "Il preventivo è già stato inviato al team. Vuoi aggiungere qualcosa?",
+])
+def test_the_send_words_must_be_in_the_question(reply):
+    """ "Posso aiutarti con altro?" after a sentence about sending is no send question."""
+    assert consent_refusal(_history(reply), TURN, _user("sì")) is not None
+
+
+def test_the_whole_previous_turn_is_read():
+    """Question, tool call, then a short card note: the question is still the last turn's."""
+    events = [
+        _text_event("user", "registra la richiesta"),
+        _text_event("quote", "Bagno e Cucina. Invio al nostro team la richiesta di preventivo. Confermi?"),
+        _text_event("quote", "Puoi anche confermare le misure nella scheda qui sotto."),
+    ]
+    assert consent_refusal(events, TURN, _user("sì")) is None

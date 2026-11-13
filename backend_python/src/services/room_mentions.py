@@ -16,14 +16,16 @@ from __future__ import annotations
 import re
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
-from typing import Any
 
 from src.schemas.room import DEFAULT_ROOM_ID, RoomSchema, normalize_room_label
 
 # Types that do not name one place: "altro" is whatever the client called it.
 _GENERIC_TYPES = frozenset({"altro"})
 # A message about the whole home ("tutta la casa è 90 mq, bagno compreso") is no one room's talk.
-_WHOLE_HOME = re.compile(r"(?<!\w)(?:casa|appartamento|abitazione)(?!\w)")
+_WHOLE_HOME = re.compile(
+    r"(?<!\w)(?:tutta la casa|casa intera|intera casa|tutto l'appartamento|intero appartamento"
+    r"|appartamento intero|tutta l'abitazione|intera abitazione)(?!\w)"
+)
 
 
 def _pattern(names: set[str]) -> re.Pattern[str]:
@@ -47,13 +49,13 @@ def _room_patterns(rooms: Sequence[RoomSchema]) -> tuple[dict[str, re.Pattern[st
 
 
 def messages_naming_one_room(
-    messages: Sequence[Mapping[str, Any]], rooms: Sequence[RoomSchema]
-) -> dict[str, list[Mapping[str, Any]]]:
+    messages: Sequence[Mapping[str, object]], rooms: Sequence[RoomSchema]
+) -> dict[str, list[Mapping[str, object]]]:
     """The user messages that name exactly one room, by room id, in their order.
     A shared type left after the room names ("bagno e cucina" with two
     bathrooms) is one more room: the message stays project-wide."""
     patterns, shared = _room_patterns(rooms)
-    found: defaultdict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    found: defaultdict[str, list[Mapping[str, object]]] = defaultdict(list)
     for message in messages:
         content = message.get("content")
         if message.get("role") != "user" or not isinstance(content, str):
