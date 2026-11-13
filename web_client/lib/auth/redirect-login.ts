@@ -83,7 +83,7 @@ export function takePendingRedirect(): boolean {
 
 /**
  * Keep `data` in this tab under `key` for the page the login comes back to
- * (redirect, magic link). Storage unavailable: nothing is kept, the login
+ * (redirect). Storage unavailable: nothing is kept, the login
  * still completes.
  */
 export function keepForReturn(key: string, data: Record<string, unknown> = {}): void {

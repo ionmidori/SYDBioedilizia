@@ -77,7 +77,7 @@ export function GlobalAuthListener() {
         // pending: the chats are moving; done: the chat is opening them; error: waiting for "Riprova".
         if (claim.status !== 'idle') return;
         // A login made in this tab always settles a claim first. One finished
-        // elsewhere (magic link in another tab) does not tell which chat the
+        // elsewhere (e.g. in another tab) does not tell which chat the
         // message belongs to: drop it, or a later login would send it into an
         // unrelated conversation.
         const outcome = outcomeRef.current;

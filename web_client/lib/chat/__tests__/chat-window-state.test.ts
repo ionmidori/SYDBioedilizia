@@ -1,5 +1,5 @@
 /**
- * A login that leaves the page (redirect, magic link) comes back to a fresh
+ * A login that leaves the page (redirect) comes back to a fresh
  * page: the chat window opens again only if it was open, once, and only for
  * that round trip (Phase 139 PR-0b).
  */

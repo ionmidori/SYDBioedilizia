@@ -1,8 +1,8 @@
 /**
  * Whether the floating chat window is open, beyond a login that leaves the
- * page (Phase 139 PR-0b). A social login by redirect reloads the page and a
- * magic link opens a new one: without this the user came back with the chat
- * closed. The login code reads the open state here (ChatWidget reports it) and
+ * page (Phase 139 PR-0b). A social login by redirect reloads the page:
+ * without this the user came back with the chat closed. The login code reads
+ * the open state here (ChatWidget reports it) and asks the next page of this
  * asks the next page of this tab to open the chat again, once; it is dropped
  * if the user does not come back soon, like the pending message
  * (lib/auth/pending-message.ts).

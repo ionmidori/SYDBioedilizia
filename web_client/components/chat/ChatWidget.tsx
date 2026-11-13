@@ -100,7 +100,7 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
         if (isOpen) warmBackend();
     }, [isOpen]);
 
-    // A login that leaves the page (redirect, magic link) reads this to bring
+    // A login that leaves the page (redirect) reads this to bring
     // the user back with the chat as it was. The inline chat is always open.
     useEffect(() => {
         if (isInline) return;
