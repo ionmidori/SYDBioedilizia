@@ -12,6 +12,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from src.auth.jwt_handler import verify_token
+from src.core.context import bind_session
 from src.core.exceptions import PermissionDenied
 from src.core.rate_limit import limiter
 from src.db import projects as projects_db
@@ -37,6 +38,7 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 async def _require_owned_project(session_id: str, user_id: str) -> Any:
     """Reference of a project owned by the user: 404 if missing, 403 if someone else's."""
+    bind_session(session_id)
     project_ref = get_async_firestore_client().collection("projects").document(session_id)
     project_doc = await project_ref.get()
     if not project_doc.exists:

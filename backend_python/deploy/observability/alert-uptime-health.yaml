@@ -1,0 +1,28 @@
+# Alert: /health of syd-brain fails from more than one region for 5 minutes (two checks in a row).
+# __UPTIME_CHECK_ID__ is replaced by apply.sh with the id of the uptime check it creates.
+# The check waits 30 s: the service scales to zero and a cold start takes up to ~30 s.
+displayName: "Uptime /health (syd-brain)"
+combiner: OR
+alertStrategy:
+  autoClose: 1800s
+conditions:
+- displayName: "/health does not answer"
+  conditionThreshold:
+    filter: >-
+      metric.type="monitoring.googleapis.com/uptime_check/check_passed"
+      AND metric.label.check_id="__UPTIME_CHECK_ID__"
+      AND resource.type="uptime_url"
+    aggregations:
+    - alignmentPeriod: 1200s
+      perSeriesAligner: ALIGN_NEXT_OLDER
+      crossSeriesReducer: REDUCE_COUNT_FALSE
+      groupByFields:
+      - resource.label.*
+    comparison: COMPARISON_GT
+    thresholdValue: 1
+    duration: 300s
+documentation:
+  content: >-
+    `/health` of syd-brain does not answer 2xx from several regions. Check Cloud Run (the revision
+    holding 100 % of the traffic, instance start-up) and the last deploy in Cloud Build.
+  mimeType: text/markdown

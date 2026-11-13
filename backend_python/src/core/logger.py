@@ -7,7 +7,7 @@ import sys
 from logging.handlers import RotatingFileHandler
 
 from src.core.config import settings
-from src.core.context import get_request_id, get_session_id, get_user_id
+from src.core.context import get_request_id, get_session_ref, get_user_id
 
 # PII redaction patterns
 _EMAIL_RE = re.compile(r'[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}')
@@ -44,21 +44,29 @@ class JsonFormatter(logging.Formatter):
         "processName", "msecs", "message", "taskName",
     })
 
+    # Ids of a project or a session: never written as fields (a guest id is a token and not always
+    # a UUID, which the mask would not see). The line carries `session_ref` instead.
+    _ID_ATTRS = frozenset({"session_id", "project_id"})
+
     def format(self, record):
         message = _redact(record.getMessage())
         log_record = {
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
+            # Cloud Logging reads `severity` (not `level`): alerts and Error Reporting need it.
+            "severity": record.levelname,
             "logger": record.name,
             "message": message,
             "request_id": get_request_id(),
-            "session_id": get_session_id() or "system",
             "user_id": get_user_id() or "anonymous",
         }
+        # One conversation across requests: a hash of the session id, never the id.
+        if session := get_session_ref():
+            log_record["session_ref"] = session
 
         # Merge ALL extra fields (method, path, status_code, duration_ms, span, etc.)
         for key, value in record.__dict__.items():
-            if key not in self._STDLIB_ATTRS and key not in log_record:
+            if key not in self._STDLIB_ATTRS and key not in self._ID_ATTRS and key not in log_record:
                 log_record[key] = value
 
         # Handle Exception info (redact tracebacks too)

@@ -1,0 +1,28 @@
+# Alert: at least one chat turn cut short by an agent error in 10 minutes. The chat answers
+# HTTP 200 even when the turn fails, so the 5xx alert cannot see it. Traffic is low: one failed
+# turn is a client who got no answer.
+displayName: "Chat turn failed (syd-brain)"
+combiner: OR
+alertStrategy:
+  autoClose: 1800s
+conditions:
+- displayName: "chat_turn_failed > 0 in 10 min"
+  conditionThreshold:
+    filter: >-
+      metric.type="logging.googleapis.com/user/chat_turn_failed"
+      AND resource.type="cloud_run_revision"
+    aggregations:
+    - alignmentPeriod: 600s
+      perSeriesAligner: ALIGN_SUM
+      crossSeriesReducer: REDUCE_SUM
+    comparison: COMPARISON_GT
+    thresholdValue: 0
+    duration: 0s
+documentation:
+  content: >-
+    A chat turn was cut short by an agent error. In the logs look for
+    `jsonPayload.message="Inner ADK run_async error captured"` (or `Outer ADKOrchestrator execution error.`) and, just before it,
+    `jsonPayload.message:"CircuitBreaker:vertex_ai"` (ReadTimeout = the model did not answer).
+    Follow the conversation with `jsonPayload.session_ref`. If it repeats, consider
+    LLM_TIMEOUT_SECONDS or MODEL_QUOTE / MODEL_INSIGHT.
+  mimeType: text/markdown

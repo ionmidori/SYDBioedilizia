@@ -1,0 +1,17 @@
+# Log-based counter over the two lines the orchestrator logs when a chat turn is cut short by an
+# error (a model ReadTimeout is the usual cause, see the CircuitBreaker line just before it):
+# src/adk/adk_orchestrator.py, `Inner ADK run_async error captured` (the agent run) and
+# `Outer ADKOrchestrator execution error.` (session, Firestore, media: before the agent run).
+# Both answer HTTP 200 with an error chunk.
+# Filtered on the message, not on severity, so it also counts the lines written before
+# JsonFormatter emitted `severity`. Applied by apply.sh.
+name: chat_turn_failed
+description: "Chat turns interrupted by an agent error (model timeout, tool failure) in syd-brain."
+filter: >-
+  resource.type="cloud_run_revision"
+  AND resource.labels.service_name="syd-brain"
+  AND jsonPayload.message=("Inner ADK run_async error captured" OR "Outer ADKOrchestrator execution error.")
+metricDescriptor:
+  metricKind: DELTA
+  valueType: INT64
+  unit: "1"

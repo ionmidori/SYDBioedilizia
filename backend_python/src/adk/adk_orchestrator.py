@@ -48,6 +48,7 @@ from src.adk.video_attachments import (
     video_uris_in,
 )
 from src.core.chat_timing import current_turn
+from src.core.context import bind_session
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import get_conversation_repository
 from src.repositories.room_repository import get_room_repository
@@ -461,6 +462,7 @@ class ADKOrchestrator(BaseOrchestrator):
         causes flicker.
         """
         assistant_msg_id = uuid.uuid4().hex
+        bind_session(request.session_id)
         turn = current_turn()
         outcome = "ok"
         try:

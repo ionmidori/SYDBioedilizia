@@ -26,7 +26,7 @@ The frontend deploys separately on Vercel.
 | `cloud-run-config.sh` | Runtime settings of the service: scale to zero, 1 GiB memory, startup CPU boost, startup probe on `/health/startup`, session affinity, concurrency 40. `DRY_RUN=1` prints the command. |
 | `email-outbox.sh` | Infrastructure of the email outbox: Firestore indexes, Cloud Tasks queue, the invoker service account and its IAM, the environment variables, and the Brevo secrets. Subcommands: `indexes`, `tasks`, `sweep`, `status`, `brevo`. |
 | `gemini-vertex-eu.sh` | Switches Gemini from AI Studio to Vertex AI on the `eu` multi-region. Subcommands: `stage`, `promote`, `rollback`. |
-| `observability/apply.sh` | Log-based metrics and alert policies: chat latency (`chat_ttft_ms`, `chat_total_ms`, `chat_llm_ms`, `chat_queued_ms`) with the "Chat TTFT p95 > 3s" alert, and `email_dead_letter` with the "Email dead-letter" alert. |
+| `observability/apply.sh` | Log-based metrics and alert policies: chat latency (`chat_ttft_ms`, `chat_total_ms`, `chat_llm_ms`, `chat_queued_ms`) with the "Chat TTFT p95 > 3s" alert, and `email_dead_letter` with the "Email dead-letter" alert, `chat_turn_failed` with the "Chat turn failed" alert, the "Cloud Run 5xx" alert and an uptime check on `/health` with its alert. |
 
 > **Warning:** `gemini-vertex-eu.sh rollback` returns to the revision saved by
 > `stage`. The AI Studio key was revoked on October 14, 2026, so a rollback to
@@ -54,6 +54,10 @@ script retries the policy creation a few times.
 
 The metrics read structured log lines from the `syd-brain` revisions:
 
+- `Inner ADK run_async error captured` and `Outer ADKOrchestrator execution error.`, logged when an
+  error cuts a chat turn short (usually a model ReadTimeout). The chat answers HTTP 200 anyway, so only `chat_turn_failed`
+  sees it. Follow the conversation with `jsonPayload.session_ref` (a short hash of the session
+  id; the id itself is never logged).
 - `chat_turn_timing`, emitted for every chat turn (`src/core/chat_timing.py`).
 - `email_dead_letter`, emitted once when an outbox email is abandoned after
   `EMAIL_MAX_ATTEMPTS` attempts or a permanent provider error

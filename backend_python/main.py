@@ -19,7 +19,7 @@ from slowapi.errors import RateLimitExceeded
 from src.auth.jwt_handler import verify_token
 from src.core.chat_timing import start_turn
 from src.core.config import settings
-from src.core.context import set_request_id
+from src.core.context import bind_session, set_request_id
 from src.core.exceptions import AppException, ChatMerged, PermissionDenied
 from src.core.logger import get_logger, setup_logging
 from src.core.models import validate_configured_models
@@ -708,6 +708,8 @@ async def chat_stream(
     Auth is enforced via Depends(verify_token).
     """
     body.user_session = user_session
+    # Every log line of the request (this route, the stream, the tools) carries the same session_ref.
+    bind_session(body.session_id)
     turn = start_turn(body.session_id, getattr(request.state, "t_arrival", None))
     turn.mark("handler")
     # 🛡️ Multimodal Rate Limiting Penalty (Token Bucket)
@@ -728,7 +730,7 @@ async def chat_stream(
 
     logger.info(
         "Chat stream request received. Starting StreamingResponse.",
-        extra={"message_count": len(body.messages), "session_id": body.session_id, "has_media": has_media},
+        extra={"message_count": len(body.messages), "has_media": has_media},
     )
 
     # --- CHRONOLOGICAL ANCHOR: SAVE USER MESSAGE BEFORE GENERATOR ---
@@ -793,7 +795,7 @@ async def chat_stream(
     except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to ensure session before stream: {e}")
     if room_check is not None and not await room_check:
-        logger.warning("Unknown room for this project: turn not tagged", extra={"session_id": body.session_id})
+        logger.warning("Unknown room for this project: turn not tagged")
         body.room_id = None
     turn.mark("session_ready")
 
@@ -811,7 +813,7 @@ async def chat_stream(
                 message_id=user_msg_id,
                 is_guest=user_session.is_guest,
             )
-            logger.info(f"[Anchor] User message persisted for session {body.session_id}")
+            logger.info("[Anchor] User message persisted")
         except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to pre-persist user message in route: {e}")
 

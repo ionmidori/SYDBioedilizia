@@ -12,7 +12,10 @@ import ast
 import re
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[2] / "src"
+BACKEND = Path(__file__).resolve().parents[2]
+SRC = BACKEND / "src"
+# The app entry point logs too (the chat route is there).
+SOURCES = [*sorted(SRC.rglob("*.py")), BACKEND / "main.py"]
 
 _LEVELS = frozenset({"debug", "info", "warning", "error", "exception", "critical", "log"})
 # Names, attributes and extra keys that hold a project, session or audit-resource id:
@@ -44,11 +47,11 @@ def _id_names_in(call: ast.Call) -> list[str]:
 
 def _offences() -> list[str]:
     offences: list[str] = []
-    for path in sorted(SRC.rglob("*.py")):
+    for path in SOURCES:
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Call) and _is_logger_call(node):
                 if names := _id_names_in(node):
-                    offences.append(f"{path.relative_to(SRC.parent)}:{node.lineno} -> {', '.join(sorted(set(names)))}")
+                    offences.append(f"{path.relative_to(BACKEND)}:{node.lineno} -> {', '.join(sorted(set(names)))}")
     return offences
 
 

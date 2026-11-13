@@ -3,6 +3,8 @@
 #   - chat latency (`chat_turn_timing`, chat latency plan): 4 metrics + TTFT alert
 #   - email outbox (`email_dead_letter`, #478): 1 metric + dead-letter alert
 #   - App Check fallback (`app_check_auth_fallback`): 1 metric, no alert
+#   - failed chat turns (`chat_turn_failed`): 1 metric + alert; Cloud Run 5xx alert
+#   - uptime check on /health (every 5 min, 30 s timeout) + alert
 #
 # Run AFTER the code emitting those log lines is deployed. Idempotent: metrics
 # are created or updated, policies created only if missing (by displayName).
@@ -23,7 +25,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 PROJECT="${PROJECT:-chatbotluca-a8a73}"
 
-for spec in chat_ttft_ms chat_total_ms chat_llm_ms chat_queued_ms email_dead_letter app_check_auth_fallback; do
+for spec in chat_ttft_ms chat_total_ms chat_llm_ms chat_queued_ms email_dead_letter app_check_auth_fallback chat_turn_failed; do
   if gcloud logging metrics describe "$spec" --project="$PROJECT" >/dev/null 2>&1; then
     gcloud logging metrics update "$spec" --project="$PROJECT" --config-from-file="$spec.yaml"
   else
@@ -67,3 +69,24 @@ ensure_policy() {
 
 ensure_policy "Chat TTFT p95 > 3s (syd-brain)" alert-ttft.yaml
 ensure_policy "Email dead-letter (syd-brain)" alert-email-dead-letter.yaml
+ensure_policy "Chat turn failed (syd-brain)" alert-chat-turn-failed.yaml
+ensure_policy "Cloud Run 5xx (syd-brain)" alert-cloud-run-5xx.yaml
+
+# Uptime check on /health: created only if missing (by displayName). The service scales to
+# zero and a cold start takes up to ~30 s, hence the 30 s timeout; the alert waits for two
+# failed checks in a row. The check also keeps one instance warm.
+# If you delete and recreate the check, delete the "Uptime /health" policy too: an existing
+# policy is not updated and would keep pointing at the old check id (and stay silent).
+UPTIME_NAME="syd-brain /health"
+UPTIME_HOST=$(gcloud run services describe syd-brain --region="${REGION:-europe-west1}"   --project="$PROJECT" --format='value(status.url)')
+UPTIME_HOST="${UPTIME_HOST#https://}"
+UPTIME_ID=$(gcloud monitoring uptime list-configs --project="$PROJECT"   --filter="displayName=\"$UPTIME_NAME\"" --format='value(name.basename())' | head -n1)
+if [[ -z "$UPTIME_ID" ]]; then
+  gcloud monitoring uptime create "$UPTIME_NAME" --project="$PROJECT"     --resource-type=uptime-url --resource-labels="host=$UPTIME_HOST,project_id=$PROJECT"     --protocol=https --path=/health --period=5 --timeout=30 --status-classes=2xx --validate-ssl=true
+  UPTIME_ID=$(gcloud monitoring uptime list-configs --project="$PROJECT"     --filter="displayName=\"$UPTIME_NAME\"" --format='value(name.basename())')
+fi
+[[ -n "$UPTIME_ID" ]] || { echo "Uptime check \"$UPTIME_NAME\" not found." >&2; exit 1; }
+UPTIME_POLICY="$(mktemp)"
+sed "s/__UPTIME_CHECK_ID__/$UPTIME_ID/" alert-uptime-health.yaml > "$UPTIME_POLICY"
+ensure_policy "Uptime /health (syd-brain)" "$UPTIME_POLICY"
+rm -f "$UPTIME_POLICY"
