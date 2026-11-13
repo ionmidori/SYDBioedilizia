@@ -217,6 +217,8 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
     }
 
     const isDraft = quote.status === 'draft';
+    // The client reads how precise the estimate is, never the range: prices come with the approved quote.
+    const precision = quote.estimate?.precision;
     // Every other revision received: the card shows the copy of `quote.version`.
     const older = history?.sent.filter((entry) => entry.revision !== quote.version) ?? [];
     return (
@@ -239,6 +241,11 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
             {isDraft && quote.items.length > 0 && (
                 <>
                     <DraftSections lines={quote} />
+                    {typeof precision === 'number' && (
+                        <p data-testid="quote-precision" className="text-sm font-medium text-success-ink">
+                            Stima precisa al {precision} %
+                        </p>
+                    )}
                     <p className="text-xs text-ink-muted">I prezzi arrivano con il preventivo approvato dal nostro team.</p>
                     <SendToTeamButton onClick={() => setSubmitOpen(true)} />
                 </>

@@ -5,12 +5,15 @@ Provides REST endpoints for the user's chat seen as a project (Phase 139: one ch
 per user, chosen by the backend; it is not created, renamed or deleted here):
 - Get project details, construction details, files
 - Rooms of a project and the room of each file (Phase 138)
+- The confirmation card: measures and works the client confirms (Phase 140 step 3)
 """
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from src.auth.jwt_handler import verify_token
+from src.core.exceptions import PermissionDenied
+from src.core.rate_limit import limiter
 from src.db import projects as projects_db
 from src.db.firebase_client import get_async_firestore_client
 from src.db.ownership import is_owner
@@ -21,9 +24,11 @@ from src.models.project import (
     ProjectFileMetadata,
 )
 from src.repositories.room_repository import get_room_repository
+from src.schemas.confirmation import ConfirmationResult, ConfirmationState, ConfirmationUpdate
 from src.schemas.internal import UserSession
 from src.schemas.room import ROOM_ID_PATTERN, FileRoomUpdate, RoomCreate, RoomSchema, RoomUpdate
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
+from src.services.confirmation_service import confirm_section, confirmation_state
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +44,8 @@ async def _require_owned_project(session_id: str, user_id: str) -> Any:
 
     project_data = project_doc.to_dict() or {}
     if not is_owner(project_data, user_id):
-        logger.warning(
-            f"[API] User {user_id} denied access to project {session_id} "
-            f"owned by {project_data.get('userId') or project_data.get('user_id')}"
-        )
+        # Never the project id: for a guest's project it is an access token.
+        logger.warning("[API] Project access denied: not the owner.", extra={"user_id": user_id})
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accesso negato")
     return project_ref
 
@@ -239,3 +242,40 @@ async def assign_file_room(
     await _require_owned_project(session_id, user_session.uid)
     await get_room_repository().assign_file_to_room(session_id, file_id, data.room_id)
     return {"success": True}
+
+
+# ── Confirmation card (Phase 140 step 3) ──────────────────────────────────────
+
+
+async def _require_registered_owner(session_id: str, user_session: UserSession) -> None:
+    """Registered owners only: a guest's project id is an access token, and a
+    confirmation may write the quote draft."""
+    if user_session.is_guest:
+        raise PermissionDenied(message="Accedi per confermare misure e lavori.")
+    await _require_owned_project(session_id, user_session.uid)
+
+
+@router.get("/{session_id}/confirmations", response_model=ConfirmationState)
+async def get_confirmations(
+    session_id: str,
+    user_session: UserSession = Depends(verify_token),
+) -> ConfirmationState:
+    """What the card shows: each section's measures and works, whether the quote
+    can still change, the precision of its price range (never an amount)."""
+    await _require_registered_owner(session_id, user_session)
+    return await confirmation_state(session_id)
+
+
+@router.put("/{session_id}/confirmations/{section_key}", response_model=ConfirmationResult)
+@limiter.limit("30/minute")
+async def put_confirmation(
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+    session_id: str,
+    update: ConfirmationUpdate,
+    section_key: str = Path(pattern=ROOM_ID_PATTERN),  # a room id, "generale" or "chat"
+    user_session: UserSession = Depends(verify_token),
+) -> ConfirmationResult:
+    """Confirm one section; the draft is recomputed by code (no model call) once
+    no section misses a measure. 404 unknown section, 409 quote with the team."""
+    await _require_registered_owner(session_id, user_session)
+    return await confirm_section(session_id, user_session.uid, section_key, update)

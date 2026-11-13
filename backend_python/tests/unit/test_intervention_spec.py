@@ -75,6 +75,15 @@ def test_spec_round_trips_through_the_room_document() -> None:
     assert room.intervention_spec == spec
 
 
+def test_room_with_an_unreadable_spec_still_reads() -> None:
+    """SpecStore owns the spec: one it cannot read (a newer format during a rollout)
+    never breaks the room, its listing or the rooms API."""
+    data = _spec().model_dump()
+    data["packages"][0]["reasoning"] = "a newer field"
+    room = RoomSchema.model_validate({**_ROOM_DOC, "intervention_spec": data})
+    assert room.intervention_spec is None
+
+
 def test_stored_spec_rejects_unknown_fields() -> None:
     data = _spec().model_dump()
     data["packages"][0]["reasoning"] = "not stored"
@@ -89,3 +98,41 @@ def test_room_serialization_leaves_the_spec_out() -> None:
     assert room.intervention_spec is not None
     assert "intervention_spec" not in room.model_dump()
     assert "intervention_spec" not in room.model_dump_json()
+
+
+def test_step3_fields_default_for_specs_stored_before_them() -> None:
+    """Phase 140 step 3: a spec saved by step 1 still reads, with the new fields empty."""
+    old = _spec().model_dump(exclude={"missing_measures", "conflicts"})
+    for measure in old["measures"]:
+        del measure["proposed"]
+    for choice in old["element_choices"]:
+        del choice["confirmed"]
+    spec = RoomInterventionSpec.model_validate(old)
+    assert spec.missing_measures == [] and spec.conflicts == {}
+    assert all(m.proposed is None for m in spec.measures)
+    assert all(not c.confirmed for c in spec.element_choices)
+
+
+def test_confirmed_source_and_confirmation_marks_are_stored() -> None:
+    spec = RoomInterventionSpec.model_validate({
+        **_spec().model_dump(),
+        "measures": [{"name": "mq", "value": 8.0, "source": "confirmed", "proposed": 6.0}],
+        "element_choices": [{"element": "sanitari", "action": "replace", "confirmed": True}],
+        "missing_measures": ["mq_pareti"],
+        "conflicts": {"ml_perimetro": [9.0, 12.0]},
+    })
+    assert spec.measures == [StoredMeasure(name="mq", value=8.0, source="confirmed", proposed=6.0)]
+    assert spec.element_choices[0].confirmed is True
+    assert spec.missing_measures == ["mq_pareti"] and spec.conflicts == {"ml_perimetro": [9.0, 12.0]}
+
+
+def test_conflict_values_have_the_measure_bounds() -> None:
+    data = {**_spec().model_dump(), "conflicts": {"mq": [6.0, 10_001.0]}}
+    with pytest.raises(ValidationError):
+        RoomInterventionSpec.model_validate(data)
+
+
+def test_proposed_measure_has_the_measure_bounds() -> None:
+    assert StoredMeasure(name="mq", value=8.0, source="confirmed", proposed=10_000).proposed == 10_000
+    with pytest.raises(ValidationError):
+        StoredMeasure(name="mq", value=8.0, source="confirmed", proposed=10_001)

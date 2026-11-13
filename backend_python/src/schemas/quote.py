@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.core.money import Money
 from src.schemas.intervention_spec import RoomInterventionSpec
+from src.schemas.price_range import PriceEstimate, PricePrecision
 from src.schemas.room import RoomType
 from src.utils.datetime_utils import utc_now
 
@@ -199,6 +200,8 @@ class QuoteRevision(BaseModel):
     # its copy. exclude=True: never in an API response (no TypeScript twin), so
     # build_revision writes it explicitly.
     specs: list[RevisionRoomSpec] = Field(default_factory=list, exclude=True)
+    # AI revisions only: the price range of the draft (src/services/price_range.py).
+    estimate: PriceEstimate | None = Field(default=None)
 
 
 DeliveryRecordStatusType = Literal["queued", "sent", "delivered", "bounced", "complained", "failed"]
@@ -251,6 +254,8 @@ class QuoteSchema(BaseModel):
     # Sections of a multi-room quote, in display order (empty: a quote without rooms).
     rooms: list[QuoteRoom] = Field(default_factory=list)
     financials: QuoteFinancials = Field(default_factory=QuoteFinancials)  # type: ignore[arg-type]
+    # Price range of the AI draft, for the team; the client reads its precision only.
+    estimate: PriceEstimate | PricePrecision | None = None
     admin_notes: str | None = None
     request: QuoteRequest | None = None
     client_snapshot: ClientSnapshot | None = None

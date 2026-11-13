@@ -2,7 +2,8 @@ import asyncio
 import hashlib
 import logging
 from collections import OrderedDict
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import Any
 
@@ -15,9 +16,10 @@ from src.core.money import to_decimal
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import ConversationRepository
 from src.repositories.room_repository import get_room_repository
+from src.repositories.spec_store import CHAT_SPEC_KEY, chat_on_card, get_spec_store
 from src.schemas.assembly_library import AssemblyLibrary
 from src.schemas.intervention_spec import RoomInterventionSpec
-from src.schemas.quote import ManualWorkItem, QuoteAiWarning, QuoteRequest, RevisionRoomSpec
+from src.schemas.quote import ManualWorkItem, QuoteAiWarning, QuoteRequest
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
 from src.services.assembly_library import load_library
 from src.services.insight_engine import InsightAnalysis, InsightEngineError, get_insight_engine
@@ -26,16 +28,28 @@ from src.services.intervention_expansion import (
     MIN_QTY,
     ExpandedLine,
     Expansion,
+    ExpansionWarning,
+    conflicting_measures,
     expand,
     resolve_measures,
     spec_from_analysis,
 )
 from src.services.pricing_service import PricingService
+from src.services.quote_build import UnitBuild, build_draft, price_book_units
 from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_ai_draft
 from src.services.quote_followup import FollowupResult, relay_client_request
 from src.services.quote_state import QuoteStatus, ai_draft_action
-from src.services.room_aggregation import aggregate_rooms, load_rules, room_sections
+from src.services.room_aggregation import load_rules
+from src.services.spec_confirmation import (
+    apply_confirmations,
+    choice_checks,
+    confirmations_only,
+    expansion_inputs,
+    has_unconfirmed_measures,
+    same_confirmations,
+    unassigned_note,
+)
 from src.tools.room_tools import brief_lines, room_of
 from src.utils.datetime_utils import utc_now
 from src.utils.download import MediaUnavailableError, download_session_media, session_media_path
@@ -408,6 +422,11 @@ COMPLETENESS_THRESHOLD = 0.70
 _MAX_QUESTIONS = 2
 # Works quoted by hand named to the client (then "e altre").
 _CLIENT_MANUAL_WORK_SHOWN = 5
+# The confirmation card (chat, signed-in clients) asks for the measures: no amount, ever.
+_CARD_MEASURES_NOTE = "Conferma le misure nella scheda qui sotto: preparo il preventivo appena sono complete."
+_CARD_DRAFT_NOTE = (
+    "Puoi confermare misure e lavori nella scheda qui sotto: la richiesta si aggiorna da sola e diventa più precisa."
+)
 # Without the assembly library the model has no package to choose: its single
 # lines are quoted as they are (the expansion keeps the price-book checks).
 _NO_LIBRARY = AssemblyLibrary(
@@ -423,9 +442,6 @@ class _QuoteUnit:
     context: str
     media: list[str]
     general: bool = False
-    # Room document that stores the unit's intervention spec (None: none does,
-    # e.g. the whole chat of a project without rooms).
-    spec_room_id: str | None = None
 
     @property
     def section_id(self) -> str | None:
@@ -434,6 +450,21 @@ class _QuoteUnit:
             return DEFAULT_ROOM_ID
         return self.room.room_id if self.room else None
 
+    @property
+    def spec_key(self) -> str:
+        """Where the unit's intervention spec is stored (`SpecStore`): its section, or the whole chat."""
+        return self.section_id or CHAT_SPEC_KEY
+
+
+@dataclass(frozen=True)
+class _Analysed:
+    """What the code computes a unit's lines from: the model's validated analysis,
+    the resolved measures and the spec of the model's values (None: no library)."""
+    validated: InsightAnalysis
+    measures: Mapping[str, Decimal]
+    library: AssemblyLibrary | None
+    fresh: RoomInterventionSpec | None
+
 
 @dataclass(frozen=True)
 class _UnitResult:
@@ -441,7 +472,9 @@ class _UnitResult:
     analysis: InsightAnalysis  # as the model returned it
     expansion: Expansion  # the lines computed by code from it
     unknown_skus: list[str]
+    analysed: _Analysed
     spec: RoomInterventionSpec | None = None  # what the lines were expanded from (None: no library)
+    on_card: bool = False  # its spec is stored: the confirmation card shows this unit
 
     @property
     def lines(self) -> list[ExpandedLine]:
@@ -468,10 +501,22 @@ class _UnitResult:
         return not self.lines or self.analysis.completeness_score < COMPLETENESS_THRESHOLD
 
     @property
+    def asks_card(self) -> bool:
+        """The missing measures are asked on the card, not in words."""
+        return self.on_card and bool(self.expansion.missing_measures)
+
+    @property
+    def card_to_confirm(self) -> bool:
+        """The draft rests on measures the client may confirm on the card."""
+        return self.on_card and self.spec is not None and has_unconfirmed_measures(self.spec)
+
+    @property
     def questions(self) -> list[str]:
-        """What to ask: the missing measures first (they unblock lines), then the model's questions."""
+        """What to ask in words: the measures first (they unblock lines), then the
+        model's questions. On the card only the questions it cannot answer stay."""
+        measures = self.expansion.conflict_questions if self.on_card else self.expansion.questions
         questions: list[str] = []
-        for question in (*self.expansion.questions, *self.analysis.missing_info):
+        for question in (*measures, *self.analysis.missing_info):
             if question not in questions:
                 questions.append(question)
         return questions[:_MAX_QUESTIONS]
@@ -583,8 +628,7 @@ async def _general_unit(
     )
     logger.info("[QuoteTool] General context ready.", extra={"messages": len(messages), "media": len(media)})
     return _QuoteUnit(
-        room=None, context=context, media=[_file_ref(f) for f in reversed(media)], general=True,
-        spec_room_id=DEFAULT_ROOM_ID if generale_room else None,
+        room=None, context=context, media=[_file_ref(f) for f in reversed(media)], general=True
     )
 
 
@@ -637,9 +681,7 @@ async def _room_unit(
         extra={"room_id": room.room_id, "messages": len(room_messages), "media": len(media),
                "measured": bool(measurement_context), "render_delta": bool(structural_delta)},
     )
-    return _QuoteUnit(
-        room=room, context=context, media=[_file_ref(f) for f in reversed(media)], spec_room_id=room.room_id
-    )
+    return _QuoteUnit(room=room, context=context, media=[_file_ref(f) for f in reversed(media)])
 
 
 async def _rooms_to_quote(
@@ -663,41 +705,104 @@ async def _rooms_to_quote(
     return to_quote, rooms, {f["id"]: f for f in files}
 
 
-def _spec_warning(room_id: str | None, exc: Exception) -> None:
+def _spec_warning(section_key: str, exc: Exception) -> None:
     # No project id: it may be the chat session id, an access token for guests
     # (CodeQL py/clear-text-logging).
     logger.warning(
         "[QuoteTool] Intervention spec not saved.",
-        extra={"room_id": room_id, "error_type": type(exc).__name__},
+        extra={"section_key": section_key, "error_type": type(exc).__name__},
     )
 
 
+async def _stored_specs(project_id: str) -> dict[str, RoomInterventionSpec] | None:
+    """The specs stored for the project, with the client's confirmations. None when
+    they cannot be read: no spec is saved then, so no confirmation is overwritten."""
+    try:
+        return await get_spec_store().load_all(project_id)
+    except GoogleAPIError as exc:
+        logger.warning(
+            "[QuoteTool] Intervention specs not readable: none saved this turn.",
+            extra={"error_type": type(exc).__name__},
+        )
+        return None
+
+
+def _with_chat_confirmations(
+    specs: Mapping[str, RoomInterventionSpec], to_quote: list[RoomSchema]
+) -> tuple[Mapping[str, RoomInterventionSpec], list[QuoteAiWarning]]:
+    """A chat without rooms that now has rooms: what the client confirmed for the
+    whole chat goes to the one room quoted, if it has no spec of its own yet (it is
+    saved there with the room's spec). With several rooms no section takes it (a
+    measure of one room would price another and look confirmed): a check for the team."""
+    inherited = confirmations_only(specs.get(CHAT_SPEC_KEY))
+    if inherited is None:
+        return specs, []
+    if len(to_quote) > 1:
+        return specs, [QuoteAiWarning(kind="admin_check", message=unassigned_note(inherited))]
+    heir = to_quote[0].room_id
+    if heir in specs:
+        return specs, []
+    logger.info("[QuoteTool] Chat confirmations moved to a section.", extra={"section_key": heir})
+    return {**specs, heir: inherited}, []
+
+
 def _build_spec(
-    unit: _QuoteUnit, analysis: InsightAnalysis, measures: dict[str, Decimal], library: AssemblyLibrary | None
+    unit: _QuoteUnit,
+    analysis: InsightAnalysis,
+    measures: Mapping[str, Decimal],
+    library: AssemblyLibrary | None,
+    expansion: Expansion,
 ) -> RoomInterventionSpec | None:
-    """The spec the unit's lines were expanded from (None: no library, or it cannot
-    be built). Best-effort: the quote never depends on it."""
+    """The spec of the model's analysis, with what the card asks for (missing
+    measures, conflicting values). None: no library, or it cannot be built.
+    Best-effort: the quote never depends on it."""
     if library is None:
         return None
     try:
-        return spec_from_analysis(analysis, measures, library_version=library.version, now=utc_now())
+        fresh = spec_from_analysis(analysis, measures, library_version=library.version, now=utc_now())
     except ValidationError as exc:
-        _spec_warning(unit.spec_room_id, exc)
+        _spec_warning(unit.spec_key, exc)
+        return None
+    # The model's own conflicts, confirmed measures included: the merge turns those into team checks.
+    conflicts = {name: [float(value) for value in values] for name, values in conflicting_measures(analysis).items()}
+    return fresh.model_copy(update={"missing_measures": list(expansion.missing_measures), "conflicts": conflicts})
+
+
+async def _save_spec(
+    project_id: str, section_key: str, fresh: RoomInterventionSpec, read: RoomInterventionSpec | None
+) -> RoomInterventionSpec | None:
+    """Store the unit's spec with the confirmations stored at the time of the write
+    (one made during the analysis included); `read`, the ones read before the
+    analysis, when none is stored yet (those inherited from the chat). The spec
+    written, or None. Best-effort: a deleted room, a Firestore error only log a warning."""
+
+    def change(current: RoomInterventionSpec | None) -> RoomInterventionSpec:
+        return apply_confirmations(fresh, current if current is not None else read)[0]
+
+    try:
+        return await get_spec_store().update(project_id, section_key, change)
+    except GoogleAPIError as exc:
+        _spec_warning(section_key, exc)
         return None
 
 
-async def _save_spec(project_id: str, room_id: str, spec: RoomInterventionSpec) -> None:
-    """Store the spec on the room. Best-effort: a deleted room, a Firestore error
-    only log a warning."""
-    try:
-        await get_room_repository().save_intervention_spec(project_id, room_id, spec)
-    except GoogleAPIError as exc:
-        _spec_warning(room_id, exc)
+def _expansion(
+    analysis: InsightAnalysis,
+    measures: Mapping[str, Decimal],
+    library: AssemblyLibrary | None,
+    stored: RoomInterventionSpec | None,
+) -> Expansion:
+    """The unit's lines, computed by code, with what the client confirmed on the card (`stored`)."""
+    for_expansion, used = expansion_inputs(analysis, measures, stored)
+    return expand(for_expansion, library or _NO_LIBRARY, price_book_units(), used)
 
 
-async def _analyse(unit: _QuoteUnit, session_id: str, project_id: str) -> _UnitResult:
+async def _analyse(
+    unit: _QuoteUnit, session_id: str, project_id: str, stored_specs: Mapping[str, RoomInterventionSpec] | None
+) -> _UnitResult:
     """InsightEngine on one unit, then SKU and quantity validation, then the
-    expansion of the spec into lines by code (and the spec stored on the room)."""
+    expansion of the spec into lines by code, with what the client confirmed on
+    the card (`stored_specs`, None: not readable), and the spec stored."""
     # 7. Analyze with Insight Engine (uses Gemini response_schema structured output)
     analysis = await get_insight_engine().analyze_project_for_quote(
         [{"role": "user", "content": unit.context}], unit.media, session_id=session_id
@@ -716,12 +821,67 @@ async def _analyse(unit: _QuoteUnit, session_id: str, project_id: str) -> _UnitR
     library = load_library()
     # "Generale" has no brief of its own measures: its floor is not the rest of the home's.
     measures = resolve_measures(validated, unit.room.brief if unit.room else None)
-    units = {str(item["sku"]): str(item["unit"]) for item in PricingService.load_price_book()}
-    expansion = expand(validated, library or _NO_LIBRARY, units, measures)
-    spec = _build_spec(unit, validated, measures, library)
-    if spec is not None and unit.spec_room_id is not None:
-        await _save_spec(project_id, unit.spec_room_id, spec)
-    return _UnitResult(unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, spec=spec)
+    stored = stored_specs.get(unit.spec_key) if stored_specs is not None else None
+    expansion = _expansion(validated, measures, library, stored)
+    # Built from the model's values: one that differs from a confirmed value is a proposal.
+    fresh = _build_spec(unit, validated, measures, library, expansion)
+    spec: RoomInterventionSpec | None = None
+    if fresh is not None and stored_specs is not None:
+        spec = await _save_spec(project_id, unit.spec_key, fresh, stored)
+        if spec is not None and not same_confirmations(spec, stored):
+            # The client confirmed on the card during the analysis: the lines follow it.
+            stored = spec
+            expansion = _expansion(validated, measures, library, stored)
+    # The card shows the whole chat only while no room has a spec (`_sections`).
+    on_card = spec is not None and (unit.spec_key != CHAT_SPEC_KEY or chat_on_card(stored_specs or {}))
+    analysed = _Analysed(validated=validated, measures=measures, library=library, fresh=fresh)
+    expansion, spec = _checked(analysed, expansion, stored, spec)
+    return _UnitResult(
+        unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, analysed=analysed,
+        spec=spec, on_card=on_card,
+    )
+
+
+def _checked(
+    analysed: _Analysed, expansion: Expansion, stored: RoomInterventionSpec | None, written: RoomInterventionSpec | None
+) -> tuple[Expansion, RoomInterventionSpec | None]:
+    """The lines with the team's checks on what the model and the client's
+    confirmations (`stored`) disagree on, and the unit's spec: the one written, else
+    the merge of the model's with the confirmations."""
+    notes = choice_checks(analysed.validated, stored)
+    spec = written
+    if analysed.fresh is not None:
+        merged, measure_notes = apply_confirmations(analysed.fresh, stored)
+        spec = merged if spec is None else spec
+        notes = [*measure_notes, *notes]
+    if notes:
+        checks = [ExpansionWarning("admin_check", note) for note in notes]
+        expansion = replace(expansion, warnings=[*expansion.warnings, *checks])
+    return expansion, spec
+
+
+async def _with_late_confirmations(results: list[_UnitResult], project_id: str) -> list[_UnitResult]:
+    """The units the client confirmed on the card after their spec was saved (another
+    room was still analysed): their lines follow the confirmation, so the draft
+    saved next never replaces the card's with the old values."""
+    latest = await _stored_specs(project_id)
+    if latest is None:
+        return results
+    updated: list[_UnitResult] = []
+    for result in results:
+        now = latest.get(result.unit.spec_key)
+        if result.on_card and result.spec is not None and now is not None and not same_confirmations(now, result.spec):
+            analysed = result.analysed
+            lines = _expansion(analysed.validated, analysed.measures, analysed.library, now)
+            expansion, _ = _checked(analysed, lines, now, now)
+            result = replace(result, expansion=expansion, spec=now)
+        updated.append(result)
+    return updated
+
+
+def _blocks(*parts: str) -> str:
+    """The non-empty parts, a blank line apart."""
+    return "\n\n".join(part for part in parts if part)
 
 
 def _single_unit_reply(result: _UnitResult) -> str | None:
@@ -759,7 +919,7 @@ def _single_unit_reply(result: _UnitResult) -> str | None:
         return (
             f"Ho identificato le lavorazioni principali ({analysis.summary}), "
             f"ma ho bisogno di qualche dettaglio in più per un preventivo preciso.\n\n"
-            f"{' '.join(result.questions)}"
+            + _blocks(" ".join(result.questions), _CARD_MEASURES_NOTE if result.asks_card else "")
         )
     if not result.lines:
         return (
@@ -779,10 +939,10 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
     gated = [r for r in results if r.needs_info]
     if gated:
         logger.info("[QuoteTool] Completeness gate triggered.", extra={"rooms": [_room_label(r) for r in gated]})
-        questions = "\n".join(f"**{_room_label(r)}**: {' '.join(r.questions)}" for r in gated)
+        questions = "\n".join(f"**{_room_label(r)}**: {' '.join(r.questions)}" for r in gated if r.questions)
         return (
             "Prima di prepararti un preventivo accurato per tutta la casa ho bisogno di qualche "
-            f"dettaglio in più.\n\n{questions}"
+            "dettaglio in più.\n\n" + _blocks(questions, _CARD_MEASURES_NOTE if any(r.asks_card for r in gated) else "")
         )
     discarded = [r for r in results if r.proposed_lines and not r.lines]
     if discarded and any(r.lines for r in results):
@@ -812,28 +972,6 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
 def _section_label(result: _UnitResult) -> str | None:
     """The room name the admin reads next to a manual work or a warning (None: a quote without rooms)."""
     return _room_label(result) if result.unit.section_id else None
-
-
-def _manual_work(results: list[_UnitResult]) -> list[ManualWorkItem]:
-    return [
-        ManualWorkItem(work=work.work, room_id=r.unit.section_id, room_label=_section_label(r), origin=work.origin)
-        for r in results
-        for work in r.expansion.manual_work
-    ]
-
-
-def _ai_warnings(results: list[_UnitResult]) -> list[QuoteAiWarning]:
-    return [
-        QuoteAiWarning(
-            kind=warning.kind,
-            message=warning.message,
-            room_id=r.unit.section_id,
-            room_label=_section_label(r),
-            skus=list(warning.skus),
-        )
-        for r in results
-        for warning in r.expansion.warnings
-    ]
 
 
 def _manual_work_note(manual_work: list[ManualWorkItem]) -> str:
@@ -894,7 +1032,12 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # 1. Load context (wide window: the original photo analysis and every room discussed)
         repo = ConversationRepository()
         history = await repo.get_context(session_id, limit=_QUOTE_HISTORY_MESSAGES)
-        to_quote, all_rooms, project_files = await _rooms_to_quote(target_project_id, history)
+        (to_quote, all_rooms, project_files), stored_specs = await asyncio.gather(
+            _rooms_to_quote(target_project_id, history), _stored_specs(target_project_id)
+        )
+        unassigned: list[QuoteAiWarning] = []
+        if to_quote and stored_specs is not None:
+            stored_specs, unassigned = _with_chat_confirmations(stored_specs, to_quote)
 
         # A room that cannot be analysed (model or Firestore error) stops the
         # home quote: the other rooms are cancelled, no partial quote is saved.
@@ -909,13 +1052,13 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                     others = [r.label for r in to_quote if r.room_id != room.room_id]
                     async with semaphore:
                         unit = await _room_unit(room, others, general, project_files, session_id, target_project_id)
-                        return await _analyse(unit, session_id, target_project_id)
+                        return await _analyse(unit, session_id, target_project_id, stored_specs)
 
                 async def analyse_rest_of_home() -> _UnitResult | None:
                     generale = next((r for r in all_rooms if r.room_id == DEFAULT_ROOM_ID), None)
                     async with semaphore:
                         unit = await _general_unit(general, generale, [r.label for r in to_quote], target_project_id)
-                        return await _analyse(unit, session_id, target_project_id) if unit else None
+                        return await _analyse(unit, session_id, target_project_id, stored_specs) if unit else None
 
                 async with asyncio.TaskGroup() as group:
                     tasks = [group.create_task(analyse_room(room)) for room in to_quote]
@@ -926,7 +1069,8 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 if rest is not None and (rest.proposed_lines or rest.expansion.manual_work):
                     results.append(rest)
             else:
-                results = [await _analyse(await _single_unit(history, session_id), session_id, target_project_id)]
+                unit = await _single_unit(history, session_id)
+                results = [await _analyse(unit, session_id, target_project_id, stored_specs)]
         except* (InsightEngineError, GoogleAPIError, ValidationError) as errors:
             failure = errors
         if failure is not None:
@@ -938,41 +1082,30 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 "Non è stato possibile analizzare automaticamente il progetto in questo momento. "
                 "Ti chiedo di descrivermi le lavorazioni previste e ti fornirò un preventivo manuale."
             )
+        results = await _with_late_confirmations(results, target_project_id)
         refusal = _rooms_reply(results) if to_quote else _single_unit_reply(results[0])
         if refusal is not None:
             return refusal
 
-        # 8. Generate Pricing
-        sku_list = [
-            {"sku": line.sku, "qty": float(line.qty), "ai_reasoning": line.reasoning, "room_id": r.unit.section_id}
-            for r in results
-            for line in r.lines
-        ]
+        # 8. Prices, one quote for the home (project-wide lines once, in "Generale"),
+        # totals and price range: the pipeline the confirmation card uses too.
         # We need a user_id. If not provided, we try to get it from context or use session_id
         final_user_id = user_id or "guest_" + session_id
-
-        quote = PricingService.create_quote_from_skus(target_project_id, final_user_id, sku_list)
+        built = build_draft(
+            target_project_id,
+            final_user_id,
+            [UnitBuild(section_id=r.unit.section_id, label=_section_label(r), expansion=r.expansion, spec=r.spec)
+             for r in results],
+            all_rooms,
+            to_quote=bool(to_quote),
+        )
+        quote = built.quote
         if to_quote:
-            # One quote for the home: project-wide lines once, in "Generale".
-            items = aggregate_rooms(quote.items, {r.room_id: r.label for r in all_rooms})
-            quote = quote.model_copy(update={
-                "items": items,
-                "rooms": room_sections(all_rooms, items),
-                "financials": PricingService.calculate_financials(items),
-            })
             summary = "\n".join(f"{_room_label(r)}: {r.analysis.summary}" for r in results if r.lines)
             headline = "\n".join(f"**{_room_label(r)}** — {r.analysis.summary}" for r in results if r.lines)
         else:
             summary = results[0].analysis.summary
             headline = f"**{summary}**"
-
-        # Sanity check: suspiciously low totals often indicate malformed AI output
-        if quote.financials.grand_total < 100 and len(quote.items) > 1:
-            logger.warning(
-                f"[QuoteTool] Suspicious grand_total=€{quote.financials.grand_total:.2f} "
-                f"for {len(quote.items)} items (project={target_project_id}). "
-                "Verify pricing service and AI output."
-            )
 
         # 9. Save the draft to Firestore (projects/{projectId}/private_data/quote)
         # in a transaction: never overwrite a quote the team is working on, open
@@ -981,13 +1114,11 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # gathered outside the transaction, best-effort, never blocks the draft.
         now = utc_now()
         dossier = await gather_dossier_inputs(db, target_project_id, final_user_id, now)
-        manual_work = _manual_work(results)
         request = QuoteRequest(
             summary=summary, channel="chat", session_id=session_id,
-            manual_work=manual_work, ai_warnings=_ai_warnings(results),
+            manual_work=built.manual_work, ai_warnings=[*built.ai_warnings, *unassigned],
         )
-        specs = [RevisionRoomSpec(room_id=r.unit.section_id, spec=r.spec) for r in results if r.spec is not None]
-        saved = await save_ai_draft(db, target_project_id, quote, request, now=now, dossier=dossier, specs=specs)
+        saved = await save_ai_draft(db, target_project_id, quote, request, now=now, dossier=dossier, specs=built.specs)
         reference = f" (riferimento **{saved.quote_number}**)" if saved.quote_number else ""
 
         if saved.outcome is DraftSaveOutcome.WITH_THE_TEAM:
@@ -1005,7 +1136,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # deliberately NOT shown to the client: the admin reviews and adjusts
         # it first in the dashboard, then the client receives the final quote
         # by email after approval. Only the works summary is disclosed.
-        headline += _manual_work_note(manual_work)
+        headline += _manual_work_note(built.manual_work)
         room_labels = ", ".join(room.room_label for room in quote.rooms)
         sections = f" in {len(quote.rooms)} sezioni ({room_labels})" if len(quote.rooms) > 1 else ""
         if saved.outcome is DraftSaveOutcome.REVISED:
@@ -1027,7 +1158,8 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
             f"{len(quote.items)} lavorazioni{sections} da sottoporre al nostro team tecnico.\n\n"
             "Il team esaminerà la richiesta, definirà le voci e i prezzi e "
             "riceverai il preventivo dettagliato via email dopo la revisione.\n\n"
-            "Vuoi che invii ora la richiesta al team?"
+            + (f"{_CARD_DRAFT_NOTE}\n\n" if any(r.card_to_confirm for r in results) else "")
+            + "Vuoi che invii ora la richiesta al team?"
         )
 
         # The team is notified only when the client confirms the submission

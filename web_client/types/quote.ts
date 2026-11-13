@@ -118,6 +118,18 @@ export const quoteRequestSchema = z.object({
 });
 export type QuoteRequest = z.infer<typeof quoteRequestSchema>;
 
+// ── Price range (schemas/price_range.py, Phase 140 step 3) ──────────────────
+
+/** The range of an AI draft, VAT included, for the team. The client gets the
+ * precision only (PricePrecision): never an amount before approval. */
+export const priceEstimateSchema = z.object({
+  low: z.number().min(0).optional(),
+  high: z.number().min(0).optional(),
+  precision: z.number().int().min(0).max(100).nullable().optional(),
+  policy_version: z.string().optional(),
+});
+export type PriceEstimate = z.infer<typeof priceEstimateSchema>;
+
 // ── Dossier (admin review) ───────────────────────────────────────────────────
 
 export const clientSnapshotSchema = z.object({
@@ -187,6 +199,7 @@ export const quoteRevisionSchema = z.object({
     vat_amount: 0,
     grand_total: 0,
   }),
+  estimate: priceEstimateSchema.nullable().optional(),
   admin_notes: z.string().nullable().optional(),
   actor_uid: z.string().nullable().optional(),
   actor_kind: revisionActorSchema,
@@ -257,6 +270,8 @@ export const quoteSchema = z.object({
     vat_amount: 0,
     grand_total: 0,
   }),
+  // Price range of the AI draft: the team reads it all, the client its precision only.
+  estimate: priceEstimateSchema.nullable().optional(),
   admin_notes: z.string().nullable().optional(),
   request: quoteRequestSchema.nullable().optional(),
   client_snapshot: clientSnapshotSchema.nullable().optional(),

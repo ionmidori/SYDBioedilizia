@@ -16,6 +16,9 @@ replaced items edited by the admin, and even reset an approved quote to
 - the team is working on it → no write; the caller relays the request to the
                              team (`quote_followup`).
 
+The confirmation card (`editable_only`) may only create or update a draft: it
+never opens a revision nor touches a quote the team has.
+
 Every content change also writes an immutable revision
 (`.../quote/revisions/{version}`), and the dossier data gathered outside the
 transaction (client snapshot, site details, media) is stored with the draft.
@@ -31,6 +34,7 @@ from typing import Any
 
 from google.cloud.firestore_v1 import DELETE_FIELD, async_transactional
 
+from src.schemas.price_range import PriceEstimate
 from src.schemas.quote import (
     QuoteFinancials,
     QuoteItem,
@@ -60,6 +64,8 @@ class DraftSaveOutcome(StrEnum):
     REVISED = "revised"
     # Nothing written: the team is working on the quote.
     WITH_THE_TEAM = "with_the_team"
+    # Nothing written: `editable_only` and the quote is no draft the client can change.
+    NOT_EDITABLE = "not_editable"
 
 
 @dataclass(frozen=True)
@@ -81,6 +87,8 @@ class QuoteStatusView:
     quote_number: str | None
     version: int
     sent_before: bool
+    # Precision of the draft's price range (the only part the client may read).
+    precision: int | None = None
 
 
 def quote_doc_ref(db: Any, project_id: str) -> Any:
@@ -102,6 +110,7 @@ def build_revision(
     reason: str | None = None,
     rooms: list[QuoteRoom] | None = None,
     specs: Sequence[RevisionRoomSpec] = (),
+    estimate: PriceEstimate | None = None,
 ) -> dict[str, Any]:
     revision = QuoteRevision(
         version=version,
@@ -114,6 +123,7 @@ def build_revision(
         reason=reason,
         created_at=when,
         specs=list(specs),
+        estimate=estimate,
     )
     # `specs` is excluded from every dump (API): stored by hand, room_id None included.
     return revision.model_dump(exclude_none=True) | {"specs": [spec.model_dump() for spec in revision.specs]}
@@ -134,11 +144,14 @@ async def apply_ai_draft(
     when: datetime,
     dossier: DossierInputs | None = None,
     specs: Sequence[RevisionRoomSpec] = (),
+    *,
+    editable_only: bool = False,
 ) -> DraftSaveResult:
     """Transaction body (reads first, then writes). Separate from the
     `@async_transactional` wrapper so the decision logic is unit-testable.
 
-    `specs`: what the AI lines were expanded from, kept on the AI revision."""
+    `specs`: what the AI lines were expanded from, kept on the AI revision.
+    `editable_only`: only create or update a draft (NOT_EDITABLE otherwise)."""
     dossier = dossier or DossierInputs()
     ref = quote_doc_ref(db, project_id)
     snap = await ref.get(transaction=transaction)
@@ -148,6 +161,11 @@ async def apply_ai_draft(
     current_version = int(current.get("version") or 1)
     sent_before = bool(current.get("sent_at"))
 
+    if editable_only and action in ("revise", "relay"):
+        return DraftSaveResult(
+            DraftSaveOutcome.NOT_EDITABLE, str(current_status), current.get("quote_number"), current_version,
+            sent_before,
+        )
     if action == "relay":
         return DraftSaveResult(
             DraftSaveOutcome.WITH_THE_TEAM, str(current_status), current.get("quote_number"), current_version,
@@ -179,7 +197,10 @@ async def apply_ai_draft(
         transaction.set(ref, payload)
         transaction.set(
             revision_ref(ref, 1),
-            build_revision(1, quote.items, quote.financials, None, "ai", None, when, rooms=quote.rooms, specs=specs),
+            build_revision(
+                1, quote.items, quote.financials, None, "ai", None, when,
+                rooms=quote.rooms, specs=specs, estimate=_team_estimate(quote),
+            ),
         )
         return DraftSaveResult(DraftSaveOutcome.CREATED, "draft", number.formatted, 1)
 
@@ -191,6 +212,8 @@ async def apply_ai_draft(
         # Replaced, not merged: a quote regenerated without rooms has no sections.
         "rooms": [room.model_dump(exclude_none=True) for room in quote.rooms],
         "financials": quote.financials.model_dump(),
+        # Replaced too: a draft without a range (no library) keeps no stale one.
+        "estimate": estimate.model_dump() if (estimate := _team_estimate(quote)) is not None else DELETE_FIELD,
         "user_id": quote.user_id,
         "doc_type": "quote",
         "updated_at": when,
@@ -213,7 +236,7 @@ async def apply_ai_draft(
 
     revision = build_revision(
         version, quote.items, quote.financials, current.get("admin_notes"), "ai", None, when,
-        rooms=quote.rooms, specs=specs,
+        rooms=quote.rooms, specs=specs, estimate=_team_estimate(quote),
     )
     if action == "revise":
         updates.update(_revision_updates(str(current_status)))
@@ -256,7 +279,14 @@ async def read_quote_status(db: Any, project_id: str) -> QuoteStatusView | None:
         quote_number=data.get("quote_number"),
         version=int(data.get("version") or 1),
         sent_before=bool(data.get("sent_at")),
+        precision=(data.get("estimate") or {}).get("precision"),
     )
+
+
+def _team_estimate(quote: QuoteSchema) -> PriceEstimate | None:
+    """The draft's range with its amounts: what a writer stores. The client's view
+    (precision only) never comes back as a draft."""
+    return quote.estimate if isinstance(quote.estimate, PriceEstimate) else None
 
 
 async def save_ai_draft(
@@ -267,13 +297,17 @@ async def save_ai_draft(
     now: datetime | None = None,
     dossier: DossierInputs | None = None,
     specs: Sequence[RevisionRoomSpec] = (),
+    *,
+    editable_only: bool = False,
 ) -> DraftSaveResult:
-    """Create or refresh the AI draft for `project_id` atomically."""
+    """Create or refresh the AI draft for `project_id` atomically (see `apply_ai_draft`)."""
     when = now or utc_now()
 
     @async_transactional
     async def _txn(transaction: Any) -> DraftSaveResult:
-        return await apply_ai_draft(transaction, db, project_id, quote, request, when, dossier, specs)
+        return await apply_ai_draft(
+            transaction, db, project_id, quote, request, when, dossier, specs, editable_only=editable_only
+        )
 
     result = await _txn(db.transaction())
     logger.info(

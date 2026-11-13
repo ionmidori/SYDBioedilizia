@@ -132,9 +132,13 @@ _CLIENT_HIDDEN_REQUEST_FIELDS = ("manual_work", "ai_warnings")
 def _strip_internal_fields(data: dict) -> dict:
     """🛡️ Client view of a quote: drop review metadata and the AI draft's notes for
     the technician; admin notes only once approved (they are printed on the PDF,
-    but drafts may hold internal notes)."""
+    but drafts may hold internal notes). Of the price range, the precision only:
+    its amounts are the team's (Phase 140 step 3)."""
     for field in _CLIENT_HIDDEN_FIELDS:
         data.pop(field, None)
+    estimate = data.pop("estimate", None)
+    if isinstance(estimate, dict):
+        data["estimate"] = {"precision": estimate.get("precision")}
     data["items"] = _client_items(data.get("items") or [])
     if isinstance(request := data.get("request"), dict):
         data["request"] = {k: v for k, v in request.items() if k not in _CLIENT_HIDDEN_REQUEST_FIELDS}

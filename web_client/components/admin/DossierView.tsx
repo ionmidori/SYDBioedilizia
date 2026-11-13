@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle2, Loader2, Lock, MessageSquare, Save, TriangleAl
 import { ApproveDialog } from '@/components/admin/dossier/ApproveDialog';
 import { ClientCard, clientDisplayName, RequestCard } from '@/components/admin/dossier/DossierCards';
 import { DeliveryLog } from '@/components/admin/dossier/DeliveryLog';
+import { EstimateRange } from '@/components/admin/dossier/EstimateRange';
 import { ErrorBanner } from '@/components/admin/dossier/ErrorBanner';
 import { MediaGallery } from '@/components/admin/dossier/MediaGallery';
 import { PriceBookPicker } from '@/components/admin/dossier/PriceBookPicker';
@@ -493,6 +494,7 @@ export function DossierView({ projectId }: { projectId: string }) {
                 </div>
               )}
             </dl>
+            <EstimateRange estimate={quote.estimate} />
             {vatInvalid && showErrors && <p role="alert" className="text-sm text-danger-ink">L&apos;IVA deve essere tra 0 e 50%.</p>}
             <p className="text-xs text-ink-subtle">Il server ricalcola i totali al salvataggio.</p>
           </section>

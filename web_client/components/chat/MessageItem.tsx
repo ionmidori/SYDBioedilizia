@@ -14,8 +14,10 @@ import { MessageFeedback } from '@/components/chat/MessageFeedback';
 import Link from 'next/link';
 import Image from 'next/image';
 
-import { Message, ToolInvocation } from '@/types/chat';
+import { Message } from '@/types/chat';
 import { getVisibleText, stripDuplicateImages } from '@/lib/chat/message-text';
+import { resolveToolInvocations } from '@/lib/chat/tool-invocations';
+import { ConfirmationCard } from '@/components/confirmations/ConfirmationCard';
 import { useSmoothText } from '@/hooks/useSmoothText';
 import { MemoizedMarkdown, safeUrlTransform, type UrlTransform } from '@/components/chat/MemoizedMarkdown';
 import { ContactActions } from '@/components/chat/ContactActions';
@@ -40,6 +42,11 @@ interface MessageItemProps {
     historyMessage?: Message;
     /** True for a reply streamed live in this tab: its text is revealed progressively. */
     animate?: boolean;
+    /**
+     * Draw the confirmation card under this reply (Phase 140): ChatMessages passes true for the last
+     * reply that prepared the quote. A boolean, so React.memo still skips messages that did not change.
+     */
+    showConfirmations?: boolean;
 }
 
 interface WelcomeQuickAction {
@@ -79,7 +86,7 @@ const WELCOME_QUICK_ACTIONS: readonly WelcomeQuickAction[] = [
  * Handles rendering of one chat message with its avatar, content, and attachments
  * ✅ Memoized to prevent unnecessary re-renders
  */
-export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onQuickPrompt, historyMessage, animate = false }) => {
+export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onQuickPrompt, historyMessage, animate = false, showConfirmations = false }) => {
     const { user } = useAuth();
     const identity = useCompanyIdentity();
     // Vercel AI SDK strips custom fields like "rating" from the messages array during internal state updates.
@@ -97,19 +104,6 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
         return JSON.stringify(msg.content || '');
     };
 
-    // Helper: Extract tool invocations from both formats
-    const getToolInvocations = (msg: Message): ToolInvocation[] => {
-        if (msg.toolInvocations && msg.toolInvocations.length > 0) {
-            return msg.toolInvocations;
-        }
-        if (msg.parts && Array.isArray(msg.parts)) {
-            return (msg.parts as { type: string; toolInvocation?: ToolInvocation }[])
-                .filter((part) => part.type === 'tool-invocation' && part.toolInvocation)
-                .map((part) => part.toolInvocation as ToolInvocation);
-        }
-        return [];
-    };
-
     const text = getMessageText(message);
     // The AI SDK v7 keeps assistant message state text-only — transient tool
     // results are NOT added to message.parts, and the SDK strips custom fields
@@ -117,10 +111,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
     // above). So when the live SDK message carries no tool data, fall back to the
     // Firestore-history version, where useChatHistory's smart-merge has already
     // linked each tool result (e.g. a render's `imageUrl`) to its assistant turn.
-    const sdkToolInvocations = getToolInvocations(message);
-    const toolInvocations = sdkToolInvocations.length > 0
-        ? sdkToolInvocations
-        : (originalMessage ? getToolInvocations(originalMessage) : []);
+    const toolInvocations = resolveToolInvocations(message, originalMessage);
 
     // Helper: Convert custom backend image syntax to Markdown
     // SECURITY: Only allow URLs from known-good domains (Firebase Storage, etc.)
@@ -222,6 +213,8 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
     // One login card per message: in a turn more than one agent may ask for the
     // login. None once the user has signed in (old messages keep their calls).
     const isSignedIn = !!user && !user.isAnonymous;
+    // The card works on the project of the chat: a guest's project id is an access token and the backend refuses guests.
+    const showCard = showConfirmations && isSignedIn && !!sessionId;
     const loginCardIndex = isSignedIn ? -1 : toolInvocations.findIndex(tool => tool.toolName === LOGIN_TOOL);
     const showLoginCard = loginCardIndex !== -1;
 
@@ -411,6 +404,9 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                         </div>
                     </div>
                 )}
+
+                {/* Confirm measures and works, under the reply that prepared the quote */}
+                {showCard && <ConfirmationCard projectId={sessionId} />}
 
                 {/* Quick ways to reach SYD, under a reply that writes a company contact */}
                 {showContactActions && identity && <ContactActions identity={identity} />}

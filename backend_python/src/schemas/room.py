@@ -6,14 +6,25 @@ carries its `room_id`. Documents are stored as `RoomSchema.model_dump()`
 (snake_case, like the API), written only by the backend.
 
 **Golden Sync**: mirrored by the zod schemas in `web_client/types/room.ts`, except
-`intervention_spec` (Phase 140): backend-only until step 3, excluded from every
-serialization of the room (the client's `roomSchema` is strict).
+`intervention_spec` (Phase 140): excluded from every serialization of the room
+(the client's `roomSchema` is strict); the client reads it through the
+confirmation API (step 3).
 """
 import re
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationError,
+    ValidatorFunctionWrapHandler,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from src.schemas.intervention_spec import RoomInterventionSpec
 
@@ -72,12 +83,22 @@ class RoomSchema(BaseModel):
     brief: RoomBrief = Field(default_factory=RoomBrief)
     reference_photo_id: str | None = Field(default=None, description="Id of the `files` document measured for this room")
     summary: str | None = Field(default=None, max_length=500, description="One-line summary for the room index")
-    # Written only by RoomRepository.save_intervention_spec (a partial update). exclude=True
+    # Written only by SpecStore.update (a partial update). exclude=True
     # keeps it out of the API and of model_dump(): never write a whole RoomSchema dump
     # over an existing room document, or the spec is lost.
     intervention_spec: RoomInterventionSpec | None = Field(
         default=None, exclude=True, description="What the room's quote was computed from (backend-only)"
     )
+
+    @field_validator("intervention_spec", mode="wrap")
+    @classmethod
+    def _readable_spec(cls, value: object, handler: ValidatorFunctionWrapHandler) -> RoomInterventionSpec | None:
+        """SpecStore owns the spec and skips one it cannot read (a newer format during a
+        rollout): here it reads as None, so it never breaks the room or its listing."""
+        try:
+            return handler(value)
+        except ValidationError:
+            return None
 
     @field_serializer("created_at", "updated_at", when_used="json")
     def _serialize_datetime(self, dt: datetime) -> str:

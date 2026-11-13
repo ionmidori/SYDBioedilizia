@@ -78,6 +78,25 @@ describe('HouseQuotePanel — the quote of the house', () => {
         expect(screen.getByText(/scrivi in chat/)).toBeInTheDocument();
     });
 
+    it('says how precise the estimate of a draft is, never an amount', async () => {
+        getQuote.mockResolvedValue({ ...DRAFT, estimate: { precision: 85 } });
+        renderPanel();
+
+        expect(await screen.findByTestId('quote-precision')).toHaveTextContent('Stima precisa al 85 %');
+        expect(screen.queryByText(/€/)).not.toBeInTheDocument();
+    });
+
+    it.each([
+        ['no estimate', undefined],
+        ['an estimate without precision', { precision: null }],
+    ])('says nothing of the precision with %s', async (_label, estimate) => {
+        getQuote.mockResolvedValue({ ...DRAFT, estimate });
+        renderPanel();
+
+        await screen.findByRole('region', { name: 'Bagno' });
+        expect(screen.queryByTestId('quote-precision')).not.toBeInTheDocument();
+    });
+
     it('offers no "Invia al team" for a draft with no work yet', async () => {
         getQuote.mockResolvedValue({ ...DRAFT, items: [], rooms: [] });
         renderPanel();

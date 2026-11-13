@@ -94,6 +94,8 @@ class ExpandedLine:
     assembly_id: str | None = None
     # Short name of the work (library note or rule), used when the line has to be quoted by hand.
     note: str = ""
+    # Measures the line's formula used, sorted (none for extra lines: the model gave the qty).
+    measures: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -129,6 +131,12 @@ class Expansion:
         """One question per missing measure, in the order they were found missing. A
         measure with several values asks which room each one belongs to."""
         return [self._question(m) for m in self.missing_measures if m in MEASURE_QUESTIONS]
+
+    @property
+    def conflict_questions(self) -> list[str]:
+        """The questions the confirmation card cannot answer: a measure with several
+        values asks which room each belongs to (the card only offers the values)."""
+        return [self._question(m) for m in self.missing_measures if m in MEASURE_QUESTIONS and m in self.conflicts]
 
     def _question(self, measure: str) -> str:
         if measure not in self.conflicts:
@@ -233,6 +241,10 @@ class _Draft:
         return Expansion(list(self.lines), list(self.manual_work), list(self.warnings), list(self.missing_measures))
 
 
+def _formula_measures(formula: str) -> tuple[str, ...]:
+    return tuple(sorted(formula_variables(formula)))
+
+
 def _measures_text(formula: str, measures: Mapping[str, Decimal]) -> str:
     used = sorted(name for name in measures if name in formula_variables(formula))
     values = ", ".join(f"{name}={measures[name].normalize():f}" for name in used)
@@ -318,6 +330,7 @@ def _expand_package(
             origin="package",
             assembly_id=assembly.id,
             note=item.note,
+            measures=_formula_measures(item.qty_formula),
         ))
     for manual in assembly.manual_items:
         draft.add_manual(manual.work, "package")
@@ -356,7 +369,7 @@ def _dropped_lines(decisions: Sequence[_ElementDecision]) -> set[tuple[str, str]
     return {(d.assembly_id, sku) for d in decisions for sku in d.dropped_skus()}
 
 
-def _requested_actions(analysis: InsightAnalysis) -> dict[str, ElementAction]:
+def requested_actions(analysis: InsightAnalysis) -> dict[str, ElementAction]:
     """Element → action; the first choice of an element wins."""
     actions: dict[str, ElementAction] = {}
     for choice in analysis.element_choices:
@@ -364,7 +377,7 @@ def _requested_actions(analysis: InsightAnalysis) -> dict[str, ElementAction]:
     return actions
 
 
-_ACTION_LABELS: Mapping[ElementAction, str] = {"replace": "sostituisci", "reuse": "riutilizza", "keep": "lascia in posa"}
+ACTION_LABELS: Mapping[ElementAction, str] = {"replace": "sostituisci", "reuse": "riutilizza", "keep": "lascia in posa"}
 
 
 def _flag_shared_choices(assemblies: Sequence[Assembly], actions: Mapping[str, ElementAction], draft: _Draft) -> None:
@@ -378,7 +391,7 @@ def _flag_shared_choices(assemblies: Sequence[Assembly], actions: Mapping[str, E
             label = next(e.label for e in owners[0].elements if e.element == element)
             draft.warnings.append(ExpansionWarning(
                 "admin_check",
-                f"\"{_ACTION_LABELS[action]}\" su {label} applicato a {', '.join(a.name for a in owners)}: "
+                f"\"{ACTION_LABELS[action]}\" su {label} applicato a {', '.join(a.name for a in owners)}: "
                 "verificare a quale stanza si riferisce",
             ))
 
@@ -504,6 +517,7 @@ def _apply_rules(library: AssemblyLibrary, measures: Mapping[str, Decimal], draf
                     draft.lines.append(ExpandedLine(
                         sku=sku, qty=qty, origin="rule", note=notes.get(sku, rule.rule),
                         reasoning=f"{rule.rule} ({_measures_text(rule.requires_qty_formula, measures)})",
+                        measures=_formula_measures(rule.requires_qty_formula),
                     ))
                     present.add(sku)
             if rule.requires_admin_flag:
@@ -566,7 +580,7 @@ def expand(
         chosen.append(assembly)
         _expand_package(assembly, conditions, measures, draft)
     covered = {line.sku for line in draft.lines}
-    actions = _requested_actions(analysis)
+    actions = requested_actions(analysis)
     _flag_shared_choices(chosen, actions, draft)
     _apply_elements(_decide_elements(chosen, actions, draft), draft)
     _add_extras(analysis.suggestions, covered, price_book_units, draft)
@@ -605,7 +619,7 @@ def spec_from_analysis(
         ],
         element_choices=[
             StoredElementChoice(element=element, action=action)
-            for element, action in _requested_actions(analysis).items()
+            for element, action in requested_actions(analysis).items()
             if action != "replace"
         ],
         extra_items=[StoredExtraItem(sku=item.sku, qty=item.qty) for item in analysis.suggestions],

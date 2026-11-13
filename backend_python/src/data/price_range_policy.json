@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "by_source": {
+    "confirmed": "0.05",
+    "declared": "0.10",
+    "photo": "0.15",
+    "brief": "0.15",
+    "estimated": "0.25"
+  },
+  "no_measure": "0.05",
+  "model_qty": "0.25",
+  "manual_work_high": "0.10",
+  "manual_work_cap": "0.50",
+  "precision_step": 5
+}

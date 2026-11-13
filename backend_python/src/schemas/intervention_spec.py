@@ -1,5 +1,6 @@
-"""Intervention spec of a room, as stored in `projects/{pid}/rooms/{rid}.intervention_spec`
-(Phase 140, step 1).
+"""Intervention spec of a quote unit (Phase 140, step 1): a room's is stored in
+`projects/{pid}/rooms/{rid}.intervention_spec`, the others by `SpecStore`
+(`src/repositories/spec_store.py`).
 
 What the quote of the room was computed from: the packages and their conditions,
 the client's choice per element, the single extra items, the work outside the
@@ -7,19 +8,22 @@ price book and the measures used, each with where it came from. Lines and
 quantities are not stored: the code recomputes them from the spec and the
 library (`src/services/intervention_expansion.py`).
 
-Written only by the quote tool, apart from `brief` (the background brief refresh
-owns that). Backend-only until the confirmation widgets (step 3): `RoomSchema`
-leaves it out of every serialization, so it has no TypeScript twin yet.
+Written by the quote tool and by the client's confirmation cards (step 3); the
+background brief refresh owns `brief` only. `RoomSchema` leaves the spec out of
+every serialization: the client reads it through the confirmation API.
 """
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.schemas.assembly_library import ElementAction
 
 # "brief": the measure came from the room brief (scheda stanza), not from the model.
-StoredMeasureSource = Literal["declared", "photo", "estimated", "brief"]
+# "confirmed": the client confirmed it on the card; only the card writes it.
+StoredMeasureSource = Literal["declared", "photo", "estimated", "brief", "confirmed"]
+# Same bound as RoomBrief and SpecMeasure: a home measure.
+MeasureValue = Annotated[float, Field(ge=0, le=10_000)]
 
 
 class StoredMeasure(BaseModel):
@@ -27,9 +31,11 @@ class StoredMeasure(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
-    # Same bound as RoomBrief and SpecMeasure: a home measure.
-    value: float = Field(ge=0, le=10_000)
+    value: MeasureValue
     source: StoredMeasureSource
+    # A confirmed measure the model later gave with another value: shown to the
+    # client as a proposal, never used until the client confirms it.
+    proposed: MeasureValue | None = None
 
 
 class StoredPackage(BaseModel):
@@ -41,11 +47,15 @@ class StoredPackage(BaseModel):
 
 
 class StoredElementChoice(BaseModel):
-    """An element the client keeps or reuses (not stored: replace, the default)."""
+    """An element the client keeps or reuses, or any choice the client confirmed.
+
+    "replace" is the default and is stored only when the client confirmed it."""
     model_config = ConfigDict(extra="forbid")
 
     element: str
     action: ElementAction
+    # Chosen by the client on the card: a new analysis cannot change it.
+    confirmed: bool = False
 
 
 class StoredExtraItem(BaseModel):
@@ -65,5 +75,9 @@ class RoomInterventionSpec(BaseModel):
     element_choices: list[StoredElementChoice] = Field(default_factory=list)
     extra_items: list[StoredExtraItem] = Field(default_factory=list)
     unmapped_work_requests: list[str] = Field(default_factory=list)
+    # Measures a formula needed and nobody gave: the card asks for them.
+    missing_measures: list[str] = Field(default_factory=list)
+    # Measure → the different values the model gave for it (several rooms in one unit?).
+    conflicts: dict[str, list[MeasureValue]] = Field(default_factory=dict)
     library_version: str
     generated_at: datetime
