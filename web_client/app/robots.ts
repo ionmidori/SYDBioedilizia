@@ -1,14 +1,13 @@
 import { MetadataRoute } from 'next';
+import { SITE_URL } from '@/lib/site';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = 'https://sydbioedilizia.vercel.app';
-
   return {
     rules: {
       userAgent: '*',
       allow: '/',
       disallow: ['/api/', '/dashboard/', '/admin/', '/auth/', '/maintenance/'],
     },
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

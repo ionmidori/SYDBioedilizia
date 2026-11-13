@@ -7,11 +7,19 @@ import { Footer } from "@/components/sections/Footer";
 import { BLOG_POSTS } from "@/lib/blog";
 import { BLOG_LOGO_URL, serializeJsonLd } from "@/lib/blog/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { shareMetadata } from "@/lib/site-share";
+
+const BLOG_INDEX_DESCRIPTION =
+  "Approfondimenti, guide e consigli sulle ristrutturazioni d'interni, bioedilizia e riqualificazione energetica.";
 
 export const metadata: Metadata = {
-  title: "Blog Ristrutturazioni Roma | SYD Bioedilizia",
-  description:
-    "Approfondimenti, guide e consigli sulle ristrutturazioni d'interni, bioedilizia e riqualificazione energetica.",
+  title: "Blog Ristrutturazioni Roma",
+  description: BLOG_INDEX_DESCRIPTION,
+  ...shareMetadata(undefined, {
+    title: "Blog Ristrutturazioni Roma | SYD Bioedilizia",
+    description: BLOG_INDEX_DESCRIPTION,
+    path: "/blog",
+  }),
   alternates: {
     canonical: "/blog",
   },

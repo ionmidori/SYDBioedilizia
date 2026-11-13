@@ -49,7 +49,7 @@ describe('link preview of pages with their own OpenGraph', () => {
         expect(images(meta).og).toEqual([{ url: project.image, alt: 'Bagno terracotta · Bagno, Roma' }]);
         expect(images(meta).twitter).toEqual([project.image]);
         expect(meta.openGraph).toMatchObject({ url: 'https://sydbioedilizia.vercel.app/progetti' });
-        expect(meta.alternates).toEqual({ canonical: 'https://sydbioedilizia.vercel.app/progetti' });
+        expect(meta.alternates).toEqual({ canonical: '/progetti' });
     });
 
     it('/progetti falls back to the brand logo with no real project', async () => {

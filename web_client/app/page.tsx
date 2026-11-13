@@ -17,7 +17,10 @@ import type { Metadata } from 'next';
 /** Link preview with a real project photo (same cached fetch as the page). */
 export async function generateMetadata(): Promise<Metadata> {
   const image = portfolioShareImage(await getPortfolio());
-  return image ? shareMetadata(image) : {};
+  return {
+    alternates: { canonical: '/' },
+    ...(image ? shareMetadata(image) : {}),
+  };
 }
 
 export default async function Home() {

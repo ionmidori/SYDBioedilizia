@@ -5,6 +5,7 @@ import { Footer } from '@/components/sections/Footer';
 import ChatWidget from '@/components/chat/ChatWidget';
 import { getPortfolio } from '@/lib/portfolio/server';
 import { portfolioItemList, portfolioShareImage, serializeJsonLd } from '@/lib/portfolio/structured-data';
+import { SITE_URL } from '@/lib/site';
 import { shareMetadata } from '@/lib/site-share';
 import { ProjectsArchiveClient } from './ProjectsArchiveClient';
 
@@ -12,11 +13,11 @@ import { ProjectsArchiveClient } from './ProjectsArchiveClient';
 export async function generateMetadata(): Promise<Metadata> {
     const image = portfolioShareImage(await getPortfolio());
     return {
-        title: 'Progetti e Ristrutturazioni | SYD Bioedilizia',
+        title: 'Progetti e Ristrutturazioni',
         description:
             'L\'archivio completo delle ristrutturazioni SYD Bioedilizia a Roma e provincia: interni, cucine, bagni e riqualificazioni energetiche in bioedilizia.',
         alternates: {
-            canonical: 'https://sydbioedilizia.vercel.app/progetti',
+            canonical: '/progetti',
         },
         ...shareMetadata(image ?? undefined, {
             title: 'Progetti e Ristrutturazioni | SYD Bioedilizia',
@@ -32,11 +33,11 @@ const collectionPage = {
     name: 'Progetti SYD Bioedilizia',
     description:
         'Archivio delle ristrutturazioni realizzate da SYD Bioedilizia a Roma e provincia.',
-    url: 'https://sydbioedilizia.vercel.app/progetti',
+    url: `${SITE_URL}/progetti`,
     isPartOf: {
         '@type': 'WebSite',
         name: 'SYD BIOEDILIZIA',
-        url: 'https://sydbioedilizia.vercel.app',
+        url: SITE_URL,
     },
 };
 

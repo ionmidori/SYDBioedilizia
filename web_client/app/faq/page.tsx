@@ -15,7 +15,7 @@ import { SITE_URL } from '@/lib/site';
 import { shareMetadata } from '@/lib/site-share';
 
 export const metadata: Metadata = {
-  title: 'Domande Frequenti (FAQ) | SYD Bioedilizia',
+  title: 'Domande Frequenti (FAQ)',
   description: 'Risposte immediate su costi ristrutturazione, tempistiche, permessi (CILA/SCIA) e rendering AI. Scopri come funziona il metodo SYD.',
   // Brand logo as the preview image (the page has no photo of its own).
   ...shareMetadata(undefined, {

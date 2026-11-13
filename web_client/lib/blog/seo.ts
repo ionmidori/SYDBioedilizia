@@ -51,6 +51,12 @@ export function blogPostMetadata(post: BlogPost): Metadata {
       authors: [post.author ?? SITE_NAME],
       images: [{ url: post.image, alt: post.title }],
     },
+    twitter: {
+      card: "summary_large_image",
+      title: seo.ogTitle,
+      description: seo.ogDescription,
+      images: [post.image],
+    },
     alternates: {
       canonical: `/blog/${post.slug}`,
     },
