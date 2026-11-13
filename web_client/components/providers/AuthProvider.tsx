@@ -26,7 +26,6 @@ import {
     finishRedirectKeepingGuestChats,
     popupKeepingGuestChats,
     redirectKeepingGuestChats,
-    signInKeepingGuestChats,
 } from '@/lib/auth/guest-claim';
 import { pendingMessageStore } from '@/lib/auth/pending-message';
 import { isChatWindowOpen, reopenChatOnNextPage, takeReopenChat } from '@/lib/chat/chat-window-state';
