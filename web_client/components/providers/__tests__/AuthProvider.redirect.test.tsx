@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, render, waitFor } from '@testing-library/react';
-import { onAuthStateChanged, onIdTokenChanged, sendSignInLinkToEmail, type User } from 'firebase/auth';
+import { onAuthStateChanged, onIdTokenChanged, type User } from 'firebase/auth';
 import { AuthProvider, completeRedirectLogin, useAuthContext } from '../AuthProvider';
 import { setAuthCookie } from '@/app/actions/auth-session';
 import * as guestClaim from '@/lib/auth/guest-claim';
@@ -14,9 +14,6 @@ jest.mock('firebase/auth', () => ({
     signInAnonymously: jest.fn(),
     GoogleAuthProvider: jest.fn(),
     signOut: jest.fn(),
-    sendSignInLinkToEmail: jest.fn(),
-    isSignInWithEmailLink: jest.fn(() => true),
-    signInWithEmailLink: jest.fn(),
 }));
 
 jest.mock('@/lib/firebase', () => ({
@@ -49,7 +46,6 @@ jest.mock('@/lib/auth/redirect-login', () => ({
 const mockPopup = guestClaim.popupKeepingGuestChats as jest.Mock;
 const mockRedirect = guestClaim.redirectKeepingGuestChats as jest.Mock;
 const mockFinish = guestClaim.finishRedirectKeepingGuestChats as jest.Mock;
-const mockSignInKeeping = guestClaim.signInKeepingGuestChats as jest.Mock;
 const mockRedirectFirst = redirectLogin.shouldRedirectFirst as jest.Mock;
 const mockCanRedirect = redirectLogin.canRedirectHere as jest.Mock;
 
@@ -179,47 +175,6 @@ describe('a guest linked to a new account', () => {
         expect(ctx().isAnonymous).toBe(false);
         expect((ctx().user as User).uid).toBe('anon-1');
         expect(setAuthCookie).toHaveBeenLastCalledWith('registered-token');
-    });
-});
-
-describe('magic link', () => {
-    beforeEach(() => {
-        window.history.replaceState(null, '', '/faq?projectId=p1');
-    });
-    afterEach(() => {
-        window.history.replaceState(null, '', '/');
-    });
-
-    function linkUrl(): URL {
-        const [, , settings] = (sendSignInLinkToEmail as jest.Mock).mock.calls[0];
-        return new URL(settings.url);
-    }
-
-    it('returns to the page it was asked from, with the chat open as it was', async () => {
-        setChatWindowOpen(true);
-        const ctx = await renderAuthReady();
-
-        await ctx().sendMagicLink('u@test.com');
-
-        const url = linkUrl();
-        expect(url.origin + url.pathname).toBe(`${window.location.origin}/auth/verify`);
-        expect(url.searchParams.get('next')).toBe('/faq?projectId=p1');
-        expect(url.searchParams.get('chat')).toBe('open');
-    });
-
-    it('does not open the chat on return when it was closed', async () => {
-        const ctx = await renderAuthReady();
-
-        await ctx().sendMagicLink('u@test.com');
-
-        expect(linkUrl().searchParams.get('next')).toBe('/faq?projectId=p1');
-        expect(linkUrl().searchParams.has('chat')).toBe(false);
-    });
-
-    it('keeps the guest chats', async () => {
-        const ctx = await renderAuthReady();
-        await ctx().completeMagicLink('https://x/auth/verify?oobCode=1', 'u@test.com');
-        expect(mockSignInKeeping).toHaveBeenCalled();
     });
 });
 
