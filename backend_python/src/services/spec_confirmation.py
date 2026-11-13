@@ -70,6 +70,17 @@ def _conflict_note(name: str, confirmed: float, values: list[float]) -> str:
     )
 
 
+def proposal_notes(spec: RoomInterventionSpec) -> list[str]:
+    """For the client: each confirmed measure the lines used while a new value
+    waits on the card. The agent reports these, never a value of its own."""
+    return [
+        f"{MEASURE_LABELS.get(m.name, m.name)}: calcolato su {_number(m.value)}, il valore confermato da te. "
+        f"Il nuovo valore {_number(m.proposed)} è nella scheda qui sotto: confermalo lì per usarlo."
+        for m in spec.measures
+        if m.source == "confirmed" and m.proposed is not None
+    ]
+
+
 def has_unconfirmed_measures(spec: RoomInterventionSpec) -> bool:
     """A measure the client has not confirmed yet, or one with a proposal still unanswered."""
     return any(m.source != "confirmed" or m.proposed is not None for m in spec.measures)

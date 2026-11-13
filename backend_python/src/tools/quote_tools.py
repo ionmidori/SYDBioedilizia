@@ -48,6 +48,7 @@ from src.services.spec_confirmation import (
     confirmations_only,
     expansion_inputs,
     has_unconfirmed_measures,
+    proposal_notes,
     same_confirmations,
     unassigned_note,
 )
@@ -992,6 +993,16 @@ def _section_label(result: _UnitResult) -> str | None:
     return _room_label(result) if result.unit.section_id else None
 
 
+def _proposals_note(results: list[_UnitResult]) -> str:
+    """The values the lines used while a new one waits on the card, per section."""
+    notes: list[str] = []
+    for result in results:
+        if result.on_card and result.spec is not None:
+            label = _section_label(result)
+            notes += [f"**{label}** — {note}" if label else note for note in proposal_notes(result.spec)]
+    return "\n".join(notes)
+
+
 def _manual_work_note(manual_work: list[ManualWorkItem]) -> str:
     """The works the technician quotes by hand, told to the client. A line the live
     price book lacks is left out: it is the team's catalogue, not the client's request."""
@@ -1182,6 +1193,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
             f"{len(quote.items)} lavorazioni{sections} da sottoporre al nostro team tecnico.\n\n"
             "Il team esaminerà la richiesta, definirà le voci e i prezzi e "
             "riceverai il preventivo dettagliato via email dopo la revisione.\n\n"
+            + (f"{proposals}\n\n" if (proposals := _proposals_note(results)) else "")
             + (f"{_CARD_DRAFT_NOTE}\n\n" if any(r.card_to_confirm for r in results) else "")
             + "Vuoi che invii ora la richiesta al team?"
         )

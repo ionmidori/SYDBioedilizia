@@ -1005,3 +1005,25 @@ async def test_a_room_is_also_named_by_its_type_when_it_is_the_only_one():
         await _quote()
 
     assert "12 mq" in _room_talk(_calls_by_room(mocks["analyze"])["Cucina"][0], "Cucina di Anna")
+
+
+async def test_the_reply_says_which_value_was_used_and_where_the_new_one_waits():
+    """The agent once told the client "recepisco 8 mq" while the lines used the
+    confirmed 6: the tool states the value it used and the one waiting on the card."""
+    stored = _stored(measures=[{"name": "mq", "value": 8, "source": "confirmed"}])
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}, specs={"bagno1": stored}):
+        reply = await _quote()
+
+    assert (
+        "**Bagno** — pavimento della stanza (m²): calcolato su 8, il valore confermato da te. "
+        "Il nuovo valore 6 è nella scheda qui sotto: confermalo lì per usarlo."
+    ) in reply
+    assert "€" not in reply
+
+
+async def test_no_value_note_without_a_proposal():
+    stored = _stored(measures=[{"name": "mq", "value": 6, "source": "confirmed"}])
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}, specs={"bagno1": stored}):
+        reply = await _quote()
+
+    assert "calcolato su" not in reply
