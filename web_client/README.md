@@ -30,7 +30,6 @@ the Python backend.
 | `/privacy`, `/cookie-policy`, `/terms` | Legal pages, with company data from `lib/company.ts` |
 | `/dashboard` | Client area: projects, gallery, quotes, profile and settings |
 | `/admin` | Admin console: quote review, price book, portfolio, testimonials, GDPR tools |
-| `/auth/verify` | Completes the passwordless email (magic link) sign-in |
 
 The chat widget is available on every page. Premium actions (renders and
 quotes) ask anonymous visitors to sign in.

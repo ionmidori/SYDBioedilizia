@@ -28,13 +28,6 @@ export const authSchema = z.object({
 export type AuthValues = z.infer<typeof authSchema>;
 
 /**
- * Magic Link Schema
- * Only requires email validation.
- */
-export const magicLinkSchema = authSchema.pick({ email: true });
-export type MagicLinkValues = z.infer<typeof magicLinkSchema>;
-
-/**
  * Reset Password Schema
  * Only requires email validation.
  */

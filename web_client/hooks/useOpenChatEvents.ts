@@ -13,7 +13,7 @@ interface UseOpenChatEventsOptions {
  * Listens for the chat window events (`CHAT_EVENTS`, sent by `openChat()` from
  * the Hero CTAs, service cards, etc.) and opens the chat widget accordingly,
  * optionally pre-filling the input. Also opens it on the way back from a login
- * that left the page with the chat open (redirect, magic link): after
+ * that left the page with the chat open (redirect): after
  * hydration, so a prerendered page still renders it closed first.
  */
 export function useOpenChatEvents({ setIsOpen, setInput, reopenAfterLogin = false }: UseOpenChatEventsOptions): void {

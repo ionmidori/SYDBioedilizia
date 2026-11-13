@@ -21,8 +21,6 @@ jest.mock('@/components/providers/AuthProvider', () => ({
         signInAnonymously: jest.fn(),
         loginWithGoogle: jest.fn(),
         logout: jest.fn(),
-        sendMagicLink: jest.fn(),
-        completeMagicLink: jest.fn(),
         refreshToken: jest.fn(),
     }),
 }));

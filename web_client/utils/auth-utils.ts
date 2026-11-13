@@ -35,10 +35,6 @@ export function mapAuthError(firebaseErrorCode: string): string {
         'auth/invalid-action-code': 'Link non valido o già usato.',
         'auth/user-disabled': 'Account disabilitato. Contatta il supporto.',
 
-        // Magic Link Errors
-        'auth/invalid-email-link': 'Link email non valido.',
-        'auth/missing-email': 'Email mancante.',
-
         // Guest chats (lib/auth/guest-claim.ts)
         'syd/guest-claim-unavailable':
             'Non riusciamo a preparare il trasferimento delle tue conversazioni da ospite. Riprova tra poco.',

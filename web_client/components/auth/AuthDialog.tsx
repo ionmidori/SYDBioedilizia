@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/drawer';
 import { ProviderButton } from './ProviderButton';
 import { EmailAuthForm } from './EmailAuthForm';
-import { MagicLinkForm } from './MagicLinkForm';
 import { PasskeyButton } from './PasskeyButton';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { useAuth } from '@/hooks/useAuth';
@@ -44,7 +43,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     }, [open, user]);
 
     const [loading, setLoading] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'social' | 'magic' | 'email'>('social');
+    const [activeTab, setActiveTab] = useState<'social' | 'email'>('social');
     const tabsId = useId();
     const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -79,7 +78,6 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
 
     const tabs = [
         { id: 'social', label: 'Social' },
-        { id: 'magic', label: 'Magic Link' },
         { id: 'email', label: 'Email' },
     ] as const;
 
@@ -194,12 +192,6 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                                             <span>Usa Email e Password</span>
                                             <span className="absolute -bottom-1 left-0 w-0 h-px bg-accent transition-all group-hover:w-full" />
                                         </button>
-                                    </div>
-                                )}
-
-                                {activeTab === 'magic' && (
-                                    <div className="bg-surface p-4 rounded-2xl border border-line">
-                                        <MagicLinkForm onSuccess={handleLoginSuccess} />
                                     </div>
                                 )}
 

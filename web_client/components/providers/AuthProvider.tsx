@@ -9,9 +9,6 @@ import {
     GoogleAuthProvider,
     type AuthProvider as FirebaseAuthProvider,
     signOut,
-    sendSignInLinkToEmail,
-    isSignInWithEmailLink,
-    signInWithEmailLink
 } from 'firebase/auth';
 import { auth, waitForAuth } from '@/lib/firebase';
 import { tokenManager } from '@/lib/auth/token-manager';
@@ -29,10 +26,8 @@ import {
     finishRedirectKeepingGuestChats,
     popupKeepingGuestChats,
     redirectKeepingGuestChats,
-    signInKeepingGuestChats,
 } from '@/lib/auth/guest-claim';
 import { pendingMessageStore } from '@/lib/auth/pending-message';
-import { magicLinkContinueUrl } from '@/lib/auth/magic-link-return';
 import { isChatWindowOpen, reopenChatOnNextPage, takeReopenChat } from '@/lib/chat/chat-window-state';
 import { GUEST_SESSION_KEY } from '@/lib/chat-session-keys';
 import { mapAuthError } from '@/utils/auth-utils';
@@ -60,8 +55,6 @@ interface AuthContextValue {
     signInAnonymously: () => Promise<void>;
     loginWithGoogle: () => Promise<SocialLoginOutcome>;
     logout: () => Promise<void>;
-    sendMagicLink: (email: string) => Promise<void>;
-    completeMagicLink: (emailLink: string, email?: string) => Promise<void>;
     refreshToken: () => Promise<string | null>;
     refreshUser: () => Promise<void>;
 }
@@ -353,37 +346,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     /**
-     * Send magic link: it brings the user back to this page, chat as it is now.
-     */
-    const sendMagicLink = async (email: string): Promise<void> => {
-        const { origin, pathname, search } = window.location;
-        const actionCodeSettings = {
-            url: magicLinkContinueUrl(origin, pathname + search, isChatWindowOpen()),
-            handleCodeInApp: true,
-        };
-
-        await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-        window.localStorage.setItem('emailForSignIn', email);
-    };
-
-    /**
-     * Complete magic link sign-in
-     */
-    const completeMagicLink = async (emailLink: string, email?: string): Promise<void> => {
-        if (!isSignInWithEmailLink(auth, emailLink)) {
-            throw new Error('Invalid email link');
-        }
-
-        const userEmail = email || window.localStorage.getItem('emailForSignIn');
-        if (!userEmail) {
-            throw new Error('Email not found');
-        }
-
-        await signInKeepingGuestChats(() => signInWithEmailLink(auth, userEmail, emailLink));
-        window.localStorage.removeItem('emailForSignIn');
-    };
-
-    /**
      * Refresh token
      *
      * Enhanced with fallback to auth.currentUser to handle race conditions
@@ -437,8 +399,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInAnonymously,
         loginWithGoogle,
         logout,
-        sendMagicLink,
-        completeMagicLink,
         refreshToken,
         refreshUser,
     };

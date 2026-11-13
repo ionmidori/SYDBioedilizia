@@ -112,7 +112,7 @@ describe('signing in to an existing account as a guest', () => {
         expect(signInToAccount).not.toHaveBeenCalled();
     });
 
-    it('waits for the guest a page just loaded is still restoring (a magic link opens a new page)', async () => {
+    it('waits for the guest a page just loaded is still restoring', async () => {
         // Until Firebase reads its storage, currentUser is null: the login
         // went ahead as a plain one and the guest's chats stayed behind.
         mockAuth.currentUser = null;

@@ -1,4 +1,4 @@
-import { authSchema, magicLinkSchema, resetPasswordSchema } from '../auth-schema';
+import { authSchema, resetPasswordSchema } from '../auth-schema';
 
 const VALID_PASSWORD = 'Password1!';
 
@@ -56,21 +56,18 @@ describe('authSchema — password', () => {
     });
 });
 
-describe('magicLinkSchema / resetPasswordSchema', () => {
-    it.each([
-        ['magicLinkSchema', magicLinkSchema],
-        ['resetPasswordSchema', resetPasswordSchema],
-    ])('%s validates on email alone', (_label, schema) => {
-        expect(schema.safeParse({ email: 'user@example.com' }).success).toBe(true);
+describe('resetPasswordSchema', () => {
+    it('validates on email alone', () => {
+        expect(resetPasswordSchema.safeParse({ email: 'user@example.com' }).success).toBe(true);
     });
 
-    it('magicLinkSchema drops the password field', () => {
-        const result = magicLinkSchema.safeParse({ email: 'user@example.com', password: VALID_PASSWORD });
+    it('drops the password field', () => {
+        const result = resetPasswordSchema.safeParse({ email: 'user@example.com', password: VALID_PASSWORD });
         expect(result.success).toBe(true);
         if (result.success) expect('password' in result.data).toBe(false);
     });
 
-    it('resetPasswordSchema still rejects an invalid email', () => {
+    it('rejects an invalid email', () => {
         expect(resetPasswordSchema.safeParse({ email: 'nope' }).success).toBe(false);
     });
 });

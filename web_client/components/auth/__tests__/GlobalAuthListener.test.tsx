@@ -121,7 +121,7 @@ it('sends in the current chat when the account had no chat to open', () => {
     expect(mockSendMessage).toHaveBeenCalledWith(CONFIRMATION);
 });
 
-it('sends nothing for a login finished in another tab (magic link): the guest chat is not known here', () => {
+it('sends nothing for a login finished in another tab: the guest chat is not known here', () => {
     const view = render(<GlobalAuthListener />);
     openLoginFromTheCard();
     update(view, () => {

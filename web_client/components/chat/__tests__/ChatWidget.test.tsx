@@ -173,7 +173,7 @@ describe('ChatWidget', () => {
         expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
 
-    describe('back from a login that left the page (redirect, magic link)', () => {
+    describe('back from a login that left the page (redirect)', () => {
         beforeEach(() => {
             sessionStorage.clear();
             setChatWindowOpen(false);

@@ -8,7 +8,7 @@ describe('isStrictCspPath', () => {
     }
   );
 
-  it.each(['/', '/blog', '/faq', '/dashboardfoo', '/administrator', '/auth/verify', '/privacy'])(
+  it.each(['/', '/blog', '/faq', '/dashboardfoo', '/administrator', '/terms', '/privacy'])(
     'returns false for static route %s',
     (path) => {
       expect(isStrictCspPath(path)).toBe(false);

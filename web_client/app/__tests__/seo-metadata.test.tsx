@@ -9,7 +9,6 @@ import { generateMetadata as progettiMetadata } from '@/app/progetti/page';
 import * as privacyPageModule from '@/app/privacy/page';
 import * as cookiePageModule from '@/app/cookie-policy/page';
 import TermsPage, * as termsPageModule from '@/app/terms/page';
-import * as verifyPageModule from '@/app/auth/verify/page';
 import * as maintenancePageModule from '@/app/maintenance/page';
 import { metadata as dashboardMetadata } from '@/app/dashboard/layout';
 import { CompanyIdentityProvider } from '@/components/providers/CompanyIdentityProvider';
@@ -37,7 +36,6 @@ jest.mock('@/components/providers/AppCheckProvider', () => ({ AppCheckProvider: 
 jest.mock('@/components/providers/AuthProvider', () => ({ AuthProvider: ({ children }: { children: ReactNode }) => children }));
 jest.mock('@/components/providers/QueryProvider', () => ({ __esModule: true, default: ({ children }: { children: ReactNode }) => children }));
 jest.mock('@/components/dashboard/DashboardClientLayout', () => ({ DashboardClientLayout: ({ children }: { children: ReactNode }) => children }));
-jest.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ completeMagicLink: jest.fn() }) }));
 jest.mock('@/components/chat/ChatProvider', () => ({ ChatProvider: ({ children }: { children: ReactNode }) => children }));
 jest.mock('@vercel/speed-insights/next', () => ({ SpeedInsights: () => null }));
 jest.mock('@vercel/analytics/next', () => ({ Analytics: () => null }));
@@ -139,11 +137,9 @@ describe('SEO metadata core', () => {
     expect(text).toContain('Roma');
   });
 
-  it('sets noindex,nofollow on auth verify, maintenance, and dashboard', () => {
-    const verifyMeta = (verifyPageModule as { metadata?: typeof rootMetadata }).metadata;
+  it('sets noindex,nofollow on maintenance and dashboard', () => {
     const maintenanceMeta = (maintenancePageModule as { metadata?: typeof rootMetadata }).metadata;
 
-    expect(verifyMeta?.robots).toEqual({ index: false, follow: false });
     expect(maintenanceMeta?.robots).toEqual({ index: false, follow: false });
     expect(dashboardMetadata.robots).toEqual({ index: false, follow: false });
   });
