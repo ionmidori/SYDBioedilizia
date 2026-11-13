@@ -2,7 +2,7 @@
  * Contact formats derived from the company info identity: links and the lines
  * the legal pages print. Pure functions, no company data of their own.
  */
-import type { Identity } from '@/types/company-info';
+import type { Identity, OpeningHours } from '@/types/company-info';
 
 const digitsOf = (value: string): string => value.replace(/\D/g, '');
 
@@ -35,4 +35,9 @@ export function legalLine(identity: Identity): string {
 /** "<street> - <postal code> <city> (<region>)" */
 export function fullAddress({ address }: Identity): string {
     return `${address.street} - ${address.postal_code} ${address.city} (${address.region})`;
+}
+
+/** "<days>: <opens>–<closes>" for display in the site UI. */
+export function formatHoursRow(row: OpeningHours): string {
+    return `${row.days}: ${row.opens}–${row.closes}`;
 }
