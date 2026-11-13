@@ -49,20 +49,21 @@ export default async function ChiSiamoPage() {
     };
 
     return (
-        <main className="min-h-screen bg-canvas text-ink overflow-x-hidden selection:bg-primary/30">
+        // overflow-x-clip keeps overflow-y visible so animated children like Footer never create a nested scroll container.
+        <div className="min-h-screen bg-canvas text-ink overflow-x-clip selection:bg-primary/30">
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
             />
             <Navbar />
-            {/* Spacer for fixed navbar */}
-            <div className="pt-20">
+            {/* Spacer for fixed navbar; Navbar & Footer remain top-level landmarks outside <main> */}
+            <main id="main-content" className="pt-20">
                 <About about={about} services={services.items} />
-            </div>
+            </main>
             <Footer />
             <Suspense fallback={<div />}>
                 <ChatWidget />
             </Suspense>
-        </main>
+        </div>
     );
 }

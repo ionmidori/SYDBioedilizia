@@ -64,4 +64,13 @@ describe('About (/chi-siamo)', () => {
         expect(screen.getByRole('heading', { level: 2, name: about.why_title })).toBeInTheDocument();
         expect(screen.getByRole('heading', { level: 3, name: about.excellences_title })).toBeInTheDocument();
     });
+
+    it('links to completed projects and caps narrative blocks to readable line length', () => {
+        const { container } = render(<About about={about} services={services.items} />);
+        expect(screen.getByRole('link', { name: /progetti/i })).toHaveAttribute('href', '/progetti');
+        const philosophyCard = container.querySelector('.card-powder');
+        expect(philosophyCard).toHaveClass('overflow-clip');
+        expect(philosophyCard).not.toHaveClass('overflow-hidden');
+        expect(container.querySelectorAll('.max-w-\\[56ch\\]').length).toBeGreaterThanOrEqual(3);
+    });
 });
