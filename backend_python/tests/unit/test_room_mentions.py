@@ -58,3 +58,9 @@ def test_with_one_room_of_a_type_the_type_names_it():
 
 def test_only_the_client_s_messages_count():
     assert _named("Il bagno risulta di 5 mq", role="assistant") == {}
+
+
+@pytest.mark.parametrize("text", ["Tutta la casa è 90 mq, bagno compreso", "L'appartamento ha il bagno cieco"])
+def test_a_whole_home_message_stays_project_wide(text):
+    rooms = [_room("b1", "Bagno", "bagno"), _room("c1", "Cucina", "cucina")]
+    assert messages_naming_one_room([{"role": "user", "content": text}], rooms) == {}

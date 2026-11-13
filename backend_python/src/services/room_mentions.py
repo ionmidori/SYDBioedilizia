@@ -22,6 +22,8 @@ from src.schemas.room import DEFAULT_ROOM_ID, RoomSchema, normalize_room_label
 
 # Types that do not name one place: "altro" is whatever the client called it.
 _GENERIC_TYPES = frozenset({"altro"})
+# A message about the whole home ("tutta la casa è 90 mq, bagno compreso") is no one room's talk.
+_WHOLE_HOME = re.compile(r"(?<!\w)(?:casa|appartamento|abitazione)(?!\w)")
 
 
 def _pattern(names: set[str]) -> re.Pattern[str]:
@@ -57,6 +59,8 @@ def messages_naming_one_room(
         if message.get("role") != "user" or not isinstance(content, str):
             continue
         text = " ".join(content.casefold().split())
+        if _WHOLE_HOME.search(text):
+            continue
         hits = [room_id for room_id, pattern in patterns.items() if pattern.search(text)]
         if len(hits) != 1:
             continue

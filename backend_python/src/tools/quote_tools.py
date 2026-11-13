@@ -916,7 +916,7 @@ def _single_unit_reply(result: _UnitResult) -> str | None:
             )
         return (
             f"Ho difficoltà a identificare le lavorazioni specifiche da quotare. "
-            f"Puoi dirmi le dimensioni approssimative dell'ambiente "
+            f"Puoi dirmi quale ambiente vuoi ristrutturare "
             f"e quali lavori hai in mente? ({analysis.summary})"
         )
     if not analysis.packages and len(result.unknown_skus) == len(analysis.suggestions):
@@ -970,7 +970,7 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
         return (
             f"Per {rooms} non riesco a preparare le voci dal listino in modo affidabile, quindi non registro "
             "un preventivo incompleto della casa. Descrivimi meglio i lavori previsti in quella stanza "
-            "(misure e materiali) oppure un nostro consulente ti contatterà per un preventivo personalizzato."
+            "(materiali e cosa sostituire) oppure un nostro consulente ti contatterà per un preventivo personalizzato."
         )
     if any(r.lines for r in results):
         return None
@@ -984,7 +984,7 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
         )
     return (
         "Ho difficoltà a identificare le lavorazioni specifiche da quotare. "
-        "Puoi dirmi, stanza per stanza, le dimensioni approssimative e quali lavori hai in mente?"
+        "Puoi dirmi, stanza per stanza, quali lavori hai in mente?"
     )
 
 

@@ -121,3 +121,19 @@ async def test_the_tool_sends_nothing_without_the_yes():
         )
     assert out.startswith(NOT_SENT_PREFIX)
     wrapper.assert_not_awaited()
+
+
+@pytest.mark.parametrize("answer", ["volentieri", "Esatto, invia", "assolutamente sì", "giusto, procedi"])
+def test_other_plain_yes_words_count(answer):
+    """Refusing a plain "volentieri" would loop: the agent asks again, the client says it again."""
+    assert consent_refusal(_history(), TURN, _user(answer)) is None
+
+
+@pytest.mark.parametrize("answer", ["sì, e anche il soggiorno", "sì, invece del bagno fai la cucina", "sì ma ho un dubbio"])
+def test_a_yes_with_more_work_or_a_doubt_is_refused(answer):
+    assert consent_refusal(_history(), TURN, _user(answer)) is not None
+
+
+def test_a_send_word_about_something_else_is_no_send_question():
+    """ "Vuoi inviare altre foto?" is not the question about sending the request."""
+    assert consent_refusal(_history("Vuoi inviare altre foto del bagno?"), TURN, _user("sì")) is not None

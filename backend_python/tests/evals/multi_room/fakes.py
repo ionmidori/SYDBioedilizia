@@ -216,6 +216,23 @@ BATH_ONLY_HISTORY: list[dict[str, Any]] = [
     {"role": "assistant", "content": "Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"},
     {"role": "user", "content": "Sì, prepara pure la richiesta di preventivo."},
 ]
+# PR 1 · C: a bathroom without measures. The agent registers the request at once
+# (no measure asked in words): the card asks for them.
+NO_MEASURES_HISTORY: list[dict[str, Any]] = [
+    {"role": "user", "content": (
+        "Ciao, vorrei rifare il bagno del mio appartamento a Roma: togliere la vasca e i sanitari, doccia "
+        "walk-in, sanitari sospesi nuovi e piastrelle nuove a pavimento e alle pareti. Le misure non le ho "
+        "sotto mano. Prepara pure la richiesta di preventivo.")},
+]
+# PR 1 · D/E: the client confirmed 5 mq of bathroom floor on the card, then corrects
+# it with no room chip active (untagged). The correction must reach the bathroom
+# analysis (a proposal next to the confirmed 5) and the reply reports both values.
+CORRECTION_MESSAGE = "Correggo una misura: il bagno è 8 metri quadri di pavimento, non 5."
+CORRECTION_HISTORY: list[dict[str, Any]] = [
+    *QUOTE_HISTORY,
+    {"role": "assistant", "content": "Ho registrato la richiesta di preventivo (riferimento PRV-EVAL-0001)."},
+    {"role": "user", "content": f"{CORRECTION_MESSAGE} Aggiorna la richiesta di preventivo."},
+]
 # Phase 139 PR-3: the bathroom quote was sent, then the client asks for more.
 REVISION_HISTORY: list[dict[str, Any]] = [
     *BATH_ONLY_HISTORY,
@@ -469,6 +486,7 @@ class MultiRoomRun:
     renders: RenderRecorder
     quotes: QuoteRecorder
     submissions: SubmitRecorder
+    specs: "FakeSpecStore | None" = None
     responses: ResponseRecorder = field(default_factory=lambda: RESPONSES)
     compactions: CompactionRecorder = field(default_factory=CompactionRecorder)
     tool_calls: ToolCallRecorder = field(default_factory=lambda: TOOL_CALLS)
@@ -534,6 +552,40 @@ def _company_problems(run: MultiRoomRun) -> list[str]:
     return found
 
 
+def _card_reply_problems(run: MultiRoomRun) -> list[str]:
+    """The last reply passes on the card invitation."""
+    replies = run.responses.turns()
+    if not replies:
+        return ["no reply recorded"]
+    return [] if "scheda" in replies[-1].lower() else [f"the reply does not point to the card: {replies[-1][:160]!r}"]
+
+
+def _measures_on_card_problems(run: MultiRoomRun) -> list[str]:
+    """PR 1 · C: no measure asked in words first; the tool saved the spec the card shows."""
+    turns = run.tool_calls.turns()
+    first = {tool for _, tool in turns[0]} if turns else set()
+    found = [] if "suggest_quote_items" in first else ["suggest_quote_items was not called in the first turn"]
+    spec = run.specs.specs.get(CHAT_SPEC_KEY) if run.specs else None
+    if spec is None:
+        return [*found, "no spec saved for the card"]
+    return found + _card_reply_problems(run) + run.submissions.problems(expected=0)
+
+
+def _room_correction_problems(run: MultiRoomRun) -> list[str]:
+    """PR 1 · D/E: the untagged correction reaches the bathroom analysis as a
+    proposal next to the confirmed 5 mq, and the reply reports both values."""
+    found = run.quotes.problems() + run.submissions.problems(expected=0)
+    spec = run.specs.specs.get(BATH_ROOM_ID) if run.specs else None
+    floor = next((m for m in spec.measures if m.name == "mq"), None) if spec else None
+    if floor is None or floor.value != 5 or floor.proposed != 8:
+        found.append(f"bathroom floor {floor!r}, expected 5 confirmed with 8 proposed")
+    replies = run.responses.turns()
+    last = replies[-1].lower() if replies else ""
+    if not all(word in last for word in ("5", "8", "scheda")):
+        found.append(f"the reply does not report the used and the new value: {last[:200]!r}")
+    return found
+
+
 # What each multi-room eval set checks in the backend after its run (run_evals.py).
 BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "multi_room_flow.test.json": lambda run: run.renders.problems(),
@@ -556,6 +608,10 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "quote_revision.test.json": lambda run: run.quotes.revision_problems() + run.submissions.problems(expected=1),
     # The team has the quote: the change reaches the team, nothing written or sent again.
     "quote_with_team.test.json": lambda run: run.quotes.relay_problems() + run.submissions.problems(expected=0),
+    # PR 1 · C: a bathroom without measures goes straight to the tool and the card.
+    "measures_on_card.test.json": _measures_on_card_problems,
+    # PR 1 · D/E: a correction typed with no room chip; the reply reports the values as the tool gives them.
+    "room_correction.test.json": _room_correction_problems,
 }
 
 # Sets whose user is a guest (the login gate of the premium tools answers "guest").
@@ -568,6 +624,8 @@ QUOTE_HISTORIES: dict[str, list[dict[str, Any]]] = {
     "logged_in_quote.test.json": BATH_ONLY_HISTORY,
     "quote_revision.test.json": REVISION_HISTORY,
     "quote_with_team.test.json": BATH_ONLY_HISTORY,
+    "measures_on_card.test.json": NO_MEASURES_HISTORY,
+    "room_correction.test.json": CORRECTION_HISTORY,
 }
 # The house quote each set starts with (default: none). Its session state seeds
 # the same status in "PREVENTIVO DELLA CASA" (session_input.state.syd_house_quote).
@@ -578,6 +636,15 @@ INITIAL_QUOTES: dict[str, QuoteStatusView] = {
     "quote_with_team.test.json": QuoteStatusView(
         status="in_review", delivery_status=None, quote_number="PRV-EVAL-0001", version=2, sent_before=False
     ),
+    "room_correction.test.json": QuoteStatusView(
+        status="draft", delivery_status=None, quote_number="PRV-EVAL-0001", version=1, sent_before=False
+    ),
+}
+# The specs each set starts with (default: none), by section key.
+INITIAL_SPECS: dict[str, dict[str, dict[str, Any]]] = {
+    "room_correction.test.json": {
+        BATH_ROOM_ID: {"library_version": "eval", "measures": [{"name": "mq", "value": 5, "source": "confirmed"}]},
+    },
 }
 
 
@@ -588,7 +655,11 @@ def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
     set `set_name` (its user, guest or registered, and its chat history)."""
     repo = FakeRoomRepository()
     quotes = QuoteRecorder(current=INITIAL_QUOTES.get(set_name))
-    run = MultiRoomRun(renders=RenderRecorder(), quotes=quotes, submissions=SubmitRecorder(quotes))
+    specs = FakeSpecStore(repo, {
+        key: RoomInterventionSpec.model_validate({"generated_at": utc_now(), **spec})
+        for key, spec in INITIAL_SPECS.get(set_name, {}).items()
+    })
+    run = MultiRoomRun(renders=RenderRecorder(), quotes=quotes, submissions=SubmitRecorder(quotes), specs=specs)
     RESPONSES.reset()
     TOOL_CALLS.reset()
     guest = set_name in GUEST_SETS
@@ -602,7 +673,7 @@ def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
             "src.tools.quote_tools.get_room_repository",
         ):
             stack.enter_context(patch(target, return_value=repo))
-        stack.enter_context(patch("src.tools.quote_tools.get_spec_store", return_value=FakeSpecStore(repo)))
+        stack.enter_context(patch("src.tools.quote_tools.get_spec_store", return_value=specs))
         stack.enter_context(patch("src.adk.tools.latest_uploaded_photo_url", new=AsyncMock(return_value=newest_project_photo)))
         # The gate itself (not only the account lookup): the dev auth bypass of a local .env would open it.
         stack.enter_context(patch("src.adk.tools._is_guest", new=AsyncMock(return_value=guest)))

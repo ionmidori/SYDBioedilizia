@@ -23,6 +23,7 @@ from src.services.spec_confirmation import (
     confirmations_only,
     expansion_inputs,
     has_unconfirmed_measures,
+    proposal_notes,
     same_confirmations,
     spec_measures,
     unassigned_note,
@@ -270,3 +271,14 @@ def test_unconfirmed_measures_are_told_from_the_confirmed_ones() -> None:
 
 def test_a_proposal_the_client_has_not_answered_is_unconfirmed() -> None:
     assert has_unconfirmed_measures(_spec([_confirmed("mq", 8, proposed=6)]))
+
+
+def test_a_proposal_note_without_a_unit_shows_the_bare_count():
+    spec = RoomInterventionSpec.model_validate({
+        "library_version": "2.1.0", "generated_at": datetime(2026, 11, 13, tzinfo=UTC),
+        "measures": [{"name": "n_finestre", "value": 2, "source": "confirmed", "proposed": 3}],
+    })
+    assert proposal_notes(spec) == [
+        "numero di finestre da sostituire: calcolato su 2, il valore confermato da te. "
+        "Il nuovo valore 3 è nella scheda qui sotto: confermalo lì per usarlo."
+    ]

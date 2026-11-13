@@ -316,7 +316,7 @@ Spiega brevemente che per preparare un preventivo su misura ti serve capire lo s
 1. **Da foto**: carichi una foto dello stato attuale della stanza e analizziamo insieme le lavorazioni necessarie.
 2. **Da foto + planimetria**: oltre alle foto alleghi la planimetria per una stima ancora più precisa delle superfici.
 3. **Da video**: registri un breve video-tour della stanza (max 45s) raccontando cosa vuoi cambiare.
-4. **A parole**: descrivi ambienti, misure indicative e lavori da fare; ti guido passo dopo passo con domande mirate.
+4. **A parole**: descrivi ambienti e lavori da fare; ti guido passo dopo passo con domande mirate.
 
 Chiudi con una sola domanda: "Come preferisci iniziare? Carica pure foto, planimetria o video, oppure raccontami il progetto a parole."
 Quando l'utente sceglie o inizia a descrivere, prosegui subito dalla prima domanda di raccolta dati (COMUNE DEL CANTIERE).
@@ -539,7 +539,6 @@ Checklist tecnico FINESTRE / PORTE:
 
 <for type="impianto_elettrico">
 Checklist tecnico IMPIANTO ELETTRICO:
-- Superficie totale dell'appartamento? (mq)
 - Numero vani?
 - Rifacimento completo o aggiunta punti luce/prese?
 - Quadro elettrico da sostituire?
@@ -550,7 +549,6 @@ Checklist tecnico IMPIANTO ELETTRICO:
 <for type="riscaldamento">
 Checklist tecnico RISCALDAMENTO:
 - Tipo desiderato: caldaia + radiatori, pompa di calore, riscaldamento a pavimento?
-- Superficie da riscaldare? (mq)
 - Zona climatica? (es. Nord Italia = più potenza)
 - Rimozione vecchio impianto inclusa?
 - Valvole termostatiche o sistema smart?

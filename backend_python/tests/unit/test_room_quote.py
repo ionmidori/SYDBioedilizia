@@ -1015,8 +1015,8 @@ async def test_the_reply_says_which_value_was_used_and_where_the_new_one_waits()
         reply = await _quote()
 
     assert (
-        "**Bagno** — pavimento della stanza (m²): calcolato su 8, il valore confermato da te. "
-        "Il nuovo valore 6 è nella scheda qui sotto: confermalo lì per usarlo."
+        "**Bagno** — pavimento della stanza: calcolato su 8 m², il valore confermato da te. "
+        "Il nuovo valore 6 m² è nella scheda qui sotto: confermalo lì per usarlo."
     ) in reply
     assert "€" not in reply
 

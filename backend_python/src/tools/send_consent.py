@@ -22,15 +22,19 @@ from src.tools.quote_submit_tools import NOT_SENT_PREFIX
 
 _QUOTE_TOOL = "suggest_quote_items"
 
-# The send question: "Invio al nostro team…? Confermi?", "Vuoi che la invii?", "Procedo con l'invio?".
-_SEND_WORD = re.compile(r"\binvi", re.IGNORECASE)
+# The send question: "Invio al nostro team…? Confermi?", "Vuoi che invii la richiesta?", "Procedo con
+# l'invio al team?". A send word alone is not enough: "Vuoi inviare altre foto?" is another question.
+_SEND_WORD = re.compile(r"\binvi\w*", re.IGNORECASE)
+_SEND_OBJECT = re.compile(r"\b(team|richiesta|preventivo|revisione)\b", re.IGNORECASE)
 _YES = re.compile(
-    r"\b(s[iì]|confermo|conferma|invia|inviala|invii|procedi|vai|ok|okay|certo|va bene|d'accordo|perfetto)\b",
+    r"\b(s[iì]|confermo|conferma|invia|inviala|invii|procedi|vai|ok|okay|certo|va bene|d'accordo|perfetto"
+    r"|volentieri|esatto|assolutamente|giusto|yes)\b",
     re.IGNORECASE,
 )
-# A yes with any of these is not a plain yes: a change, a doubt, a "not now".
+# A yes with any of these is not a plain yes: a change, more work, a doubt, a "not now".
 _HOLD = re.compile(
-    r"\?|\b(no|non|ma|però|prima|aspetta|annulla|modific\w*|aggiung\w*|cambi\w*|togli\w*|scheda)\b",
+    r"\?|\b(no|non|ma|però|prima|aspetta|annulla|modific\w*|aggiung\w*|cambi\w*|togli\w*"
+    r"|anche|invece|dubbio|scheda)\b",
     re.IGNORECASE,
 )
 
@@ -40,7 +44,7 @@ _SAME_TURN = (
 )
 _NO_YES = (
     f"{NOT_SENT_PREFIX} manca il sì esplicito del cliente all'invio. Riepiloga le stanze e chiedi: "
-    "\"Invio al nostro team la richiesta di preventivo? Confermi?\", poi aspetta la risposta."
+    "\"Invio al nostro team la richiesta di preventivo? Confermi?\", poi aspetta un sì semplice."
 )
 
 
@@ -66,7 +70,7 @@ def _last_reply(events: Sequence[Event], invocation_id: str) -> str:
 
 
 def _asked_to_send(reply: str) -> bool:
-    return "?" in reply and bool(_SEND_WORD.search(reply))
+    return "?" in reply and bool(_SEND_WORD.search(reply)) and bool(_SEND_OBJECT.search(reply))
 
 
 def _plain_yes(message: str) -> bool:
