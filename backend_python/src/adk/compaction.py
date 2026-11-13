@@ -12,8 +12,9 @@ Compaction runs only after a turn, never inside one:
   threshold (request processor `_compaction`), synchronously and in the middle
   of a turn: the summarizer would delay the first token, and the summary could
   swallow the current user message (an eval saw "registra la richiesta" become
-  a sent quote). `PostTurnCompactionPlugin` turns that path off for each run;
-  the post-turn compaction reads the App's config and is unaffected.
+  a sent quote). `PostTurnCompactionPlugin` clears the invocation's compaction
+  config before the turn and restores it in `after_run_callback` (right before
+  ADK's post-invocation compaction runs).
 - After the turn, `SydRunner` (app_factory.py) runs it in the background, once
   the reply has been streamed. It must never turn an answered turn into an
   error: a model error or a timeout leaves the history uncompacted (ADK
@@ -80,19 +81,42 @@ class RoomAwareEventSummarizer(LlmEventSummarizer):
 
 
 class PostTurnCompactionPlugin(BasePlugin):
-    """Keeps the history compaction out of the turn.
+    """Keeps history compaction out of the turn without disabling post-turn compaction.
 
-    The request-time compaction reads `invocation_context.events_compaction_config`
-    (and nothing else does); the post-turn one reads the App's. Clearing the
-    former at the start of each run leaves only the post-turn compaction.
-    tests/unit/test_compaction.py fails if ADK changes where either reads it.
+    Since ADK 2.14, both request-time (`CompactionRequestProcessor`) and
+    post-turn (`Runner._run_post_invocation_compaction`) compaction read
+    `invocation_context.events_compaction_config`, and `_run_invocation_lifecycle`
+    executes `after_run_callback` before `post_run_compaction`. Clearing the
+    config in `before_run_callback` and restoring it by `invocation_id` in
+    `after_run_callback` disables only the mid-turn path while keeping post-turn
+    compaction active across concurrent sessions and custom App overrides.
+    `tests/unit/test_compaction.py` fails if ADK changes that lifecycle order.
     """
+
+    _MAX_TRACKED_INVOCATIONS = 1024
 
     def __init__(self) -> None:
         super().__init__(name="syd_post_turn_compaction")
+        self._saved_configs: dict[str, EventsCompactionConfig] = {}
 
     async def before_run_callback(self, *, invocation_context: InvocationContext) -> None:
-        invocation_context.events_compaction_config = None
+        config = invocation_context.events_compaction_config
+        if config is not None:
+            if len(self._saved_configs) >= self._MAX_TRACKED_INVOCATIONS:
+                self._saved_configs.pop(next(iter(self._saved_configs)))
+            self._saved_configs[invocation_context.invocation_id] = config
+            invocation_context.events_compaction_config = None
+        return None
+
+    async def after_run_callback(self, *, invocation_context: InvocationContext) -> None:
+        saved = self._saved_configs.pop(invocation_context.invocation_id, None)
+        if saved is not None and invocation_context.events_compaction_config is None:
+            invocation_context.events_compaction_config = saved
+        return None
+
+    async def on_run_error_callback(self, *, invocation_context: InvocationContext, error: Exception) -> None:
+        del error
+        self._saved_configs.pop(invocation_context.invocation_id, None)
         return None
 
 

@@ -142,9 +142,12 @@ async def _invocation_context(config) -> InvocationContext:
 async def test_plugin_turns_off_the_compaction_inside_the_turn():
     """ADK compacts before every model call once the last prompt reached the
     threshold: synchronous (first token waits) and able to summarize away the
-    current user message. The plugin leaves only the post-turn compaction."""
-    ctx = await _invocation_context(build_events_compaction_config(token_threshold=1, event_retention_size=0))
-    assert await PostTurnCompactionPlugin().before_run_callback(invocation_context=ctx) is None
+    current user message. The plugin clears the config for the turn and restores
+    it in after_run_callback so only post-turn compaction runs."""
+    cfg = build_events_compaction_config(token_threshold=1, event_retention_size=0)
+    plugin = PostTurnCompactionPlugin()
+    ctx = await _invocation_context(cfg)
+    assert await plugin.before_run_callback(invocation_context=ctx) is None
     assert ctx.events_compaction_config is None
 
     with patch.object(_compaction_module, "_run_compaction_for_token_threshold_config", new=AsyncMock()) as run:
@@ -152,13 +155,34 @@ async def test_plugin_turns_off_the_compaction_inside_the_turn():
             pass
     run.assert_not_awaited()
 
+    assert await plugin.after_run_callback(invocation_context=ctx) is None
+    assert ctx.events_compaction_config is cfg
+    assert ctx.invocation_id not in plugin._saved_configs
+
+
+async def test_plugin_cleans_up_saved_config_on_run_error():
+    cfg = build_events_compaction_config(token_threshold=1, event_retention_size=0)
+    plugin = PostTurnCompactionPlugin()
+    ctx = await _invocation_context(cfg)
+    await plugin.before_run_callback(invocation_context=ctx)
+    assert ctx.invocation_id in plugin._saved_configs
+
+    await plugin.on_run_error_callback(invocation_context=ctx, error=RuntimeError("boom"))
+    assert ctx.invocation_id not in plugin._saved_configs
+
 
 def test_adk_reads_the_config_where_the_plugin_expects_it():
-    """Request-time compaction: the invocation's config (cleared by the plugin).
-    Post-turn compaction: the App's (kept). An ADK upgrade that moves either read
-    would either bring compaction back inside the turn or drop it silently."""
+    """Since ADK 2.14, both request-time and post-turn compaction read
+    `invocation_context.events_compaction_config`, and `_run_invocation_lifecycle`
+    executes `run_after_run_callback` before `post_run_compaction`. An ADK
+    upgrade that changes either would drop post-turn compaction or bring
+    compaction back inside the turn."""
+    from google.adk.runners import _run_invocation_lifecycle
+
     assert "invocation_context.events_compaction_config" in inspect.getsource(CompactionRequestProcessor.run_async)
-    assert "self.app.events_compaction_config" in inspect.getsource(Runner._run_post_invocation_compaction)
+    assert "invocation_context.events_compaction_config" in inspect.getsource(Runner._run_post_invocation_compaction)
+    lifecycle_src = inspect.getsource(_run_invocation_lifecycle)
+    assert lifecycle_src.index("run_after_run_callback") < lifecycle_src.index("post_run_compaction(")
 
 
 def test_a_late_compaction_never_hides_the_turns_after_it():
