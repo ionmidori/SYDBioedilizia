@@ -11,6 +11,7 @@ from src.adk import tools
 from src.tools.project_files_view import ProjectFilesView
 from src.tools.quota import QuotaDecision
 from src.utils.datetime_utils import utc_now
+from tests.unit.send_consent_fakes import give_send_consent
 
 TRUSTED_SESSION = "owner-session"
 TRUSTED_UID = "owner-uid"
@@ -35,7 +36,7 @@ def tool_context() -> MagicMock:
 @pytest.mark.asyncio
 async def test_submit_quote_request_uses_verified_session(tool_context):
     with patch.object(tools, "submit_quote_request_wrapper", new=AsyncMock(return_value="ok")) as w:
-        await tools.submit_quote_request(session_id=FOREIGN_SESSION, tool_context=tool_context)
+        await tools.submit_quote_request(session_id=FOREIGN_SESSION, tool_context=give_send_consent(tool_context))
     w.assert_awaited_once_with(session_id=TRUSTED_SESSION, user_id=TRUSTED_UID)
 
 

@@ -97,6 +97,13 @@ class TestBuildSystemPrompt:
         prompt = engine._build_system_prompt(self._MOCK_PRICE, self._MOCK_ASSEMBLY)
         assert "FASE 1" in prompt or "Chain-of-Thought" in prompt or "Protocollo" in prompt
 
+    def test_the_client_s_latest_measure_beats_the_room_brief(self, engine: InsightEngine) -> None:
+        """A correction in chat ("il bagno è 8 mq") is newer than the brief (5 mq):
+        the model gives 8, and the backend turns a confirmed value into a proposal."""
+        prompt = engine._build_system_prompt(self._MOCK_PRICE, self._MOCK_ASSEMBLY)
+        phase = prompt.split("**FASE 2")[1].split("**FASE 3")[0]
+        assert "vale l'ultimo valore detto dal cliente" in phase
+
     def test_system_prompt_excludes_furniture(self, engine: InsightEngine) -> None:
         """System prompt must explicitly exclude furniture from scope."""
         prompt = engine._build_system_prompt(self._MOCK_PRICE, self._MOCK_ASSEMBLY)

@@ -250,8 +250,9 @@ class TestMultiRoomQuoteEval:
 
         from src.adk import tools
         from tests.evals.multi_room.fakes import BACKEND_CHECKS, multi_room_backend
+        from tests.unit.send_consent_fakes import give_send_consent
 
-        context = MagicMock()
+        context = give_send_consent(MagicMock())
         context.session.id = "eval"
         with multi_room_backend() as run:
             reply = await tools.submit_quote_request(session_id="eval", tool_context=context)

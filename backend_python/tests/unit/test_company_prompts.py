@@ -160,7 +160,7 @@ def test_the_quote_always_asks_the_comune_of_the_site():
     assert "COMUNE DEL CANTIERE" in flow
     assert "In quale comune si trova l'immobile?" in flow
     assert flow.index("COMUNE DEL CANTIERE") < flow.index("STEP CONFERMA DELLA REGISTRAZIONE")
-    assert "Hai raccolto Comune del cantiere + Scope + Metriche" in flow  # registration waits for it
+    assert "Hai raccolto Comune del cantiere + Scope" in flow  # registration waits for it
 
 
 def test_welcome_guidance_and_company_overview():

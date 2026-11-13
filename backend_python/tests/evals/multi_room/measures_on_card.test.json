@@ -1,0 +1,52 @@
+{
+  "eval_set_id": "syd_measures_on_card_v1",
+  "name": "SYD Measures on the card (PR 1 · C)",
+  "description": "A bathroom without measures: the agent registers the request at once, without asking the measures in words; the tool saves the spec and the reply points to the confirmation card. Nothing is sent.",
+  "eval_cases": [
+    {
+      "eval_id": "bathroom_without_measures",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": false,
+            "phone_on_file": true,
+            "session_id": "eval-measures-on-card"
+          },
+          "syd_rooms": []
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_card_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nCiao, vorrei rifare il bagno del mio appartamento a Roma: togliere la vasca e i sanitari, doccia walk-in, sanitari sospesi nuovi e piastrelle nuove a pavimento e alle pareti. Le misure non le ho sotto mano. Prepara pure la richiesta di preventivo.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Conferma le misure nella scheda qui sotto."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "suggest_quote_items",
+                "args": {},
+                "id": "call_inv_card_001_1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

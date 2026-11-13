@@ -6,6 +6,7 @@ kept as a proposal the card shows to the client, and the team gets a check
 (`admin_check`). What the card confirms (`confirm`) is expanded again by code,
 without the model (`analysis_from_spec`). Pure: no I/O.
 """
+import re
 from collections.abc import Mapping
 from decimal import Decimal
 
@@ -18,6 +19,8 @@ from src.services.intervention_expansion import ACTION_LABELS, requested_actions
 
 # Reasoning of a single line recomputed from the stored spec (the model's own is not stored).
 _STORED_EXTRA_REASONING = "Voce singola dell'ultima analisi, ricalcolata con le misure confermate"
+# A measure label ends with its unit: "pavimento della stanza (m²)".
+_LABEL_UNIT = re.compile(r"(.+) \(([^()]+)\)")
 
 
 def _number(value: float) -> str:
@@ -68,6 +71,27 @@ def _conflict_note(name: str, confirmed: float, values: list[float]) -> str:
         f"{MEASURE_LABELS.get(name, name)}: il cliente ha confermato {_number(confirmed)}, "
         f"la nuova analisi indica più valori ({found}). Usato il valore confermato"
     )
+
+
+def _label_and_unit(name: str) -> tuple[str, str]:
+    """"pavimento della stanza (m²)" -> ("pavimento della stanza", " m²"); a count has no unit."""
+    label = MEASURE_LABELS.get(name, name)
+    found = _LABEL_UNIT.fullmatch(label)
+    return (found.group(1), f" {found.group(2)}") if found else (label, "")
+
+
+def proposal_notes(spec: RoomInterventionSpec) -> list[str]:
+    """For the client: each confirmed measure the lines used while a new value
+    waits on the card. The agent reports these, never a value of its own."""
+    notes = []
+    for m in spec.measures:
+        if m.source == "confirmed" and m.proposed is not None:
+            label, unit = _label_and_unit(m.name)
+            notes.append(
+                f"{label}: calcolato su {_number(m.value)}{unit}, il valore confermato da te. "
+                f"Il nuovo valore {_number(m.proposed)}{unit} è nella scheda qui sotto: confermalo lì per usarlo."
+            )
+    return notes
 
 
 def has_unconfirmed_measures(spec: RoomInterventionSpec) -> bool:

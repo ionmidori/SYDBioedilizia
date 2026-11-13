@@ -1,0 +1,70 @@
+{
+  "eval_set_id": "syd_room_correction_v1",
+  "name": "SYD Correction without a room chip (PR 1 · D/E)",
+  "description": "The client confirmed 5 mq of bathroom floor on the card, then writes '8 mq' with no room active. The correction reaches the bathroom analysis as a proposal; the reply reports the value used (5) and the new one waiting on the card (8), as the tool gives them. Nothing is sent.",
+  "eval_cases": [
+    {
+      "eval_id": "bathroom_floor_corrected_untagged",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": false,
+            "phone_on_file": true,
+            "session_id": "eval-room-correction"
+          },
+          "syd_rooms": [
+            {
+              "room_id": "r_cucina",
+              "label": "Cucina",
+              "room_type": "cucina",
+              "summary": ""
+            },
+            {
+              "room_id": "r_bagno",
+              "label": "Bagno",
+              "room_type": "bagno",
+              "summary": ""
+            }
+          ],
+          "syd_house_quote": {
+            "quote_number": "PRV-EVAL-0001",
+            "status": "draft",
+            "version": 1
+          }
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_correction_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nCorreggo una misura: il bagno è 8 metri quadri di pavimento, non 5. Aggiorna la richiesta di preventivo.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Calcolato su 5 mq, il valore confermato da te: il nuovo valore 8 mq è nella scheda qui sotto."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "suggest_quote_items",
+                "args": {},
+                "id": "call_inv_correction_001_1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

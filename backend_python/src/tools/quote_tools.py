@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 import logging
 from collections import OrderedDict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import Any
@@ -41,12 +41,14 @@ from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_
 from src.services.quote_followup import FollowupResult, relay_client_request
 from src.services.quote_state import QuoteStatus, ai_draft_action
 from src.services.room_aggregation import load_rules
+from src.services.room_mentions import messages_naming_one_room
 from src.services.spec_confirmation import (
     apply_confirmations,
     choice_checks,
     confirmations_only,
     expansion_inputs,
     has_unconfirmed_measures,
+    proposal_notes,
     same_confirmations,
     unassigned_note,
 )
@@ -424,6 +426,9 @@ _MAX_QUESTIONS = 2
 _CLIENT_MANUAL_WORK_SHOWN = 5
 # The confirmation card (chat, signed-in clients) asks for the measures: no amount, ever.
 _CARD_MEASURES_NOTE = "Conferma le misure nella scheda qui sotto: preparo il preventivo appena sono complete."
+# Heading of the measures the lines used while a new value waits on the card: the
+# agent repeats them word for word (MODE_B_SURVEYOR STEP 1, "MISURE E STATO").
+MEASURES_TO_REPORT = "MISURE DA RIPORTARE AL CLIENTE, parola per parola, prima di tutto il resto:"
 _CARD_DRAFT_NOTE = (
     "Puoi confermare misure e lavori nella scheda qui sotto: la richiesta si aggiorna da sola e diventa più precisa."
 )
@@ -632,6 +637,17 @@ async def _general_unit(
     )
 
 
+def _in_chat_order(
+    tagged: list[dict[str, Any]], named: Sequence[Mapping[str, Any]], order: Mapping[str, int]
+) -> list[dict[str, Any]]:
+    """The room's tagged messages and the untagged ones that name it, in chat
+    order (`order`: message id -> position in the project chat). Tagged messages
+    older than the chat window keep their place at the start."""
+    merged = [*tagged, *(dict(m) for m in named)]
+    merged.sort(key=lambda m: order.get(m.get("id") or "", -1))
+    return merged[-_ROOM_HISTORY_MESSAGES:]
+
+
 async def _room_unit(
     room: RoomSchema,
     others: list[str],
@@ -639,12 +655,18 @@ async def _room_unit(
     project_files: dict[str, dict[str, Any]],
     session_id: str,
     project_id: str,
+    named: Sequence[Mapping[str, Any]] = (),
+    order: Mapping[str, int] | None = None,
 ) -> _QuoteUnit:
-    """One room: its messages, its photos, measures and render delta of its own media."""
-    room_messages, room_files = await asyncio.gather(
+    """One room: its messages (and the untagged ones that name only this room),
+    its photos, measures and render delta of its own media."""
+    tagged, room_files = await asyncio.gather(
         ConversationRepository().get_context(session_id, limit=_ROOM_HISTORY_MESSAGES, room_id=room.room_id),
         get_room_repository().files_for_room(project_id, room.room_id),  # newest first
     )
+    room_messages = _in_chat_order(tagged, named, order or {})
+    own = {id(m) for m in named}
+    general = [m for m in general if id(m) not in own]
     photos = [f for f in room_files if f.get("type") == "image"]
     media = [f for f in room_files if f.get("type") in ("image", "video")][:_QUOTE_MEDIA_MAX]
 
@@ -897,7 +919,7 @@ def _single_unit_reply(result: _UnitResult) -> str | None:
             )
         return (
             f"Ho difficoltà a identificare le lavorazioni specifiche da quotare. "
-            f"Puoi dirmi le dimensioni approssimative dell'ambiente "
+            f"Puoi dirmi quale ambiente vuoi ristrutturare "
             f"e quali lavori hai in mente? ({analysis.summary})"
         )
     if not analysis.packages and len(result.unknown_skus) == len(analysis.suggestions):
@@ -951,7 +973,7 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
         return (
             f"Per {rooms} non riesco a preparare le voci dal listino in modo affidabile, quindi non registro "
             "un preventivo incompleto della casa. Descrivimi meglio i lavori previsti in quella stanza "
-            "(misure e materiali) oppure un nostro consulente ti contatterà per un preventivo personalizzato."
+            "(materiali e cosa sostituire) oppure un nostro consulente ti contatterà per un preventivo personalizzato."
         )
     if any(r.lines for r in results):
         return None
@@ -965,13 +987,31 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
         )
     return (
         "Ho difficoltà a identificare le lavorazioni specifiche da quotare. "
-        "Puoi dirmi, stanza per stanza, le dimensioni approssimative e quali lavori hai in mente?"
+        "Puoi dirmi, stanza per stanza, quali lavori hai in mente?"
     )
 
 
 def _section_label(result: _UnitResult) -> str | None:
     """The room name the admin reads next to a manual work or a warning (None: a quote without rooms)."""
     return _room_label(result) if result.unit.section_id else None
+
+
+def _proposals_note(results: list[_UnitResult]) -> str:
+    """The values the lines used while a new one waits on the card, per section."""
+    notes: list[str] = []
+    for result in results:
+        if result.on_card and result.spec is not None:
+            label = _section_label(result)
+            notes += [f"**{label}** — {note}" if label else note for note in proposal_notes(result.spec)]
+    return "\n".join(notes)
+
+
+def _measures_block(results: list[_UnitResult]) -> str:
+    """The values the lines used while a new one waits on the card, first in every
+    reply under their own heading: in the middle of the reply flash-lite skipped
+    them and told "recepito 8 mq" (eval room_correction)."""
+    proposals = _proposals_note(results)
+    return f"{MEASURES_TO_REPORT}\n{proposals}\n\n" if proposals else ""
 
 
 def _manual_work_note(manual_work: list[ManualWorkItem]) -> str:
@@ -1046,12 +1086,18 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         try:
             if to_quote:
                 general = [m for m in history if m.get("room_id") in (None, DEFAULT_ROOM_ID)]
+                # "Il bagno è 8 mq" typed with no room chip is the bathroom's talk, not background.
+                named = messages_naming_one_room(general, all_rooms)
+                order = {m["id"]: i for i, m in enumerate(history) if m.get("id")}
                 semaphore = asyncio.Semaphore(_ROOM_ANALYSIS_CONCURRENCY)
 
                 async def analyse_room(room: RoomSchema) -> _UnitResult:
                     others = [r.label for r in to_quote if r.room_id != room.room_id]
                     async with semaphore:
-                        unit = await _room_unit(room, others, general, project_files, session_id, target_project_id)
+                        unit = await _room_unit(
+                            room, others, general, project_files, session_id, target_project_id,
+                            named=named.get(room.room_id, ()), order=order,
+                        )
                         return await _analyse(unit, session_id, target_project_id, stored_specs)
 
                 async def analyse_rest_of_home() -> _UnitResult | None:
@@ -1085,7 +1131,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         results = await _with_late_confirmations(results, target_project_id)
         refusal = _rooms_reply(results) if to_quote else _single_unit_reply(results[0])
         if refusal is not None:
-            return refusal
+            return _measures_block(results) + refusal
 
         # 8. Prices, one quote for the home (project-wide lines once, in "Generale"),
         # totals and price range: the pipeline the confirmation card uses too.
@@ -1146,14 +1192,16 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 else ""
             )
             return (
-                f"{headline}\n\n"
+                _measures_block(results)
+                + f"{headline}\n\n"
                 f"Ho preparato una nuova revisione del preventivo{reference}: ho identificato "
                 f"{len(quote.items)} lavorazioni{sections} da sottoporre al nostro team tecnico.{still_valid}\n\n"
                 "Il team esaminerà le modifiche e riceverai il preventivo aggiornato via email.\n\n"
                 "Vuoi che invii ora la revisione al team?"
             )
         response = (
-            f"{headline}\n\n"
+            _measures_block(results)
+            + f"{headline}\n\n"
             f"Ho registrato la tua richiesta di preventivo{reference}: ho identificato "
             f"{len(quote.items)} lavorazioni{sections} da sottoporre al nostro team tecnico.\n\n"
             "Il team esaminerà la richiesta, definirà le voci e i prezzi e "

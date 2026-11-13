@@ -31,6 +31,7 @@ from src.tools.company_tools import company_section, service_area
 from src.tools.project_files_view import ProjectFilesView
 from src.tools.quota import check_quota, increment_quota, quota_denial
 from src.tools.quote_submit_tools import submit_quote_request_wrapper
+from src.tools.send_consent import consent_refusal
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,10 @@ async def submit_quote_request(session_id: str, tool_context) -> str:
     if await _is_guest(tool_context):
         logger.warning("[ADK Tool] submit_quote_request blocked: anonymous user")
         return _QUOTE_LOGIN_REQUIRED
+    # The prompt asks for the explicit yes; this makes it a control.
+    if refusal := consent_refusal(tool_context.session.events, tool_context.invocation_id, tool_context.user_content):
+        logger.warning("[ADK Tool] submit_quote_request refused: no explicit yes to the send question")
+        return refusal
     return await submit_quote_request_wrapper(
         session_id=_trusted_session_id(tool_context, session_id), user_id=tool_context.user_id
     )

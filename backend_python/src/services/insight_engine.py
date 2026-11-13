@@ -486,6 +486,9 @@ dipingere sono piastrellate). Le voci del pacchetto NON vanno ricopiate in `sugg
 In `measures` dai ogni misura richiesta dai pacchetti scelti, un valore per misura, con la sua fonte.
 Se la conversazione descrive più stanze con valori diversi della stessa misura (es. bagno 5 mq e
 cucina 12 mq), dalli tutti: il backend chiede al cliente di separare le stanze.
+Se il cliente corregge una misura della stessa stanza (es. scheda stanza 5 mq, poi in chat "il bagno
+è 8 metri quadri"), vale l'ultimo valore detto dal cliente: la scheda stanza può essere più vecchia
+della conversazione. Dai quel valore, con fonte `declared`.
 Le fonti:
 - `declared`: l'ha detta il cliente o è nella scheda stanza;
 - `photo`: viene dal blocco misure o dall'analisi della foto;
