@@ -16,9 +16,12 @@ export const THEME_SUFFIX = '.tokens.json';
 
 const REF = /^\{([^}]+)\}$/;
 const TONE_EXT = 'syd.tone';
+// A token file is JSON from disk: these keys would reach Object.prototype through the merge.
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
 function deepMerge(target, source) {
     for (const [key, value] of Object.entries(source)) {
+        if (UNSAFE_KEYS.has(key)) continue;
         if (value && typeof value === 'object' && !Array.isArray(value) && target[key] && typeof target[key] === 'object') {
             deepMerge(target[key], value);
         } else {

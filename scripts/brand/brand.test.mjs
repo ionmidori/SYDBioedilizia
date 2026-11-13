@@ -3,6 +3,7 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { contrastRatio, adjustToContrast, deltaE, hexToOklch, hexToRgb, oklchToHex } from './lib/color.mjs';
@@ -323,6 +324,25 @@ describe('semantic roles', () => {
         const files = ['globals.css', ...fs.readdirSync(path.join(dir, 'styles')).map((f) => path.join('styles', f))];
         const shadcn = /--(background|foreground|card|popover|primary|secondary|muted|accent|destructive|border|input|ring|sidebar)[\w-]*\s*:/;
         for (const f of files) assert.doesNotMatch(fs.readFileSync(path.join(dir, f), 'utf8'), shadcn, f);
+    });
+});
+
+describe('token file merge', () => {
+    it('ignores __proto__, constructor and prototype keys instead of polluting Object.prototype', () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'syd-tokens-'));
+        fs.writeFileSync(
+            path.join(dir, 'a.tokens.json'),
+            '{"__proto__": {"polluted": "yes"}, "constructor": {"prototype": {"polluted": "yes"}}, "brand": {"$value": 1}}',
+        );
+        try {
+            const tree = loadTokenFiles(dir);
+            assert.equal(({}).polluted, undefined);
+            assert.equal(Object.hasOwn(tree, '__proto__'), false);
+            assert.deepEqual(Object.keys(tree), ['brand']);
+        } finally {
+            delete Object.prototype.polluted;
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
     });
 });
 
