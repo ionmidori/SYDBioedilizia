@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchWithAuth } from '@/lib/api-client';
+import type { PublicTestimonial } from '@/lib/testimonials/server';
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -50,7 +51,7 @@ const defaultTestimonials: TestimonialItem[] = [
         id: 1,
         name: 'Marco Rossi',
         role: 'Imprenditore',
-        location: 'Milano',
+        location: 'Roma (EUR)',
         text: "Ero scettico sull'uso dell'IA per una ristrutturazione, ma il livello di dettaglio dei render preliminari mi ha sbalordito. Abbiamo risparmiato settimane di indecisioni scelte sui materiali.",
         rating: 5,
         initials: 'MR',
@@ -60,7 +61,7 @@ const defaultTestimonials: TestimonialItem[] = [
         id: 2,
         name: 'Sofia Bianchi',
         role: 'Architetto',
-        location: 'Roma',
+        location: 'Roma (Prati)',
         text: "Come professionista, apprezzo la precisione dei rilievi e la facilità di gestione del cantiere tramite la dashboard. Un partner tecnologico, non solo un'impresa.",
         rating: 5,
         initials: 'SB',
@@ -70,7 +71,7 @@ const defaultTestimonials: TestimonialItem[] = [
         id: 3,
         name: 'Luca e Giulia',
         role: 'Coppia',
-        location: 'Firenze',
+        location: 'Frascati',
         text: "Volevamo ristrutturare il nostro primo appartamento senza stress. Il preventivo è stato rispettato al centesimo e la consegna è avvenuta in anticipo. Incredibile.",
         rating: 5,
         initials: 'LG',
@@ -78,40 +79,50 @@ const defaultTestimonials: TestimonialItem[] = [
     }
 ];
 
-export function Testimonials() {
+function mapApprovedTestimonials(
+    items: readonly { id: string; name: string; location?: string; text: string; rating: number }[],
+): TestimonialItem[] {
+    return items.map((d, idx) => {
+        const initials = d.name.split(' ').slice(0, 2).map((w: string) => w[0] ?? '').join('').toUpperCase();
+        return {
+            id: d.id,
+            name: d.name,
+            role: 'Cliente SYD',
+            location: d.location ?? '',
+            text: d.text,
+            rating: d.rating,
+            initials,
+            gradient: _GRADIENTS[idx % _GRADIENTS.length],
+        };
+    });
+}
+
+export function Testimonials({ initial }: { initial?: PublicTestimonial[] } = {}) {
     const [hoveredTestimonial, setHoveredTestimonial] = useState<string | number | null>(null);
     const [activeIndex, setActiveIndex] = useState(0);
-    const [testimonials, setTestimonials] = useState<TestimonialItem[]>(defaultTestimonials);
+    const hasInitial = Boolean(initial && initial.length > 0);
+    const [testimonials, setTestimonials] = useState<TestimonialItem[]>(() =>
+        hasInitial && initial ? mapApprovedTestimonials(initial) : defaultTestimonials,
+    );
     const { user } = useAuth();
 
-    // Load approved testimonials via backend API (3-Tier: no direct Firestore)
+    // Load approved testimonials via backend API when SSR returned empty (e.g. cold start)
     useEffect(() => {
+        if (hasInitial) return;
         const loadApproved = async () => {
             try {
                 const res = await fetch('/api/py/content/testimonials');
                 if (!res.ok) return;
                 const items: { id: string; name: string; location?: string; text: string; rating: number }[] = await res.json();
                 if (items.length > 0) {
-                    setTestimonials(items.map((d, idx) => {
-                        const initials = d.name.split(' ').slice(0, 2).map((w: string) => w[0] ?? '').join('').toUpperCase();
-                        return {
-                            id: d.id,
-                            name: d.name,
-                            role: 'Cliente SYD',
-                            location: d.location ?? '',
-                            text: d.text,
-                            rating: d.rating,
-                            initials,
-                            gradient: _GRADIENTS[idx % _GRADIENTS.length],
-                        };
-                    }));
+                    setTestimonials(mapApprovedTestimonials(items));
                 }
             } catch {
                 // Silently keep defaultTestimonials
             }
         };
         loadApproved();
-    }, []);
+    }, [hasInitial]);
 
     // Review Form State
     const [isDialogOpen, setIsDialogOpen] = useState(false);
