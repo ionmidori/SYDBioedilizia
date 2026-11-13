@@ -8,7 +8,7 @@ from typing import Any
 from opentelemetry import trace
 from opentelemetry.trace import StatusCode
 
-from .context import get_request_id, get_session_id, get_user_id
+from .context import get_request_id, get_user_id
 from .logger import _redact
 from .tracing import get_tracer
 
@@ -88,7 +88,7 @@ def instrumented_tool(tool_name: str | None = None):
     Decorator for ADK tool functions.
 
     Creates an OpenTelemetry span with tool-specific attributes:
-      - tool.name, tool.session_id, tool.user_id
+      - tool.name, tool.user_id
       - tool.duration_ms, tool.error (on failure)
       - Sets OTel span status to ERROR on exception
 
@@ -111,7 +111,6 @@ def instrumented_tool(tool_name: str | None = None):
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs):
             req_id = get_request_id()
-            session_id = kwargs.get("session_id") or get_session_id() or "unknown"
             user_id = get_user_id() or "unknown"
             start = time.perf_counter()
 
@@ -120,7 +119,6 @@ def instrumented_tool(tool_name: str | None = None):
                 kind=trace.SpanKind.INTERNAL,
             ) as span:
                 span.set_attribute("tool.name", name)
-                span.set_attribute("tool.session_id", session_id)
                 span.set_attribute("tool.user_id", user_id)
                 span.set_attribute("request.id", req_id)
 
@@ -165,7 +163,6 @@ def instrumented_tool(tool_name: str | None = None):
         @functools.wraps(func)
         def sync_wrapper(*args, **kwargs):
             req_id = get_request_id()
-            session_id = kwargs.get("session_id") or get_session_id() or "unknown"
             start = time.perf_counter()
 
             with tracer.start_as_current_span(
@@ -173,7 +170,6 @@ def instrumented_tool(tool_name: str | None = None):
                 kind=trace.SpanKind.INTERNAL,
             ) as span:
                 span.set_attribute("tool.name", name)
-                span.set_attribute("tool.session_id", session_id)
                 span.set_attribute("request.id", req_id)
 
                 try:

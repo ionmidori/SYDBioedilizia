@@ -75,7 +75,7 @@ async def update_project_details(session_id: str, user_id: str, details: Project
 
         # Ownership check
         if (doc.to_dict() or {}).get("userId") != user_id:
-            logger.warning("[Projects] User not authorized to update details")
+            logger.warning("[Projects] User not authorized to update details", extra={"actor_uid": user_id})
             return False
 
         # Convert Pydantic model to dict for Firestore
@@ -139,7 +139,7 @@ async def save_project_file_metadata(session_id: str, user_id: str, file_metadat
 
         # Ownership check
         if (doc.to_dict() or {}).get("userId") != user_id:
-            logger.warning("[Projects] User not authorized to save file")
+            logger.warning("[Projects] User not authorized to save file", extra={"actor_uid": user_id})
             return False
 
         file_id = file_metadata.get("file_id")

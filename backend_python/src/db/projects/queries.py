@@ -43,7 +43,7 @@ async def get_project(session_id: str, user_id: str) -> ProjectDocument | None:
 
         # Ownership check
         if data.get("userId") != user_id:
-            logger.warning("[Projects] User not authorized for project")
+            logger.warning("[Projects] User not authorized for project", extra={"actor_uid": user_id})
             return None
 
         # Handle datetime conversion

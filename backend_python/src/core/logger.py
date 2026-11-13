@@ -59,13 +59,21 @@ class JsonFormatter(logging.Formatter):
         # Merge ALL extra fields (method, path, status_code, duration_ms, span, etc.)
         for key, value in record.__dict__.items():
             if key not in self._STDLIB_ATTRS and key not in log_record:
-                log_record[key] = _mask_ids(value) if isinstance(value, str) else value
+                log_record[key] = value
 
         # Handle Exception info (redact tracebacks too)
         if record.exc_info:
             log_record["exception"] = _redact(self.formatException(record.exc_info))
 
-        return json.dumps(log_record, default=str)
+        # The whole line: context fields and nested extra values included.
+        return _mask_ids(json.dumps(log_record, default=str))
+
+class MaskedFormatter(logging.Formatter):
+    """Human-readable console formatter (dev) that masks ids like the JSON one."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return _mask_ids(super().format(record))
+
 
 class AccessLogIdFilter(logging.Filter):
     """uvicorn access lines carry the URL path (/api/projects/<id>/...): mask the ids in it."""
@@ -97,7 +105,7 @@ def setup_logging():
          console_handler.setFormatter(JsonFormatter(datefmt='%H:%M:%S'))
     else:
          # Pretty print in dev
-         console_handler.setFormatter(logging.Formatter(
+         console_handler.setFormatter(MaskedFormatter(
             '%(asctime)s | %(levelname)-8s | [%(name)s] %(message)s',
             datefmt='%H:%M:%S'
         ))

@@ -9,7 +9,7 @@ import logging
 
 import pytest
 from src.core import logger as log_module
-from src.core.logger import AccessLogIdFilter, JsonFormatter, _redact, setup_logging
+from src.core.logger import AccessLogIdFilter, JsonFormatter, MaskedFormatter, _redact, setup_logging
 
 PROJECT_ID = "fdf6be7f-a8b8-40bc-9e5d-e599788fe20a"
 
@@ -29,6 +29,21 @@ def test_formatter_masks_a_uuid_in_the_message_and_in_extra_fields() -> None:
     assert PROJECT_ID not in json.dumps(body)
     assert body["path"] == "/api/projects/[ID]/x"
     assert body["n"] == 3
+
+
+def test_formatter_masks_ids_inside_nested_extra_values() -> None:
+    line = JsonFormatter().format(_record("x", ids=[PROJECT_ID], nested={"p": f"/api/projects/{PROJECT_ID}"}))
+    assert PROJECT_ID not in line
+
+
+def test_formatter_masks_the_session_id_of_the_request_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(log_module, "get_session_id", lambda: PROJECT_ID)
+    body = json.loads(JsonFormatter().format(_record("x")))
+    assert body["session_id"] == "[ID]"
+
+
+def test_console_formatter_masks_ids_too() -> None:
+    assert PROJECT_ID not in MaskedFormatter("%(message)s").format(_record(f"open {PROJECT_ID}"))
 
 
 def test_access_filter_masks_the_uuid_in_the_request_path() -> None:

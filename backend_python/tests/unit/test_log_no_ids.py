@@ -9,13 +9,15 @@ Cloud Logging where many people can read them, and CodeQL flags them
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[2] / "src"
 
 _LEVELS = frozenset({"debug", "info", "warning", "error", "exception", "critical", "log"})
-# Names, attributes and extra keys that hold a project, session or audit-resource id.
-_ID_NAMES = frozenset({"session_id", "project_id", "resource_id", "pid"})
+# Names, attributes and extra keys that hold a project, session or audit-resource id:
+# session_id, open_session_id, project_id, resource_id, sid, pid.
+_ID_NAME = re.compile(r"(^|_)(session|project|resource)_ids?$|^(sid|pid)$")
 
 
 def _is_logger_call(node: ast.Call) -> bool:
@@ -23,18 +25,19 @@ def _is_logger_call(node: ast.Call) -> bool:
     if not (isinstance(func, ast.Attribute) and func.attr in _LEVELS):
         return False
     owner = func.value
-    return isinstance(owner, ast.Name) and (owner.id == "log" or owner.id.lstrip("_").endswith("logger"))
+    name = owner.id if isinstance(owner, ast.Name) else owner.attr if isinstance(owner, ast.Attribute) else ""
+    return name in {"log", "logging"} or name.lstrip("_").endswith("logger")
 
 
 def _id_names_in(call: ast.Call) -> list[str]:
     found: list[str] = []
     for node in ast.walk(call):
-        if isinstance(node, ast.Name) and node.id in _ID_NAMES:
+        if isinstance(node, ast.Name) and _ID_NAME.search(node.id):
             found.append(node.id)
         elif isinstance(node, ast.Attribute):
-            if node.attr in _ID_NAMES:
+            if _ID_NAME.search(node.attr):
                 found.append(node.attr)
-        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value in _ID_NAMES:
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and _ID_NAME.search(node.value):
             found.append(node.value)
     return found
 
@@ -61,6 +64,8 @@ def test_guard_sees_an_id_in_a_log_call() -> None:
         "logger.warning('x', extra={'project_id': 1})\n"
         "logger.error('x %s', record.get('resource_id'))\n"
         "logger.info('ok', extra={'room_id': 1})\n"
+        "logging.info(f'x {open_session_id}')\n"
+        "self.logger.info('x', extra={'sid': 1})\n"
     )
     calls = [n for n in ast.walk(ast.parse(source)) if isinstance(n, ast.Call) and _is_logger_call(n)]
-    assert [bool(_id_names_in(c)) for c in calls] == [True, True, True, False]
+    assert [bool(_id_names_in(c)) for c in calls] == [True, True, True, False, True, True]

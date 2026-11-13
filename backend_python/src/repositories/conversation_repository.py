@@ -25,7 +25,7 @@ def _check_session_owner(session_id: str, current_owner: str, user_id: str | Non
     legacy `guest_*` one. Chats move between owners only through the guest
     claim, with proof (src/services/guest_claim)."""
     if user_id and current_owner and current_owner != user_id:
-        logger.warning("[Repo] ⛔ Session owned by another user — access denied")
+        logger.warning("[Repo] ⛔ Session owned by another user — access denied", extra={"actor_uid": user_id})
         raise PermissionDenied("Questa sessione appartiene a un altro utente.")
 
 class ConversationRepository:

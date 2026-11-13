@@ -81,7 +81,8 @@ async def get_chat_history(
         session_data = session_doc.to_dict() or {}
         if not is_owner(session_data, user_id):
             logger.warning(
-                "[ChatHistory] Access denied: the session belongs to another user"
+                "[ChatHistory] Access denied: the session belongs to another user",
+                extra={"actor_uid": user_id},
             )
             raise HTTPException(status_code=403, detail="Access denied to this session")
 
