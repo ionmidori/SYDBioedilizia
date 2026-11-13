@@ -110,9 +110,9 @@ export default async function RootLayout({
   //   const nonce = headersList.get("x-nonce") ?? undefined;
   // Vercel Analytics/SpeedInsights v1.x don't accept nonce props yet.
 
-  // The company identity (contacts, address, VAT id) comes from the company info edited in the
-  // admin console; client components read it from CompanyIdentityProvider (lib/company-info).
-  const { identity } = await getCompanyInfo();
+  // The company identity (contacts, address, VAT id) and opening hours come from the company info
+  // edited in the admin console; client components read them from CompanyIdentityProvider (lib/company-info).
+  const { identity, hours, hours_note } = await getCompanyInfo();
 
   // data-scroll-behavior: globals.css makes scrolling smooth for in-page anchors;
   // this tells Next.js to switch it off while it jumps to the top of a new route.
@@ -125,7 +125,7 @@ export default async function RootLayout({
         <AppCheckProvider>
           <AuthProvider>
             <QueryProvider>
-              <CompanyIdentityProvider identity={identity}>
+              <CompanyIdentityProvider identity={identity} hours={hours} hoursNote={hours_note}>
                 <ChatProvider>
                   {children}
                   <BackendWarmup />
