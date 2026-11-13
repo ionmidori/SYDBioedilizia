@@ -80,7 +80,9 @@ export function blogPostJsonLd(post: BlogPost) {
         headline: seo.schemaHeadline,
         description: seo.schemaDescription,
         image: post.image,
-        author: organization,
+        author: post.author
+          ? { "@type": "Person", name: post.author }
+          : organization,
         publisher: {
           ...organization,
           logo: { "@type": "ImageObject", url: BLOG_LOGO_URL },

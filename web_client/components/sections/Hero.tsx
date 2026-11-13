@@ -30,8 +30,8 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
 
                 {/* Intro */}
                 <motion.div
-                    initial={reduceMotion ? false : { opacity: 0, y: 24 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    initial={reduceMotion ? false : { y: 16 }}
+                    animate={{ y: 0 }}
                     transition={M3Spring.gentle}
                 >
                     {/* Badge */}
@@ -68,8 +68,8 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                 </motion.div>
 
                 <motion.div
-                    initial={reduceMotion ? false : { opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    initial={reduceMotion ? false : { scale: 0.985 }}
+                    animate={{ scale: 1 }}
                     transition={{ delay: 0.12, ...M3Spring.standard }}
                     className="min-w-0"
                 >

@@ -10,7 +10,7 @@ export const bonusRistrutturazioni20252026: BlogPost = {
   excerpt:
     "Aliquote 50%, massimali e la checklist dei documenti obbligatori (CILA, Bonifici, ENEA) per non perdere le detrazioni fiscali.",
   image:
-    "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?q=80&w=800&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?q=80&w=1200&auto=format&fit=crop",
   date: "21 Feb 2026",
   datePublished: "2026-02-21",
   dateModified: "2026-10-06",
@@ -128,6 +128,12 @@ export const bonusRistrutturazioni20252026: BlogPost = {
     {
       type: "p",
       text: "Oltre alla detrazione IRPEF, sulle ristrutturazioni si applica l'IVA ridotta al 10% (invece del 22%) sulla manodopera e, con certi limiti, sui beni significativi (rubinetterie, sanitari, infissi).\nEsempio: Su un preventivo di 10.000€ + IVA, pagherai 11.000€ invece di 12.200€, risparmiando subito 1.200€ di liquidità, oltre a recuperarne 5.500€ in 10 anni.",
+    },
+    {
+      type: "callout",
+      tone: "info",
+      title: "Cosa fornisce SYD e cosa resta al cliente",
+      text: "SYD Bioedilizia rilascia **regolari fatture e documentazione tecnica delle lavorazioni eseguite**. Le pratiche fiscali, l'eventuale invio ENEA e la gestione delle detrazioni in dichiarazione dei redditi restano in autonomia al cliente con il proprio commercialista o CAF.",
     },
   ],
   faqHeading: "FAQ: Domande Frequenti",

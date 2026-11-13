@@ -11,7 +11,7 @@ export const costiRistrutturazioneCasa2026: BlogPost = {
   excerpt:
     "Dai 600€ ai 1.200€/mq: analisi completa dei costi per cucina, bagno e impianti. Quali interventi aumentano davvero il valore dell'immobile.",
   image:
-    "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=800&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=1200&auto=format&fit=crop",
   date: "10 Mar 2026",
   datePublished: "2026-03-10",
   breadcrumbLabel: "Costi Ristrutturazione 2026",

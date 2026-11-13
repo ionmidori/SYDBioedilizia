@@ -12,7 +12,7 @@ export const smartRemodelRistrutturazioneSenzaDemolire: BlogPost = {
   excerpt:
     "Ristrutturazione senza demolizioni: pavimenti SPC, resine sovrapponibili e wrapping. Costi ridotti fino al 40% e cantiere in settimane.",
   image:
-    "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?q=80&w=800&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?q=80&w=1200&auto=format&fit=crop",
   date: "10 Mar 2026",
   datePublished: "2026-03-10",
   breadcrumbLabel: "Smart Remodel Senza Demolire",

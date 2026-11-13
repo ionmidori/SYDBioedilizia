@@ -12,7 +12,7 @@ export const tendenzeLayoutInterni2026: BlogPost = {
   excerpt:
     "Spazi flessibili, color drenching e il ritorno delle pareti divisorie intelligenti. Le nuove regole del design d'interni.",
   image:
-    "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=800&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=1200&auto=format&fit=crop",
   date: "10 Mar 2026",
   datePublished: "2026-03-10",
   breadcrumbLabel: "Tendenze Layout Interni 2026",
