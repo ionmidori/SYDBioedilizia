@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     template: "%s | SYD BIOEDILIZIA",
     default: "SYD BIOEDILIZIA - Ristrutturazioni Tradizionali e Bioedilizia a Roma",
   },
-  description: "Eccellenza nelle ristrutturazioni tradizionali e bioedilizia a Roma e provincia.",
+  description: "Ristrutturazioni chiavi in mano e bioedilizia a Roma e provincia: preventivi chiari, render 3D AI e direzione lavori dedicata per appartamenti, bagni e interni.",
   keywords: [
     "ristrutturazioni roma",
     "bioedilizia roma",
@@ -58,9 +58,6 @@ export const metadata: Metadata = {
     "acilia",
     "ristrutturazioni chiavi in mano"
   ],
-  alternates: {
-    canonical: "/",
-  },
   // Icons from the brand system; the web app manifest is app/manifest.ts.
   icons: BRAND_ICONS,
   // Link previews: brand logo by default; the homepage uses a real project photo.

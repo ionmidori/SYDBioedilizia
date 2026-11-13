@@ -48,4 +48,20 @@ describe('About (/chi-siamo)', () => {
         render(<About about={{ ...about, cta_note: '' }} services={services.items} />);
         expect(screen.queryByText(about.cta_note)).not.toBeInTheDocument();
     });
+
+    it('uses semantic h1 -> h2 -> h3 heading hierarchy with no skipped heading levels', () => {
+        const { container } = render(<About about={about} services={services.items} />);
+        const headings = Array.from(container.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+        const levels = headings.map((h) => Number(h.tagName.slice(1)));
+
+        expect(levels[0]).toBe(1);
+        for (let i = 1; i < levels.length; i++) {
+            expect(levels[i] - levels[i - 1]).toBeLessThanOrEqual(1);
+        }
+
+        expect(screen.getByRole('heading', { level: 2, name: about.philosophy_title })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 2, name: new RegExp(about.services_title) })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 2, name: about.why_title })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 3, name: about.excellences_title })).toBeInTheDocument();
+    });
 });

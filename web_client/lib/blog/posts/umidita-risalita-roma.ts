@@ -10,7 +10,7 @@ export const umiditaRisalitaRoma: BlogPost = {
   excerpt:
     "Una guida pratica per proprietari di immobili storici: diagnosi, costi e soluzioni definitive con la bioedilizia certificata.",
   image:
-    "https://images.unsplash.com/photo-1464146072230-91cabc968266?q=80&w=800&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1464146072230-91cabc968266?q=80&w=1200&auto=format&fit=crop",
   date: "20 Feb 2026",
   datePublished: "2026-02-20",
   dateModified: "2026-02-21",
@@ -110,6 +110,12 @@ export const umiditaRisalitaRoma: BlogPost = {
       tone: "info",
       title: "Bonus Ristrutturazioni 2026",
       text: "È possibile detrarre dall'IRPEF il **50% delle spese sostenute** (fino a un tetto di 96.000€ per unità immobiliare) in 10 quote annuali. L'intervento di deumidificazione rientra a pieno titolo nella \"Manutenzione Straordinaria\" necessaria per il risanamento igienico-sanitario.",
+    },
+    {
+      type: "callout",
+      tone: "info",
+      title: "Documentazione lavori e pratiche fiscali",
+      text: "SYD Bioedilizia fornisce **fatture dettagliate e documentazione tecnica di cantiere**; l'invio e la gestione delle pratiche fiscali di detrazione restano in autonomia al cliente con il proprio commercialista o tecnico abilitato.",
     },
     {
       type: "p",

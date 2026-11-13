@@ -74,17 +74,17 @@ export function About({ about, services }: { about: AboutInfo; services: Service
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                 <Leaf className="w-24 h-24 text-primary-ink" />
                             </div>
-                            <h3 className="text-2xl font-serif font-bold text-ink mb-4 flex items-center gap-3">
+                            <h2 className="text-2xl font-serif font-bold text-ink mb-4 flex items-center gap-3">
                                 <Leaf className="w-6 h-6 text-primary-ink" />
                                 {about.philosophy_title}
-                            </h3>
+                            </h2>
                             <div className="text-ink mb-6 font-light">
                                 <FAQAnswer blocks={about.philosophy} />
                             </div>
 
                             {about.excellences.length > 0 && (
                                 <>
-                                    <h4 className="font-serif font-bold text-primary-ink text-lg mb-4">{about.excellences_title}</h4>
+                                    <h3 className="font-serif font-bold text-primary-ink text-lg mb-4">{about.excellences_title}</h3>
                                     <ul className="space-y-3">
                                         {about.excellences.map((excellence) => {
                                             const Icon = COMPANY_ICONS[excellence.icon];
@@ -113,10 +113,10 @@ export function About({ about, services }: { about: AboutInfo; services: Service
                     >
                         {/* What We Do */}
                         <div>
-                            <h3 className="text-2xl font-serif font-bold text-ink mb-6">
+                            <h2 className="text-2xl font-serif font-bold text-ink mb-6">
                                 {about.services_title} <br />
                                 <span className="text-accent-ink">{about.services_subtitle}</span>
-                            </h3>
+                            </h2>
                             <div className="text-ink mb-6 font-light leading-relaxed">
                                 <FAQAnswer blocks={about.services_intro} />
                             </div>
@@ -133,7 +133,7 @@ export function About({ about, services }: { about: AboutInfo; services: Service
 
                         {/* Why Choose Us */}
                         <div className="bg-surface p-8 rounded-2xl border border-line shadow-xs">
-                            <h3 className="text-2xl font-serif font-bold text-ink mb-4">{about.why_title}</h3>
+                            <h2 className="text-2xl font-serif font-bold text-ink mb-4">{about.why_title}</h2>
                             <div className="text-ink mb-6 leading-relaxed">
                                 <FAQAnswer blocks={about.why_choose} />
                             </div>

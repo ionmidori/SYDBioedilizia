@@ -1,3 +1,13 @@
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Manutenzione in Corso',
+    robots: {
+        index: false,
+        follow: false,
+    },
+};
+
 export default function MaintenancePage() {
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-canvas p-4 text-center">

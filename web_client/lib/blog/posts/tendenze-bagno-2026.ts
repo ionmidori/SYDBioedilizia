@@ -10,7 +10,7 @@ export const tendenzeBagno2026: BlogPost = {
   excerpt:
     "Scopri come trasformare il tuo bagno in un'oasi di benessere utilizzando resine ecocompatibili e illuminazione integrata.",
   image:
-    "https://images.unsplash.com/photo-1620626011761-996317b8d101?q=80&w=800&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1620626011761-996317b8d101?q=80&w=1200&auto=format&fit=crop",
   date: "15 Feb 2026",
   datePublished: "2026-02-15",
   breadcrumbLabel: "Tendenze Bagno 2026",

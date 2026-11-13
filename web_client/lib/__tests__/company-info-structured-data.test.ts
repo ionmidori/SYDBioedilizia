@@ -1,5 +1,6 @@
-import { businessJsonLd, parseItalianDays } from '@/lib/company-info/structured-data';
+import { businessJsonLd, extractSocialUrls, parseItalianDays } from '@/lib/company-info/structured-data';
 import { SEED_COMPANY_INFO } from '@/lib/company-info/seed';
+import { STRUCTURED_DATA_LOGO } from '@/lib/brand';
 import { SITE_URL } from '@/lib/site';
 import type { CompanyInfo } from '@/types/company-info';
 
@@ -90,5 +91,57 @@ describe('businessJsonLd', () => {
             hours: [{ days: 'su appuntamento', opens: '10:00', closes: '12:00' }],
         };
         expect(businessJsonLd(info)).not.toHaveProperty('openingHoursSpecification');
+    });
+
+    it('includes GeoCoordinates for Rome and allows overriding image while keeping logo', () => {
+        expect(ld.geo).toEqual({
+            '@type': 'GeoCoordinates',
+            latitude: 41.9028,
+            longitude: 12.4964,
+        });
+
+        const withPhoto = businessJsonLd(SEED_COMPANY_INFO, {
+            imageUrl: 'https://storage.example/portfolio/hero.webp',
+        });
+        expect(withPhoto.image).toBe('https://storage.example/portfolio/hero.webp');
+        expect(withPhoto.logo).toBe(`${SITE_URL}${STRUCTURED_DATA_LOGO.url}`);
+    });
+
+    it('derives safe https sameAs URLs dynamically from social section and omits when absent', () => {
+        const customInfo: CompanyInfo = {
+            ...SEED_COMPANY_INFO,
+            sections: SEED_COMPANY_INFO.sections.map((section) =>
+                section.slug === 'social'
+                    ? {
+                          ...section,
+                          blocks: [
+                              {
+                                  type: 'ul',
+                                  items: [
+                                      '**Instagram:** @foo_bar',
+                                      '**TikTok:** @foo.bar',
+                                      '**Altro:** javascript:alert(1)',
+                                      '**Link insicuro:** http://insecure.example/foo',
+                                  ],
+                              },
+                          ],
+                      }
+                    : section,
+            ),
+        };
+        expect(extractSocialUrls(customInfo.sections)).toEqual([
+            'https://www.instagram.com/foo_bar/',
+            'https://www.tiktok.com/@foo.bar',
+        ]);
+        expect(businessJsonLd(customInfo).sameAs).toEqual([
+            'https://www.instagram.com/foo_bar/',
+            'https://www.tiktok.com/@foo.bar',
+        ]);
+
+        const noSocialInfo: CompanyInfo = {
+            ...SEED_COMPANY_INFO,
+            sections: SEED_COMPANY_INFO.sections.map((s) => (s.slug === 'social' ? { ...s, blocks: [] } : s)),
+        };
+        expect(businessJsonLd(noSocialInfo)).not.toHaveProperty('sameAs');
     });
 });

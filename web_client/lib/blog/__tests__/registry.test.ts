@@ -68,6 +68,8 @@ describe("BLOG_POSTS", () => {
         expect(post.body.length).toBeGreaterThan(0);
         expect(post.faq.length).toBeGreaterThan(0);
         expect(post.image).toMatch(/^https:\/\//);
+        expect(post.image).not.toContain("w=800");
+        expect(post.image).toContain("w=1200");
       });
 
       it("contains no literal HTML entities or markup", () => {

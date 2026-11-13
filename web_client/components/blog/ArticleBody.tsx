@@ -96,9 +96,9 @@ function Block({ block }: { block: BlogBlock }) {
     case "keyPoints":
       return (
         <div className="bg-surface border border-line rounded-xl p-6 md:p-8 my-8 shadow-sm not-prose">
-          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
             📌 {block.heading}
-          </h3>
+          </h2>
           <div className="grid gap-4 md:grid-cols-2">
             {block.items.map((item, i) => (
               <div key={i} className="flex gap-3">
@@ -119,9 +119,9 @@ function Block({ block }: { block: BlogBlock }) {
     case "takeaways":
       return (
         <div className="bg-surface border border-line p-6 my-8 rounded-xl shadow-xs not-prose">
-          <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+          <h2 className="text-lg font-bold mb-2 flex items-center gap-2">
             📌 {block.heading}
-          </h3>
+          </h2>
           <ul className="space-y-2 text-ink-muted">
             {block.items.map((item, i) => (
               <li key={i}>

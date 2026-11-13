@@ -10,7 +10,7 @@ export const isolamentoAcusticoInterni: BlogPost = {
   excerpt:
     "Sistemi a secco e pannelli in fibra di legno o canapa per insonorizzare pareti divisorie e solette senza perdere troppo spazio.",
   image:
-    "https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=800&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=1200&auto=format&fit=crop",
   date: "10 Feb 2026",
   datePublished: "2026-02-10",
   breadcrumbLabel: "Isolamento Acustico",

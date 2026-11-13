@@ -6,6 +6,7 @@
  */
 import type { Metadata } from 'next';
 import { BRAND_NAME, DEFAULT_OG_IMAGE } from '@/lib/brand';
+import { SITE_URL } from '@/lib/site';
 
 const TITLE = 'SYD BIOEDILIZIA - Ristrutturazioni e Bioedilizia a Roma';
 const DESCRIPTION = 'Eccellenza nelle ristrutturazioni tradizionali e bioedilizia a Roma e provincia.';
@@ -45,7 +46,7 @@ export function shareMetadata(
         openGraph: {
             title,
             description,
-            url: `https://sydbioedilizia.vercel.app${page.path ?? ''}`,
+            url: `${SITE_URL}${page.path ?? ''}`,
             siteName: 'SYD BIOEDILIZIA',
             locale: 'it_IT',
             type: 'website',

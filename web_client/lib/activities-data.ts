@@ -39,7 +39,7 @@ export const activities: Activity[] = [
         id: 'infissi',
         title: 'Sostituzione infissi',
         description:
-            'Serramenti a taglio termico in PVC, alluminio o legno-alluminio con vetrocamera basso-emissivo, posa qualificata secondo UNI 11673 e accesso alle detrazioni fiscali.',
+            'Serramenti a taglio termico in PVC, alluminio o legno-alluminio con vetrocamera basso-emissivo, posa qualificata secondo UNI 11673 e documentazione tecnica di posa e conformità energetica.',
         icon: AppWindow,
     },
     {

@@ -10,7 +10,7 @@ export const pavimentiResinaVantaggi: BlogPost = {
   excerpt:
     "Superfici continue e facili da pulire ideali per ristrutturazioni rapide: si possono posare direttamente sul pavimento esistente.",
   image:
-    "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=1200&auto=format&fit=crop",
   date: "05 Feb 2026",
   datePublished: "2026-02-05",
   breadcrumbLabel: "Pavimenti Resina",

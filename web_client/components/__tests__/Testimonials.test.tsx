@@ -190,3 +190,32 @@ describe('Testimonials desktop grid reveal', () => {
         });
     });
 });
+
+describe('Testimonials SSR and Rome locality fallbacks', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockUseAuth.mockReturnValue({ user: null });
+        global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => [] });
+    });
+
+    it('uses only Rome and province locations in fallback testimonials (never Milano or Firenze)', () => {
+        const { container } = render(<Testimonials />);
+        const text = container.textContent ?? '';
+        expect(text).not.toMatch(/Milano|Firenze/i);
+        expect(text).toContain('Roma (EUR)');
+        expect(text).toContain('Frascati');
+    });
+
+    it('renders initial SSR testimonials immediately without triggering a client fetch', () => {
+        const { container } = render(
+            <Testimonials
+                initial={[
+                    { id: 'ssr-1', name: 'Chiara Neri', location: 'Tivoli', text: 'Ottimo lavoro.', rating: 5 },
+                ]}
+            />,
+        );
+        expect(container.textContent).toContain('Chiara Neri');
+        expect(container.textContent).toContain('Tivoli');
+        expect(global.fetch).not.toHaveBeenCalled();
+    });
+});

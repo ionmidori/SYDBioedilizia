@@ -9,7 +9,11 @@
  *  3. Callout text is wrapped in a <p> (one article had it bare in a <div>).
  *  4. JSON-LD URLs use SITE_URL (were https://sydbioedilizia.it) and a
  *     publisher logo that exists (was /images/logo.png, a 404).
- *  5. Articles that had no og:article:author now carry the company name.
+ *  5. Articles that had no og:article:author now carry the company name;
+ *     Article JSON-LD uses Person when post.author is set and Organization otherwise.
+ *  6. Task 6 promoted keyPoints/takeaways boxes to <h2>, added a visible
+ *     byline and cover image in the article header, and added fiscal
+ *     documentation callouts on bonus/humidity articles (reflected in fixtures).
  *
  * Line breaks are part of the comparison: capture.ts turns <br> into a marker.
  */
