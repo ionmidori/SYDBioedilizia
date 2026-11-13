@@ -135,13 +135,12 @@ export function Navbar() {
             <motion.nav
                 ref={navRef}
                 className={cn(
-                    // The only backdrop-filter that stays on screen while the homepage scrolls: a
-                    // full-width blur costs a pass every frame, so it stays light (md = 12px) over a
-                    // mostly opaque fill. Nothing inside the bar blurs again on top of it.
-                    'fixed top-0 left-0 right-0 z-50 transition-[background-color,border-color,padding,box-shadow] duration-500 border-b border-transparent',
+                    // Keep padding fixed across scroll states: animating py-* recalculates layout on
+                    // scroll start, and backdrop-blur stays light (md = 12px) over a mostly opaque fill.
+                    'fixed top-0 left-0 right-0 z-50 py-5 transition-[background-color,border-color,box-shadow] duration-500 border-b border-transparent',
                     isScrolled
-                        ? 'bg-canvas/80 backdrop-blur-md border-line py-3'
-                        : 'bg-transparent py-5'
+                        ? 'bg-canvas/80 backdrop-blur-md border-line'
+                        : 'bg-transparent'
                 )}
                 initial={reduceMotion ? false : { y: -100 }}
                 animate={{ y: 0 }}
@@ -173,8 +172,8 @@ export function Navbar() {
                                     aria-expanded={contactMenuOpenDesktop}
                                     aria-haspopup="true"
                                 >
-                                    <span className="font-bold tracking-[0.05em] text-[11px] xl:text-[12px] uppercase">Contatti</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("w-4 h-4 transition-transform duration-300", contactMenuOpenDesktop && "rotate-180")}>
+                                    <span className="font-bold tracking-[0.05em] text-xs uppercase">Contatti</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={cn("w-4 h-4 transition-transform duration-300", contactMenuOpenDesktop && "rotate-180")}>
                                         <polyline points="6 9 12 15 18 9"></polyline>
                                     </svg>
                                 </button>
@@ -237,7 +236,7 @@ export function Navbar() {
                                             : "bg-surface/90 hover:bg-surface border-line hover:border-primary/40 text-ink hover:text-primary-ink"
                                     )}
                                 >
-                                    <span className="font-bold tracking-[0.05em] text-[11px] xl:text-[12px] uppercase">{link.name}</span>
+                                    <span className="font-bold tracking-[0.05em] text-xs uppercase">{link.name}</span>
                                 </Link>
                             </motion.div>
                         ))}
@@ -268,7 +267,7 @@ export function Navbar() {
                                 aria-expanded={contactMenuOpen}
                                 aria-haspopup="true"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 md:w-6 md:h-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="w-5 h-5 md:w-6 md:h-6">
                                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                                 </svg>
                             </button>
@@ -329,7 +328,7 @@ export function Navbar() {
                             <SheetContent
                                 side="right"
                                 hideOverlay={true}
-                                className="w-[75vw] sm:w-[38vw] min-w-[220px] max-w-[280px] bg-canvas/85 backdrop-blur-xl border-l border-line p-4 flex flex-col"
+                                className="w-[75vw] sm:w-[38vw] min-w-[220px] max-w-[280px] bg-canvas/95 backdrop-blur-md border-l border-line p-4 flex flex-col"
                             >
                                 <SheetHeader className="mt-6 mb-6 text-center space-y-0">
                                     <SheetTitle className="text-[16px] font-bold uppercase tracking-[0.3em] text-ink">

@@ -98,8 +98,8 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                     </button>
 
                     <div className="flex items-center gap-2 mb-1 pr-4">
-                        <Sparkles className="w-4 h-4 text-on-primary animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-on-primary">
+                        <Sparkles className="w-4 h-4 text-on-primary animate-pulse" aria-hidden="true" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-on-primary">
                             Architetto SYD
                         </span>
                     </div>
@@ -113,6 +113,7 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
 
                     {/* The pointer triangle (tail) for the chat bubble */}
                     <svg 
+                        aria-hidden="true"
                         className="absolute -right-[10px] bottom-[-1px] w-[11px] h-[15px]"
                         viewBox="0 0 11 15"
                         fill="none"

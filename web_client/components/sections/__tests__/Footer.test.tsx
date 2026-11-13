@@ -67,4 +67,13 @@ describe('Footer', () => {
         expect(screen.getByText('Lun-Ven: 09:00–18:00')).toBeInTheDocument();
         expect(screen.getByText('Sabato pomeriggio su appuntamento')).toBeInTheDocument();
     });
+
+    it('uses overflow-clip and adequate touch targets on footer links', () => {
+        renderWithCompany(<Footer />);
+        const footer = screen.getByRole('contentinfo');
+        expect(footer).toHaveClass('overflow-clip');
+        expect(footer).not.toHaveClass('overflow-hidden');
+        const privacyLink = screen.getByRole('link', { name: 'Informativa sulla Privacy' });
+        expect(privacyLink).toHaveClass('min-h-11');
+    });
 });

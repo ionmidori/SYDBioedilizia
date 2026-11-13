@@ -26,7 +26,7 @@ export function Footer() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '0px 0px -10% 0px' }}
             transition={{ duration: 0.6, ease: M3EasingFM.decelerate }}
-            className="surface-inverse border-t border-line pt-20 pb-[max(2.5rem,env(safe-area-inset-bottom))] relative overflow-hidden"
+            className="surface-inverse border-t border-line pt-20 pb-[max(2.5rem,env(safe-area-inset-bottom))] relative overflow-clip"
         >
 
             {/* Decorative Glow */}
@@ -50,7 +50,7 @@ export function Footer() {
                     {/* Quick Links */}
                     <div className="min-w-0">
                         <h2 className="text-ink font-serif font-bold mb-6 text-lg">Esplora</h2>
-                        <ul className="space-y-3 text-sm leading-relaxed tracking-[0.01em]">
+                        <ul className="space-y-1 md:space-y-1.5 text-sm leading-relaxed tracking-[0.01em]">
                             {[
                                 { label: 'Home', href: '/' },
                                 { label: 'Servizi', href: pathname === '/' ? '#services' : '/#services' },
@@ -60,7 +60,7 @@ export function Footer() {
                                 { label: 'FAQ', href: '/faq' },
                             ].map((item) => (
                                 <li key={item.label}>
-                                    <Link href={item.href} className="text-ink-muted hover:text-accent-ink transition-colors">
+                                    <Link href={item.href} className="inline-flex items-center min-h-11 md:min-h-7 py-1 text-ink-muted hover:text-accent-ink transition-colors">
                                         {item.label}
                                     </Link>
                                 </li>
@@ -68,12 +68,12 @@ export function Footer() {
                         </ul>
                     </div>
 
-                    {/* Contact Info — icons sit on the first text line (mt-1 on a 24px line) */}
+                    {/* Contact Info — icons sit aligned with link text */}
                     {identity && (
                     <div className="min-w-0">
                         <h2 className="text-ink font-serif font-bold mb-6 text-lg">Contatti</h2>
-                        <ul className="space-y-3 text-sm leading-relaxed tracking-[0.01em] text-ink-muted">
-                            <li className="flex items-start gap-2 md:gap-3">
+                        <ul className="space-y-1 md:space-y-1.5 text-sm leading-relaxed tracking-[0.01em] text-ink-muted">
+                            <li className="flex items-start gap-2 md:gap-3 py-1">
                                 <MapPin className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
                                 <address className="not-italic min-w-0">
                                     {identity.address.street},<br />{identity.address.postal_code} {identity.address.city}
@@ -81,21 +81,21 @@ export function Footer() {
                                 </address>
                             </li>
                             <li className="flex items-start gap-2 md:gap-3">
-                                <Phone className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
-                                <a href={telHref(identity.phone)} className="min-w-0 tabular-nums hover:text-accent-ink transition-colors">
+                                <Phone className="w-4 h-4 mt-3.5 md:mt-1.5 text-primary-ink shrink-0" aria-hidden="true" />
+                                <a href={telHref(identity.phone)} className="inline-flex items-center min-h-11 md:min-h-7 py-1 min-w-0 tabular-nums hover:text-accent-ink transition-colors">
                                     {identity.phone}
                                 </a>
                             </li>
                             <li className="flex items-start gap-2 md:gap-3">
-                                <Mail className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
+                                <Mail className="w-4 h-4 mt-3.5 md:mt-1.5 text-primary-ink shrink-0" aria-hidden="true" />
                                 {/* <wbr> after "@": on a narrow column it wraps as "name@ / domain",
                                     not mid-word ("gmail.co / m"). */}
-                                <a href={mailtoHref(identity.email)} className="min-w-0 [overflow-wrap:anywhere] hover:text-accent-ink transition-colors">
+                                <a href={mailtoHref(identity.email)} className="inline-flex items-center min-h-11 md:min-h-7 py-1 min-w-0 [overflow-wrap:anywhere] hover:text-accent-ink transition-colors">
                                     {identity.email.split('@')[0]}@<wbr />{identity.email.split('@')[1]}
                                 </a>
                             </li>
                             {hoursInfo && hoursInfo.hours.length > 0 && (
-                                <li className="flex items-start gap-2 md:gap-3">
+                                <li className="flex items-start gap-2 md:gap-3 py-1">
                                     <Clock className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
                                     <div className="min-w-0">
                                         <span className="sr-only">Orari di apertura: </span>
@@ -115,8 +115,8 @@ export function Footer() {
                                 </li>
                             )}
                             <li className="flex items-start gap-2 md:gap-3">
-                                <Download className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
-                                <a href={VCARD_PATH} download className="min-w-0 hover:text-accent-ink transition-colors">
+                                <Download className="w-4 h-4 mt-3.5 md:mt-1.5 text-primary-ink shrink-0" aria-hidden="true" />
+                                <a href={VCARD_PATH} download className="inline-flex items-center min-h-11 md:min-h-7 py-1 min-w-0 hover:text-accent-ink transition-colors">
                                     Salva il contatto di SYD
                                 </a>
                             </li>
@@ -129,10 +129,10 @@ export function Footer() {
                     <p className="text-ink-subtle text-sm tracking-[0.01em]">
                         © {currentYear} SYD BIOEDILIZIA. Tutti i diritti riservati.
                     </p>
-                    <div className="flex gap-6 text-sm text-ink-subtle">
-                        <Link href="/privacy" className="hover:text-accent-ink transition-colors">Informativa sulla Privacy</Link>
-                        <Link href="/terms" className="hover:text-accent-ink transition-colors">Termini di Servizio</Link>
-                        <Link href="/cookie-policy" className="hover:text-accent-ink transition-colors">Cookie Policy</Link>
+                    <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-sm text-ink-subtle">
+                        <Link href="/privacy" className="inline-flex items-center min-h-11 md:min-h-7 py-1 hover:text-accent-ink transition-colors">Informativa sulla Privacy</Link>
+                        <Link href="/terms" className="inline-flex items-center min-h-11 md:min-h-7 py-1 hover:text-accent-ink transition-colors">Termini di Servizio</Link>
+                        <Link href="/cookie-policy" className="inline-flex items-center min-h-11 md:min-h-7 py-1 hover:text-accent-ink transition-colors">Cookie Policy</Link>
                     </div>
                 </div>
             </div>

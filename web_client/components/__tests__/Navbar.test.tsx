@@ -56,4 +56,29 @@ describe('Navbar', () => {
             expect(screen.getAllByRole('link', { name: 'Progetti' }).length).toBeGreaterThan(0);
         });
     });
+
+    it('does not animate or mutate vertical padding on scroll (prevents scroll-start layout thrashing)', () => {
+        Object.defineProperty(window, 'scrollY', { value: 0, writable: true, configurable: true });
+        const { container } = render(<Navbar />);
+        const nav = container.querySelector('nav');
+        expect(nav).not.toBeNull();
+        const initialClasses = nav!.className;
+
+        expect(initialClasses).not.toMatch(/transition-\[[^\]]*padding[^\]]*\]/);
+
+        Object.defineProperty(window, 'scrollY', { value: 120, writable: true, configurable: true });
+        fireEvent.scroll(window);
+
+        const scrolledClasses = nav!.className;
+        expect(scrolledClasses).toContain('bg-canvas/80');
+        // Vertical padding stays constant across unscrolled/scrolled states
+        const initialPy = initialClasses.match(/\bpy-\d+\b/)?.[0];
+        const scrolledPy = scrolledClasses.match(/\bpy-\d+\b/)?.[0];
+        expect(scrolledPy).toBe(initialPy);
+    });
+
+    it('keeps desktop nav labels aligned with the DESIGN.md 12px ramp (text-xs)', () => {
+        const { container } = render(<Navbar />);
+        expect(container.innerHTML).not.toContain('text-[11px]');
+    });
 });
