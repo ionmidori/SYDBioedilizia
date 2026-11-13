@@ -4,6 +4,7 @@ wherever they reach a log (message, extra fields, uvicorn access lines with the 
 """
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 
@@ -36,10 +37,15 @@ def test_formatter_masks_ids_inside_nested_extra_values() -> None:
     assert PROJECT_ID not in line
 
 
-def test_formatter_masks_the_session_id_of_the_request_context(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(log_module, "get_session_id", lambda: PROJECT_ID)
-    body = json.loads(JsonFormatter().format(_record("x")))
-    assert body["session_id"] == "[ID]"
+def test_formatter_never_prints_the_session_id_of_the_request_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    from src.core import context
+
+    monkeypatch.setattr(context, "_session_ref_ctx_var", contextvars.ContextVar("session_ref", default=None))
+    monkeypatch.setattr(log_module, "get_session_ref", context.get_session_ref)
+    context.bind_session(PROJECT_ID)
+    line = JsonFormatter().format(_record("x"))
+    assert PROJECT_ID not in line
+    assert "session_id" not in json.loads(line)
 
 
 def test_console_formatter_masks_ids_too() -> None:
@@ -72,3 +78,9 @@ def test_setup_logging_puts_the_filter_on_the_uvicorn_access_logger(
     setup_logging()
     filters = [f for f in restore_uvicorn_access.filters if isinstance(f, AccessLogIdFilter)]
     assert len(filters) == 1
+
+
+def test_a_session_or_project_id_passed_as_extra_never_reaches_the_line() -> None:
+    """Not a UUID (a guest token can be any 1-128 characters): the UUID mask would not see it."""
+    line = JsonFormatter().format(_record("x", session_id="guest-token_abc", project_id="guest-token_abc"))
+    assert "guest-token_abc" not in line

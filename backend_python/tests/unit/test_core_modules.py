@@ -149,7 +149,7 @@ class TestJsonFormatter:
         from src.core.logger import JsonFormatter
         formatter = JsonFormatter(datefmt="%Y-%m-%d")
         data = json.loads(formatter.format(self._make_record("test")))
-        for field in ("timestamp", "level", "logger", "message", "request_id", "session_id", "user_id"):
+        for field in ("timestamp", "level", "severity", "logger", "message", "request_id", "user_id"):
             assert field in data, f"Missing: {field}"
 
     def test_pii_redacted_in_message(self):
@@ -166,16 +166,16 @@ class TestJsonFormatter:
         assert data["duration_ms"] == 42.0
         assert data["span"] == "my_span"
 
-    def test_session_id_falls_back_to_system_when_none(self):
-        from src.core.context import _session_id_ctx_var
+    def test_no_session_ref_when_no_session_is_bound(self):
+        from src.core.context import _session_ref_ctx_var
         from src.core.logger import JsonFormatter
         formatter = JsonFormatter(datefmt="%Y-%m-%d")
-        token = _session_id_ctx_var.set(None)
+        token = _session_ref_ctx_var.set(None)
         try:
             data = json.loads(formatter.format(self._make_record("hello")))
-            assert data["session_id"] == "system"
+            assert "session_ref" not in data
         finally:
-            _session_id_ctx_var.reset(token)
+            _session_ref_ctx_var.reset(token)
 
     def test_user_id_falls_back_to_anonymous_when_none(self):
         from src.core.context import _user_id_ctx_var
