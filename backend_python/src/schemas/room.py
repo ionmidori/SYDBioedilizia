@@ -14,7 +14,17 @@ import re
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationError,
+    ValidatorFunctionWrapHandler,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 from src.schemas.intervention_spec import RoomInterventionSpec
 
@@ -79,6 +89,16 @@ class RoomSchema(BaseModel):
     intervention_spec: RoomInterventionSpec | None = Field(
         default=None, exclude=True, description="What the room's quote was computed from (backend-only)"
     )
+
+    @field_validator("intervention_spec", mode="wrap")
+    @classmethod
+    def _readable_spec(cls, value: object, handler: ValidatorFunctionWrapHandler) -> RoomInterventionSpec | None:
+        """SpecStore owns the spec and skips one it cannot read (a newer format during a
+        rollout): here it reads as None, so it never breaks the room or its listing."""
+        try:
+            return handler(value)
+        except ValidationError:
+            return None
 
     @field_serializer("created_at", "updated_at", when_used="json")
     def _serialize_datetime(self, dt: datetime) -> str:

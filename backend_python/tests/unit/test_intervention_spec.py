@@ -75,6 +75,15 @@ def test_spec_round_trips_through_the_room_document() -> None:
     assert room.intervention_spec == spec
 
 
+def test_room_with_an_unreadable_spec_still_reads() -> None:
+    """SpecStore owns the spec: one it cannot read (a newer format during a rollout)
+    never breaks the room, its listing or the rooms API."""
+    data = _spec().model_dump()
+    data["packages"][0]["reasoning"] = "a newer field"
+    room = RoomSchema.model_validate({**_ROOM_DOC, "intervention_spec": data})
+    assert room.intervention_spec is None
+
+
 def test_stored_spec_rejects_unknown_fields() -> None:
     data = _spec().model_dump()
     data["packages"][0]["reasoning"] = "not stored"

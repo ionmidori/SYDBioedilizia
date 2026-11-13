@@ -68,6 +68,14 @@ class MeasureState(BaseModel):
     candidates: list[float] = Field(default_factory=list)
 
 
+class ElementOption(BaseModel):
+    """One action the client can choose, in the words the team reads in its checks."""
+    model_config = ConfigDict(extra="forbid")
+
+    action: ElementAction
+    label: str
+
+
 class ElementChoiceState(BaseModel):
     """What happens to an existing element; `options` are the actions the library allows."""
     model_config = ConfigDict(extra="forbid")
@@ -76,7 +84,7 @@ class ElementChoiceState(BaseModel):
     label: str
     action: ElementAction
     confirmed: bool
-    options: list[ElementAction]
+    options: list[ElementOption]
 
 
 class SectionState(BaseModel):

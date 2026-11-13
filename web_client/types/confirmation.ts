@@ -36,13 +36,20 @@ export const measureStateSchema = z.object({
 });
 export type MeasureState = z.infer<typeof measureStateSchema>;
 
+/** One action the client can choose, in the words the team reads in its checks. */
+export const elementOptionSchema = z.object({
+  action: elementActionSchema,
+  label: z.string(),
+});
+export type ElementOption = z.infer<typeof elementOptionSchema>;
+
 /** What happens to an existing element; `options` are the actions the library allows. */
 export const elementChoiceStateSchema = z.object({
   element: z.string(),
   label: z.string(),
   action: elementActionSchema,
   confirmed: z.boolean(),
-  options: z.array(elementActionSchema),
+  options: z.array(elementOptionSchema),
 });
 export type ElementChoiceState = z.infer<typeof elementChoiceStateSchema>;
 

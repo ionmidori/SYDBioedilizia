@@ -15,7 +15,7 @@ Ownership is the caller's job, like `RoomRepository`. No project id in the logs:
 from the quote tool it is the chat session id, an access token for guests.
 """
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from google.api_core.exceptions import NotFound
@@ -39,6 +39,11 @@ _ROOM_FIELD = "intervention_spec"
 
 # The new spec of a unit from the one stored now (None: none yet).
 SpecChange = Callable[[RoomInterventionSpec | None], RoomInterventionSpec]
+
+
+def chat_on_card(keys: Iterable[str]) -> bool:
+    """The whole chat is a section of the card only while no room has a spec."""
+    return all(key == CHAT_SPEC_KEY for key in keys)
 
 
 def _valid(key: str, data: object) -> RoomInterventionSpec | None:

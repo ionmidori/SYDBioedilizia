@@ -1,11 +1,6 @@
 import { useId } from 'react';
 import type { ElementAction, ElementChoiceState } from '@/types/confirmation';
-
-const ACTION_LABEL: Record<ElementAction, string> = {
-  replace: 'Sostituisci',
-  reuse: 'Riutilizza',
-  keep: 'Mantieni',
-};
+import { capitalize } from './text';
 
 interface ElementChoiceFieldProps {
   choice: ElementChoiceState;
@@ -28,7 +23,7 @@ export function ElementChoiceField({ choice, value, disabled, onChange }: Elemen
         aria-labelledby={`${groupId}-label`}
         className="inline-flex rounded-xl border border-line-strong bg-surface p-0.5"
       >
-        {choice.options.map((action) => (
+        {choice.options.map(({ action, label }) => (
           <label key={action} className="relative cursor-pointer">
             <input
               type="radio"
@@ -40,7 +35,7 @@ export function ElementChoiceField({ choice, value, disabled, onChange }: Elemen
               className="peer sr-only"
             />
             <span className="block min-h-11 rounded-[10px] px-3 py-3 md:min-h-9 md:py-2 text-xs font-medium text-ink-muted transition-colors peer-checked:bg-primary peer-checked:text-on-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-disabled:opacity-60">
-              {ACTION_LABEL[action]}
+              {capitalize(label)}
             </span>
           </label>
         ))}

@@ -10,13 +10,14 @@ import pytest
 from google.api_core.exceptions import NotFound
 from src.core.exceptions import AppException
 from src.repositories.spec_store import CHAT_SPEC_KEY
-from src.schemas.assembly_library import MEASURE_LABELS
-from src.schemas.confirmation import ConfirmationUpdate, ElementChoiceState, MeasureState
+from src.schemas.assembly_library import MEASURE_LABELS, ElementAction
+from src.schemas.confirmation import ConfirmationUpdate, ElementChoiceState, ElementOption, MeasureState
 from src.schemas.intervention_spec import RoomInterventionSpec, StoredElementChoice, StoredMeasure, StoredPackage
 from src.schemas.quote import RevisionRoomSpec
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
 from src.services import confirmation_service
 from src.services.confirmation_service import confirm_section, confirmation_state
+from src.services.intervention_expansion import ACTION_LABELS
 from src.services.pricing_service import PricingService
 from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult, QuoteStatusView
 from src.utils.datetime_utils import utc_now
@@ -194,15 +195,20 @@ async def test_state_lists_pending_and_conflict_candidates() -> None:
     assert bagno_state.measures == [MeasureState(name="mq", label=MEASURE_LABELS["mq"], value=8, source="confirmed",
                                                  proposed=6)]
     assert bagno_state.element_choices[0] == ElementChoiceState(
-        element="sanitari", label="Sanitari", action="keep", confirmed=True, options=["replace", "reuse", "keep"]
+        element="sanitari", label="Sanitari", action="keep", confirmed=True, options=_options("replace", "reuse", "keep")
     )
     assert cucina_state.measures == [
         MeasureState(name="ml_pensili", label=MEASURE_LABELS["ml_pensili"], value=4, source="declared"),
         MeasureState(name="mq", label=MEASURE_LABELS["mq"], value=None, source=None, candidates=[10.0, 14.0]),
     ]
     assert cucina_state.element_choices == [ElementChoiceState(
-        element="pavimento", label="Pavimento", action="replace", confirmed=False, options=["replace", "keep"]
+        element="pavimento", label="Pavimento", action="replace", confirmed=False, options=_options("replace", "keep")
     )]
+
+
+def _options(*actions: ElementAction) -> list[ElementOption]:
+    """The client reads the actions with the words the team reads in its checks."""
+    return [ElementOption(action=action, label=ACTION_LABELS[action]) for action in actions]
 
 
 async def test_a_fully_confirmed_section_is_not_pending() -> None:

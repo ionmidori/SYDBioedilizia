@@ -41,7 +41,11 @@ const bagno = (patch: Partial<SectionState> = {}): SectionState => ({
       label: 'Vasca',
       action: 'replace',
       confirmed: false,
-      options: ['replace', 'reuse', 'keep'],
+      options: [
+        { action: 'replace', label: 'sostituisci' },
+        { action: 'reuse', label: 'riutilizza' },
+        { action: 'keep', label: 'lascia in posa' },
+      ],
     },
   ],
   ...patch,
@@ -97,7 +101,7 @@ describe('ConfirmationCard — what the client confirms', () => {
     renderCard();
 
     await user.type(await screen.findByLabelText('Superficie pareti'), '18');
-    await user.click(screen.getByRole('radio', { name: 'Mantieni' }));
+    await user.click(screen.getByRole('radio', { name: 'Lascia in posa' }));
     await user.click(await confirmButton());
 
     await waitFor(() =>
@@ -150,7 +154,10 @@ describe('ConfirmationCard — what the client confirms', () => {
           label: 'WC',
           action: 'replace',
           confirmed: false,
-          options: ['replace', 'keep'],
+          options: [
+            { action: 'replace', label: 'sostituisci' },
+            { action: 'keep', label: 'lascia in posa' },
+          ],
         },
       ],
     });
@@ -269,7 +276,7 @@ describe('ConfirmationCard — when there is nothing to do', () => {
 
     expect(await screen.findByText('Per cambiare qualcosa scrivi in chat.')).toBeInTheDocument();
     expect(screen.getByLabelText('Superficie pavimento')).toBeDisabled();
-    expect(screen.getByRole('radio', { name: 'Mantieni' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'Lascia in posa' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Conferma' })).not.toBeInTheDocument();
   });
 

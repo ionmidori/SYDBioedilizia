@@ -26,13 +26,14 @@ from src.core.exceptions import (
 from src.core.logger import get_logger
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.room_repository import get_room_repository
-from src.repositories.spec_store import CHAT_SPEC_KEY, get_spec_store
+from src.repositories.spec_store import CHAT_SPEC_KEY, chat_on_card, get_spec_store
 from src.schemas.assembly_library import MEASURE_LABELS, AssemblyElement, AssemblyLibrary, ElementAction
 from src.schemas.confirmation import (
     ConfirmationResult,
     ConfirmationState,
     ConfirmationUpdate,
     ElementChoiceState,
+    ElementOption,
     MeasureState,
     SectionState,
 )
@@ -40,7 +41,7 @@ from src.schemas.intervention_spec import RoomInterventionSpec
 from src.schemas.quote import QuoteRequest
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
 from src.services.assembly_library import load_library
-from src.services.intervention_expansion import Expansion, ExpansionWarning, expand
+from src.services.intervention_expansion import ACTION_LABELS, Expansion, ExpansionWarning, expand
 from src.services.pricing_service import PricingService
 from src.services.quote_build import BuiltDraft, UnitBuild, build_draft, price_book_units
 from src.services.quote_dossier import gather_dossier_inputs
@@ -70,7 +71,7 @@ async def _sections(project_id: str) -> tuple[list[_Section], list[RoomSchema]]:
     specs, rooms = await asyncio.gather(
         get_spec_store().load_all(project_id), get_room_repository().list_rooms(project_id)
     )
-    if all(key == CHAT_SPEC_KEY for key in specs):
+    if chat_on_card(specs):
         chat = specs.get(CHAT_SPEC_KEY)
         return ([_Section(CHAT_SPEC_KEY, None, chat)] if chat is not None else []), rooms
     sections = [
@@ -162,7 +163,7 @@ def _choice_states(spec: RoomInterventionSpec, library: AssemblyLibrary) -> list
             label=element.label,
             action=chosen[element.element].action if element.element in chosen else _DEFAULT_ACTION,
             confirmed=element.element in chosen and chosen[element.element].confirmed,
-            options=_options(element),
+            options=[ElementOption(action=action, label=ACTION_LABELS[action]) for action in _options(element)],
         )
         for element in _elements(spec, library).values()
     ]

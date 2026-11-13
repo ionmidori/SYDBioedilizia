@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { MEASURE_MAX, type MeasureSource, type MeasureState } from '@/types/confirmation';
+import { capitalize } from './text';
 
 /** Where a value comes from, as the client reads it (`null` source: nobody gave it yet). */
 const SOURCE_LABEL: Record<MeasureSource, string> = {
@@ -12,8 +13,6 @@ const SOURCE_LABEL: Record<MeasureSource, string> = {
 const NO_VALUE_LABEL = 'da indicare';
 
 const formatNumber = (value: number) => value.toLocaleString('it-IT');
-// The backend labels start in lower case ("pavimento della stanza (m²)").
-const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 interface MeasureFieldProps {
   measure: MeasureState;

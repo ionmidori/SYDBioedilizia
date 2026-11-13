@@ -116,17 +116,29 @@ def _engine(analyses: dict[str, InsightAnalysis]):
 
 
 @contextmanager
-def _project(rooms=ROOMS, files=FILES, history=HISTORY, analyses=None, engine=None, specs=None, specs_at_save=None):
+def _project(
+    rooms=ROOMS, files=FILES, history=HISTORY, analyses=None, engine=None, specs=None, specs_at_save=None,
+    specs_at_draft=None,
+):
     """`specs`: what the tool reads before the analysis; `specs_at_save`: what is
-    stored when it writes (a card confirmation made meanwhile), `specs` if None."""
+    stored when it writes (a card confirmation made meanwhile), `specs` if None;
+    `specs_at_draft`: what it reads again before the draft (a confirmation made after
+    its write), else what is stored with what it wrote."""
     repo = MagicMock()
     repo.list_rooms = AsyncMock(return_value=rooms)
     repo.list_files = AsyncMock(return_value=files)
     repo.files_for_room = AsyncMock(side_effect=_files_for_room(files))
     store = MagicMock()
-    store.load_all = AsyncMock(return_value=specs or {})
     store.written = {}
     current = specs if specs_at_save is None else specs_at_save
+    first_read = iter([specs or {}])
+
+    def load_all(project_id):
+        assert project_id == PID
+        later = specs_at_draft if specs_at_draft is not None else {**(current or {}), **store.written}
+        return next(first_read, later)
+
+    store.load_all = AsyncMock(side_effect=load_all)
 
     async def update(project_id, section_key, change):
         assert project_id == PID
@@ -859,6 +871,43 @@ async def test_lines_follow_a_confirmation_made_during_the_analysis():
     assert _draft_specs(mocks["saved"])["bagno1"] == _saved_specs(mocks["store"])["bagno1"]
     request = mocks["saved"].await_args.args[3]
     assert any(w.kind == "admin_check" and "confermato 9" in w.message for w in request.ai_warnings)
+
+
+async def test_lines_follow_a_confirmation_made_after_the_spec_was_saved():
+    """The client confirms 9 mq on the card after the tool saved the spec (6 mq), while
+    other rooms are still analysed: the draft the tool saves uses 9, it never
+    replaces the card's draft with the old value."""
+    later = _stored(measures=[{"name": "mq", "value": 9, "source": "confirmed"}])
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}, specs_at_draft={"bagno1": later}) as mocks:
+        await _quote()
+
+    quote = mocks["saved"].await_args.args[2]
+    assert {i.sku: i.qty for i in quote.items if i.room_id == "bagno1"}["MUR-004"] == 19.8  # 9 * 2.2
+    assert _draft_specs(mocks["saved"])["bagno1"] == later
+
+
+async def test_conflicting_new_values_for_a_confirmed_measure_reach_the_team():
+    stored = _stored(measures=[{"name": "mq", "value": 8, "source": "confirmed"}])
+    analysis = _bathroom(measures=[SpecMeasure(name="mq", value=6, source="declared"),
+                                   SpecMeasure(name="mq", value=9, source="declared")])
+    with _project(analyses={**ANALYSES, "Bagno": analysis}, specs={"bagno1": stored}) as mocks:
+        await _quote()
+
+    request = mocks["saved"].await_args.args[3]
+    assert any(w.kind == "admin_check" and "più valori (6, 9)" in w.message for w in request.ai_warnings)
+
+
+async def test_a_whole_chat_unit_is_not_on_the_card_once_rooms_have_specs():
+    """The tool falls back to the whole chat while rooms have specs: the card shows
+    the rooms, not the chat, so the measure is asked in words."""
+    files = [_file("f_vecchia", DEFAULT_ROOM_ID)]
+    history = [{"role": "user", "content": "Rifaccio il bagno"}]
+    engine = AsyncMock(return_value=_bathroom(measures=[]))
+    room_spec = {"bagno1": _stored(measures=[{"name": "mq", "value": 5, "source": "declared"}])}
+    with _project(rooms=ROOMS[:1], files=files, history=history, engine=engine, specs=room_spec):
+        reply = await _quote()
+
+    assert _CARD_MEASURES_NOTE not in reply and MEASURE_QUESTIONS["mq"] in reply
 
 
 async def test_the_tool_draft_has_a_price_range():

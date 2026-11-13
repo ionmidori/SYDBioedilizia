@@ -36,7 +36,11 @@ const STATE = {
           label: 'Vasca',
           action: 'replace',
           confirmed: false,
-          options: ['replace', 'reuse', 'keep'],
+          options: [
+            { action: 'replace', label: 'sostituisci' },
+            { action: 'reuse', label: 'riutilizza' },
+            { action: 'keep', label: 'lascia in posa' },
+          ],
         },
       ],
     },

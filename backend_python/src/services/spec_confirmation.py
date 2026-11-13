@@ -61,6 +61,15 @@ def _proposal_note(name: str, confirmed: float, proposed: float) -> str:
     )
 
 
+def _conflict_note(name: str, confirmed: float, values: list[float]) -> str:
+    """The model gave several values for a confirmed measure: no proposal (which one?), a check."""
+    found = ", ".join(_number(value) for value in values)
+    return (
+        f"{MEASURE_LABELS.get(name, name)}: il cliente ha confermato {_number(confirmed)}, "
+        f"la nuova analisi indica più valori ({found}). Usato il valore confermato"
+    )
+
+
 def has_unconfirmed_measures(spec: RoomInterventionSpec) -> bool:
     """A measure the client has not confirmed yet, or one with a proposal still unanswered."""
     return any(m.source != "confirmed" or m.proposed is not None for m in spec.measures)
@@ -87,6 +96,9 @@ def apply_confirmations(
     by_name = {m.name: m for m in fresh.measures}
     measures = [_merged_measure(m, confirmed[m.name], notes) if m.name in confirmed else m for m in fresh.measures]
     measures += [m for name, m in confirmed.items() if name not in by_name]
+    notes += [
+        _conflict_note(name, confirmed[name].value, values) for name, values in fresh.conflicts.items() if name in confirmed
+    ]
 
     chosen = _confirmed_choices(stored)
     choices = [*chosen.values(), *(c for c in fresh.element_choices if c.element not in chosen)]

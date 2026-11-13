@@ -186,6 +186,16 @@ def test_a_confirmed_measure_is_never_missing_nor_in_conflict() -> None:
     assert merged.missing_measures == ["n_porte"] and merged.conflicts == {}
 
 
+def test_conflicting_new_values_for_a_confirmed_measure_are_a_team_check() -> None:
+    """The model gives several values for a confirmed measure: no proposal (which one?),
+    but the team reads them."""
+    fresh = _spec().model_copy(update={"conflicts": {"mq": [6.0, 9.5]}})
+    merged, notes = apply_confirmations(fresh, _spec([_confirmed("mq", 8)]))
+    assert merged.measures == [_confirmed("mq", 8)]
+    assert len(notes) == 1
+    assert "pavimento della stanza (m²)" in notes[0] and "8" in notes[0] and "6" in notes[0] and "9.5" in notes[0]
+
+
 # ── The card: a section confirmed by the client ───────────────────────────────
 
 

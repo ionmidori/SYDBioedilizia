@@ -16,7 +16,7 @@ from src.core.money import to_decimal
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import ConversationRepository
 from src.repositories.room_repository import get_room_repository
-from src.repositories.spec_store import CHAT_SPEC_KEY, get_spec_store
+from src.repositories.spec_store import CHAT_SPEC_KEY, chat_on_card, get_spec_store
 from src.schemas.assembly_library import AssemblyLibrary
 from src.schemas.intervention_spec import RoomInterventionSpec
 from src.schemas.quote import ManualWorkItem, QuoteRequest
@@ -29,6 +29,7 @@ from src.services.intervention_expansion import (
     ExpandedLine,
     Expansion,
     ExpansionWarning,
+    conflicting_measures,
     expand,
     resolve_measures,
     spec_from_analysis,
@@ -455,11 +456,22 @@ class _QuoteUnit:
 
 
 @dataclass(frozen=True)
+class _Analysed:
+    """What the code computes a unit's lines from: the model's validated analysis,
+    the resolved measures and the spec of the model's values (None: no library)."""
+    validated: InsightAnalysis
+    measures: Mapping[str, Decimal]
+    library: AssemblyLibrary | None
+    fresh: RoomInterventionSpec | None
+
+
+@dataclass(frozen=True)
 class _UnitResult:
     unit: _QuoteUnit
     analysis: InsightAnalysis  # as the model returned it
     expansion: Expansion  # the lines computed by code from it
     unknown_skus: list[str]
+    analysed: _Analysed
     spec: RoomInterventionSpec | None = None  # what the lines were expanded from (None: no library)
     on_card: bool = False  # its spec is stored: the confirmation card shows this unit
 
@@ -745,7 +757,8 @@ def _build_spec(
     except ValidationError as exc:
         _spec_warning(unit.spec_key, exc)
         return None
-    conflicts = {name: [float(value) for value in values] for name, values in expansion.conflicts.items()}
+    # The model's own conflicts, confirmed measures included: the merge turns those into team checks.
+    conflicts = {name: [float(value) for value in values] for name, values in conflicting_measures(analysis).items()}
     return fresh.model_copy(update={"missing_measures": list(expansion.missing_measures), "conflicts": conflicts})
 
 
@@ -813,18 +826,51 @@ async def _analyse(
             # The client confirmed on the card during the analysis: the lines follow it.
             stored = spec
             expansion = _expansion(validated, measures, library, stored)
-    on_card = spec is not None
-    notes = choice_checks(validated, stored)
-    if fresh is not None:
-        merged, measure_notes = apply_confirmations(fresh, stored)
+    # The card shows the whole chat only while no room has a spec (`_sections`).
+    on_card = spec is not None and (unit.spec_key != CHAT_SPEC_KEY or chat_on_card(stored_specs or {}))
+    analysed = _Analysed(validated=validated, measures=measures, library=library, fresh=fresh)
+    expansion, spec = _checked(analysed, expansion, stored, spec)
+    return _UnitResult(
+        unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, analysed=analysed,
+        spec=spec, on_card=on_card,
+    )
+
+
+def _checked(
+    analysed: _Analysed, expansion: Expansion, stored: RoomInterventionSpec | None, written: RoomInterventionSpec | None
+) -> tuple[Expansion, RoomInterventionSpec | None]:
+    """The lines with the team's checks on what the model and the client's
+    confirmations (`stored`) disagree on, and the unit's spec: the one written, else
+    the merge of the model's with the confirmations."""
+    notes = choice_checks(analysed.validated, stored)
+    spec = written
+    if analysed.fresh is not None:
+        merged, measure_notes = apply_confirmations(analysed.fresh, stored)
         spec = merged if spec is None else spec
         notes = [*measure_notes, *notes]
     if notes:
         checks = [ExpansionWarning("admin_check", note) for note in notes]
         expansion = replace(expansion, warnings=[*expansion.warnings, *checks])
-    return _UnitResult(
-        unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, spec=spec, on_card=on_card
-    )
+    return expansion, spec
+
+
+async def _with_late_confirmations(results: list[_UnitResult], project_id: str) -> list[_UnitResult]:
+    """The units the client confirmed on the card after their spec was saved (another
+    room was still analysed): their lines follow the confirmation, so the draft
+    saved next never replaces the card's with the old values."""
+    latest = await _stored_specs(project_id)
+    if latest is None:
+        return results
+    updated: list[_UnitResult] = []
+    for result in results:
+        now = latest.get(result.unit.spec_key)
+        if result.on_card and result.spec is not None and now is not None and not same_confirmations(now, result.spec):
+            analysed = result.analysed
+            lines = _expansion(analysed.validated, analysed.measures, analysed.library, now)
+            expansion, _ = _checked(analysed, lines, now, now)
+            result = replace(result, expansion=expansion, spec=now)
+        updated.append(result)
+    return updated
 
 
 def _blocks(*parts: str) -> str:
@@ -1029,6 +1075,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 "Non è stato possibile analizzare automaticamente il progetto in questo momento. "
                 "Ti chiedo di descrivermi le lavorazioni previste e ti fornirò un preventivo manuale."
             )
+        results = await _with_late_confirmations(results, target_project_id)
         refusal = _rooms_reply(results) if to_quote else _single_unit_reply(results[0])
         if refusal is not None:
             return refusal
