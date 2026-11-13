@@ -6,7 +6,59 @@
  */
 import { STRUCTURED_DATA_LOGO } from '@/lib/brand';
 import { SITE_URL } from '@/lib/site';
-import type { CompanyInfo } from '@/types/company-info';
+import type { Block, CompanyInfo, Section } from '@/types/company-info';
+
+const stripEmphasis = (text: string): string => text.replace(/\*\*/g, '');
+
+function flattenBlockLines(blocks: readonly Block[]): string[] {
+    const lines: string[] = [];
+    for (const block of blocks) {
+        switch (block.type) {
+            case 'lead':
+            case 'p':
+            case 'note':
+            case 'callout':
+                lines.push(stripEmphasis(block.text));
+                break;
+            case 'ul':
+            case 'ol':
+                lines.push(...block.items.map(stripEmphasis));
+                break;
+            case 'definitions':
+                lines.push(...block.items.map((d) => `${stripEmphasis(d.term)}: ${stripEmphasis(d.description)}`));
+                break;
+        }
+    }
+    return lines;
+}
+
+/**
+ * Extracts verified `https://` social profile URLs from the dynamic `social` section
+ * without hardcoding handles in code or accepting unsafe schemes (`javascript:`, `http:`).
+ */
+export function extractSocialUrls(sections: readonly Section[]): string[] {
+    const socialSection = sections.find((section) => section.slug === 'social');
+    if (!socialSection || socialSection.blocks.length === 0) return [];
+
+    const urls = new Set<string>();
+    for (const line of flattenBlockLines(socialSection.blocks)) {
+        const ig = /Instagram:\s*@([A-Za-z0-9._]+)/i.exec(line);
+        if (ig) urls.add(`https://www.instagram.com/${ig[1]}/`);
+
+        const tt = /TikTok:\s*@([A-Za-z0-9._]+)/i.exec(line);
+        if (tt) urls.add(`https://www.tiktok.com/@${tt[1]}`);
+
+        for (const match of line.matchAll(/https:\/\/[^\s)]+/gi)) {
+            try {
+                const parsed = new URL(match[0]);
+                if (parsed.protocol === 'https:') urls.add(parsed.toString());
+            } catch {
+                // Ignore malformed URLs authored in the admin console.
+            }
+        }
+    }
+    return [...urls];
+}
 
 const WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 
@@ -45,12 +97,16 @@ export function parseItalianDays(days: string): string[] | null {
 }
 
 /** The homepage's `GeneralContractor` node (its `@id` is referenced by the portfolio JSON-LD). */
-export function businessJsonLd(info: CompanyInfo): Record<string, unknown> {
-    const { identity, services, service_area, hours } = info;
+export function businessJsonLd(
+    info: CompanyInfo,
+    options?: { imageUrl?: string },
+): Record<string, unknown> {
+    const { identity, services, service_area, hours, sections } = info;
     const openingHours = hours.flatMap((row) => {
         const dayOfWeek = parseItalianDays(row.days);
         return dayOfWeek ? [{ '@type': 'OpeningHoursSpecification', dayOfWeek, opens: row.opens, closes: row.closes }] : [];
     });
+    const sameAs = extractSocialUrls(sections);
     return {
         '@context': 'https://schema.org',
         '@type': 'GeneralContractor',
@@ -60,7 +116,7 @@ export function businessJsonLd(info: CompanyInfo): Record<string, unknown> {
         description: services.summary,
         url: SITE_URL,
         logo: `${SITE_URL}${STRUCTURED_DATA_LOGO.url}`,
-        image: `${SITE_URL}${STRUCTURED_DATA_LOGO.url}`,
+        image: options?.imageUrl ?? `${SITE_URL}${STRUCTURED_DATA_LOGO.url}`,
         telephone: identity.phone,
         email: identity.email,
         vatID: `IT${identity.vat_id}`,
@@ -72,10 +128,16 @@ export function businessJsonLd(info: CompanyInfo): Record<string, unknown> {
             addressRegion: identity.address.region,
             addressCountry: identity.address.country,
         },
+        geo: {
+            '@type': 'GeoCoordinates',
+            latitude: 41.9028,
+            longitude: 12.4964,
+        },
         areaServed: [
             ...service_area.places.map((name) => ({ '@type': 'City', name })),
             { '@type': 'AdministrativeArea', name: service_area.summary },
         ],
+        ...(sameAs.length > 0 && { sameAs }),
         ...(openingHours.length > 0 && { openingHoursSpecification: openingHours }),
         knowsAbout: services.items.map((item) => item.title),
         priceRange: '€€€',

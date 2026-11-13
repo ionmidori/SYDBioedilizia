@@ -33,7 +33,7 @@ export default async function Home() {
     getTestimonials(),
   ]);
   // GeneralContractor JSON-LD from the company info (contacts, area, hours, works).
-  const jsonLd = businessJsonLd(companyInfo);
+  const jsonLd = businessJsonLd(companyInfo, { imageUrl: portfolioShareImage(portfolio)?.url });
 
   return (
     // overflow-x-clip, not -hidden: `hidden` makes this element a scroll container,
