@@ -41,6 +41,10 @@ jest.mock('react-markdown', () => ({
 jest.mock('@/components/chat/ImagePreview', () => ({ ImagePreview: () => <div /> }));
 jest.mock('@/components/chat/MessageFeedback', () => ({ MessageFeedback: () => <div /> }));
 jest.mock('@/components/ArchitectAvatar', () => ({ __esModule: true, default: () => <div /> }));
+// The card reads and writes by itself (ConfirmationCard.test.tsx): a probe is enough here.
+jest.mock('@/components/confirmations/ConfirmationCard', () => ({
+    ConfirmationCard: ({ projectId }: { projectId: string }) => <div data-testid="confirmation-card">{projectId}</div>,
+}));
 
 const IMAGE_URL = 'https://firebasestorage.googleapis.com/render.png';
 
@@ -148,6 +152,45 @@ describe('MessageItem — login card', () => {
 
         expect(screen.queryByTestId('login-card')).not.toBeInTheDocument();
         expect(container).toHaveTextContent('Per il preventivo serve un account gratuito.');
+    });
+});
+
+describe('MessageItem — confirmation card (Phase 140)', () => {
+    const reply = { id: 'm4', role: 'assistant', parts: [{ type: 'text', text: 'Conferma le misure nella scheda qui sotto.' }] } as unknown as Message;
+
+    afterEach(() => {
+        mockUser = null;
+    });
+
+    it('draws the card under the reply for a signed-in client, on the project of the chat', () => {
+        mockUser = { isAnonymous: false };
+        render(<MessageItem message={reply} sessionId="s1" onImageClick={jest.fn()} showConfirmations />);
+
+        expect(screen.getByTestId('confirmation-card')).toHaveTextContent('s1');
+    });
+
+    it.each([
+        ['a guest', { isAnonymous: true }],
+        ['nobody signed in', null],
+    ])('draws no card for %s: the project id of a guest is an access token', (_label, user) => {
+        mockUser = user;
+        render(<MessageItem message={reply} sessionId="s1" onImageClick={jest.fn()} showConfirmations />);
+
+        expect(screen.queryByTestId('confirmation-card')).not.toBeInTheDocument();
+    });
+
+    it('draws no card when the chat did not ask for it', () => {
+        mockUser = { isAnonymous: false };
+        render(<MessageItem message={reply} sessionId="s1" onImageClick={jest.fn()} />);
+
+        expect(screen.queryByTestId('confirmation-card')).not.toBeInTheDocument();
+    });
+
+    it('draws no card without a project', () => {
+        mockUser = { isAnonymous: false };
+        render(<MessageItem message={reply} onImageClick={jest.fn()} showConfirmations />);
+
+        expect(screen.queryByTestId('confirmation-card')).not.toBeInTheDocument();
     });
 });
 

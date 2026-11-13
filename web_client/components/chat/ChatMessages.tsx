@@ -6,6 +6,7 @@ import { Message } from '@/types/chat'; // ✅ Message interface compatible with
 import { ReasoningStep } from '@/types/reasoning'; // 🔥 CoT Types
 import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
 import { hasVisibleText } from '@/lib/chat/message-text';
+import { lastQuoteToolIndex } from '@/lib/chat/tool-invocations';
 
 interface ChatMessagesProps {
     messages: Message[];
@@ -49,6 +50,9 @@ const ChatMessagesComponent = ({
         () => new Map((historyMessages ?? []).map(m => [m.id, m])),
         [historyMessages]
     );
+
+    // The confirmation card (Phase 140) goes under the last reply that prepared the quote only.
+    const confirmationsIndex = React.useMemo(() => lastQuoteToolIndex(messages, historyById), [messages, historyById]);
 
     // 🧠 Extract latest reasoning step from data stream
     const latestReasoning = React.useMemo(() => {
@@ -101,6 +105,7 @@ const ChatMessagesComponent = ({
                             onQuickPrompt={msg.id === 'welcome-msg' && !isLoading ? onQuickPrompt : undefined}
                             historyMessage={msg.id ? historyById.get(msg.id) : undefined}
                             animate={!!msg.id && liveReplyIds.has(msg.id)}
+                            showConfirmations={idx === confirmationsIndex}
                         />
                     ))}
                 </AnimatePresence>

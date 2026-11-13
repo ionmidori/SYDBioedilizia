@@ -138,6 +138,24 @@ describe('DossierView', () => {
     expect(within(warnings).getByText('Controlla le misure')).toBeInTheDocument();
   });
 
+  it('shows the price range computed from the sources of the measures, with its precision and policy', () => {
+    setup(dossier({}, { estimate: { low: 1100, high: 1400, precision: 90, policy_version: '1.0.0' } }));
+    const range = screen.getByTestId('estimate-range');
+    expect(range).toHaveTextContent('Forbice');
+    expect(range).toHaveTextContent('1100,00');
+    expect(range).toHaveTextContent('1400,00');
+    expect(range).toHaveTextContent('precisione 90 %');
+    expect(range).toHaveTextContent('policy 1.0.0');
+  });
+
+  it.each([
+    ['no estimate', {}],
+    ['a precision without the range (what the client gets)', { estimate: { precision: 90 } }],
+  ])('shows no range with %s', (_label, quote) => {
+    setup(dossier({}, quote));
+    expect(screen.queryByTestId('estimate-range')).not.toBeInTheDocument();
+  });
+
   it('shows neither block when the draft has nothing to quote by hand or to check', () => {
     setup(dossier({}, { request: { summary: 'Ridipingere', manual_work: [], ai_warnings: [] } }));
     expect(screen.queryByTestId('request-manual-work')).not.toBeInTheDocument();
