@@ -28,3 +28,22 @@ def test_the_card_confirmation_is_no_consent_to_send():
 
 def test_the_card_invitation_is_passed_on_without_amounts():
     assert "invito alla scheda" in _STEP_1
+
+
+_MIDDLE = MODE_B_SURVEYOR.split("<middle ")[1].split("</middle>")[0]
+_END_TRIGGER = MODE_B_SURVEYOR.split("<end>")[1].split("</trigger>")[0]
+_START = MODE_B_SURVEYOR.split("<start>")[1].split("</start>")[0]
+
+
+def test_the_measures_are_not_collected_in_words_before_the_tool():
+    """The card asks them after suggest_quote_items: asking first made the client
+    type them twice, and the tool was called only after the measures (PR 1 · C)."""
+    assert "misure in modo naturale" not in _MIDDLE
+    assert "Non chiedere le misure" in _MIDDLE and "scheda di conferma" in _MIDDLE
+    assert "Metriche" not in _END_TRIGGER and "Scope" in _END_TRIGGER
+    assert "conferme sulle misure" not in _START
+
+
+def test_values_and_state_are_reported_only_as_the_tool_gives_them():
+    """The agent told "recepisco 8 mq" while the lines used the confirmed 5 (PR 1 · E)."""
+    assert "calcolato su" in _STEP_1 and "come li riporta lo strumento" in _STEP_1
