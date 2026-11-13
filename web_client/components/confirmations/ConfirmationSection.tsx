@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   type ConfirmationUpdate,
@@ -18,6 +18,8 @@ interface ConfirmationSectionProps {
   /** A confirmation is in flight (this section or another): nothing else is sent meanwhile. */
   locked: boolean;
   onConfirm: (update: ConfirmationUpdate) => void;
+  /** Set when the section was already confirmed and is being changed: the client can give up. */
+  onCancel?: () => void;
 }
 
 /** What the client is about to confirm: every measure and every choice of the section, or what is wrong with it. */
@@ -50,7 +52,14 @@ function buildDraft(
 }
 
 /** One quote section (a room) to confirm. Its state lives here; the card remounts it when the server values change. */
-export function ConfirmationSection({ section, editable, saving, locked, onConfirm }: ConfirmationSectionProps) {
+export function ConfirmationSection({
+  section,
+  editable,
+  saving,
+  locked,
+  onConfirm,
+  onCancel,
+}: ConfirmationSectionProps) {
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(section.measures.map((m) => [m.name, m.value === null ? '' : String(m.value)])),
   );
@@ -58,6 +67,12 @@ export function ConfirmationSection({ section, editable, saving, locked, onConfi
     Object.fromEntries(section.element_choices.map((c) => [c.element, c.action])),
   );
   const draft = buildDraft(section, values, actions);
+  const form = useRef<HTMLFormElement>(null);
+  // Opened by the client (it can be cancelled): the focus goes to the first field.
+  const opened = onCancel !== undefined;
+  useEffect(() => {
+    if (opened) form.current?.querySelector('input')?.focus();
+  }, [opened]);
   const disabled = !editable || locked;
 
   const submit = (event: FormEvent) => {
@@ -66,7 +81,7 @@ export function ConfirmationSection({ section, editable, saving, locked, onConfi
   };
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form ref={form} onSubmit={submit} className="space-y-3">
       {section.label !== null && (
         <h3 className="text-xs font-bold uppercase tracking-widest text-accent-ink">{section.label}</h3>
       )}
@@ -90,9 +105,23 @@ export function ConfirmationSection({ section, editable, saving, locked, onConfi
       ))}
       {editable && (
         <>
-          <Button type="submit" size="sm" className="h-11 md:h-9" disabled={!('update' in draft) || locked}>
-            {saving ? 'Salvo…' : 'Conferma'}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" size="sm" className="h-11 md:h-9" disabled={!('update' in draft) || locked}>
+              {saving ? 'Salvo…' : 'Conferma'}
+            </Button>
+            {onCancel && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-11 md:h-9"
+                disabled={locked}
+                onClick={onCancel}
+              >
+                Annulla
+              </Button>
+            )}
+          </div>
           {'problem' in draft && <p className="text-xs text-ink-muted">{PROBLEM_HINT[draft.problem]}</p>}
         </>
       )}

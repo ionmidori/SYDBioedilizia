@@ -51,6 +51,28 @@ const bagno = (patch: Partial<SectionState> = {}): SectionState => ({
   ...patch,
 });
 
+const cucina = (patch: Partial<SectionState> = {}): SectionState => ({
+  section_key: 'cucina1',
+  label: 'Cucina',
+  pending: false,
+  measures: [
+    { name: 'mq', label: 'Superficie pavimento', value: 12, source: 'confirmed', proposed: null, candidates: [] },
+  ],
+  element_choices: [
+    {
+      element: 'piano',
+      label: 'Piano cucina',
+      action: 'keep',
+      confirmed: true,
+      options: [
+        { action: 'replace', label: 'sostituisci' },
+        { action: 'keep', label: 'lascia in posa' },
+      ],
+    },
+  ],
+  ...patch,
+});
+
 const state = (patch: Partial<ConfirmationState> = {}): ConfirmationState => ({
   sections: [bagno()],
   editable: true,
@@ -169,16 +191,20 @@ describe('ConfirmationCard — what the client confirms', () => {
     expect(within(group).queryByRole('radio', { name: 'Riutilizza' })).not.toBeInTheDocument();
   });
 
-  it('skips the sections that are already confirmed', async () => {
-    getState.mockResolvedValue(
-      state({
-        sections: [bagno({ section_key: 'cucina1', label: 'Cucina', pending: false }), bagno()],
-      }),
-    );
+  it('shows a confirmed section closed, next to the one still to confirm', async () => {
+    getState.mockResolvedValue(state({ sections: [cucina(), bagno()] }));
     renderCard();
 
     expect(await screen.findByRole('heading', { name: 'Bagno' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Cucina' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Cucina' })).toBeInTheDocument();
+    // The label is on both sections: the bathroom field and the kitchen summary.
+    expect(screen.getAllByText('Superficie pavimento')).toHaveLength(2);
+    expect(screen.getByText('12')).toBeInTheDocument();
+    const row = screen.getByText('Piano cucina').parentElement as HTMLElement;
+    expect(within(row).getByText('Lascia in posa')).toBeInTheDocument();
+    // Only the section still to confirm has fields.
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Conferma' })).toHaveLength(1);
   });
 
   it('has no heading for a project without rooms', async () => {
@@ -280,8 +306,16 @@ describe('ConfirmationCard — when there is nothing to do', () => {
     expect(screen.queryByRole('button', { name: 'Conferma' })).not.toBeInTheDocument();
   });
 
-  it('draws nothing when no section is pending', async () => {
-    getState.mockResolvedValue(state({ sections: [bagno({ pending: false })] }));
+  it('draws nothing when the quote is no longer a draft and nothing is pending', async () => {
+    getState.mockResolvedValue(state({ editable: false, sections: [cucina()] }));
+    const { container } = renderCard();
+
+    await waitFor(() => expect(getState).toHaveBeenCalled());
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('draws nothing for a confirmed section with nothing to change', async () => {
+    getState.mockResolvedValue(state({ sections: [cucina({ measures: [], element_choices: [] })] }));
     const { container } = renderCard();
 
     await waitFor(() => expect(getState).toHaveBeenCalled());
@@ -294,5 +328,162 @@ describe('ConfirmationCard — when there is nothing to do', () => {
 
     await waitFor(() => expect(getState).toHaveBeenCalled());
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('ConfirmationCard — editing a confirmed section', () => {
+  const openEditor = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(await screen.findByRole('button', { name: 'Modifica Cucina' }));
+  };
+
+  beforeEach(() => {
+    getState.mockResolvedValue(state({ sections: [cucina()], precision: 90 }));
+  });
+
+  it('offers "Modifica" on a confirmed section, and a closed section has no fields', async () => {
+    renderCard();
+
+    expect(await screen.findByRole('button', { name: 'Modifica Cucina' })).toBeEnabled();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Conferma' })).not.toBeInTheDocument();
+    expect(screen.getByText('Stima precisa al 90 %')).toBeInTheDocument();
+  });
+
+  it('opens the section with the values already confirmed', async () => {
+    const user = userEvent.setup();
+    renderCard();
+
+    await openEditor(user);
+
+    expect(screen.getByLabelText('Superficie pavimento')).toHaveValue(12);
+    expect(screen.getByRole('radio', { name: 'Lascia in posa' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Conferma' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Modifica Cucina' })).not.toBeInTheDocument();
+  });
+
+  it('closes the section again on "Annulla", without sending anything', async () => {
+    const user = userEvent.setup();
+    renderCard();
+
+    await openEditor(user);
+    await user.clear(screen.getByLabelText('Superficie pavimento'));
+    await user.type(screen.getByLabelText('Superficie pavimento'), '15');
+    await user.click(screen.getByRole('button', { name: 'Annulla' }));
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Modifica Cucina' })).toBeInTheDocument();
+    // Opened again, it starts from the confirmed values, not from what was typed.
+    await openEditor(user);
+    expect(screen.getByLabelText('Superficie pavimento')).toHaveValue(12);
+  });
+
+  it('sends the new values and closes the section once they are saved', async () => {
+    const changed = cucina({
+      measures: [
+        { name: 'mq', label: 'Superficie pavimento', value: 15, source: 'confirmed', proposed: null, candidates: [] },
+      ],
+    });
+    confirm.mockResolvedValue({
+      recalculated: true,
+      blocked_sections: [],
+      state: state({ sections: [changed], precision: 95 }),
+    });
+    getState
+      .mockResolvedValueOnce(state({ sections: [cucina()], precision: 90 }))
+      .mockResolvedValue(state({ sections: [changed], precision: 95 }));
+    const user = userEvent.setup();
+    renderCard();
+
+    await openEditor(user);
+    await user.clear(screen.getByLabelText('Superficie pavimento'));
+    await user.type(screen.getByLabelText('Superficie pavimento'), '15');
+    await user.click(screen.getByRole('button', { name: 'Conferma' }));
+
+    await waitFor(() =>
+      expect(confirm).toHaveBeenCalledWith('chat-1', 'cucina1', {
+        measures: [{ name: 'mq', value: 15 }],
+        element_choices: [{ element: 'piano', action: 'keep' }],
+      }),
+    );
+    expect(await screen.findByRole('button', { name: 'Modifica Cucina' })).toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    expect(screen.getByText('15')).toBeInTheDocument();
+    expect(screen.getByText('Stima precisa al 95 %')).toBeInTheDocument();
+  });
+
+  it('keeps the section open when saving fails', async () => {
+    confirm.mockRejectedValue({ message: 'Il preventivo è già stato inviato al team.' });
+    const user = userEvent.setup();
+    renderCard();
+
+    await openEditor(user);
+    await user.click(screen.getByRole('button', { name: 'Conferma' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Il preventivo è già stato inviato al team.');
+    expect(screen.getByLabelText('Superficie pavimento')).toBeInTheDocument();
+  });
+
+  it('is not offered once the quote is no longer a draft', async () => {
+    getState.mockResolvedValue(state({ editable: false, sections: [cucina(), bagno()] }));
+    renderCard();
+
+    await screen.findByLabelText('Superficie pavimento');
+    expect(screen.queryByRole('button', { name: /Modifica/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Cucina' })).not.toBeInTheDocument();
+  });
+
+  it('drops the error of a failed save when the client gives up', async () => {
+    confirm.mockRejectedValue({ message: 'Il preventivo è già stato inviato al team.' });
+    const user = userEvent.setup();
+    renderCard();
+
+    await openEditor(user);
+    await user.click(screen.getByRole('button', { name: 'Conferma' }));
+    await screen.findByRole('alert');
+    await user.click(screen.getByRole('button', { name: 'Annulla' }));
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('opens one confirmed section at a time: the others wait, nothing typed is lost', async () => {
+    getState.mockResolvedValue(
+      state({ sections: [cucina(), cucina({ section_key: 'bagno2', label: 'Lavanderia' })] }),
+    );
+    const user = userEvent.setup();
+    renderCard();
+
+    await openEditor(user);
+
+    expect(screen.getByRole('button', { name: 'Modifica Lavanderia' })).toBeDisabled();
+  });
+
+  it('has a plain "Modifica" for a project without rooms', async () => {
+    getState.mockResolvedValue(state({ sections: [cucina({ section_key: 'chat', label: null })] }));
+    renderCard();
+
+    expect(await screen.findByRole('button', { name: 'Modifica' })).toBeEnabled();
+  });
+
+  it('moves the focus into the section when it opens, and back to "Modifica" when it closes', async () => {
+    const user = userEvent.setup();
+    renderCard();
+
+    await openEditor(user);
+    expect(screen.getByLabelText('Superficie pavimento')).toHaveFocus();
+
+    await user.click(screen.getByRole('button', { name: 'Annulla' }));
+    expect(screen.getByRole('button', { name: 'Modifica Cucina' })).toHaveFocus();
+  });
+
+  it('cannot be opened while another section is being saved', async () => {
+    getState.mockResolvedValue(state({ sections: [cucina(), bagno({ measures: [] })] }));
+    confirm.mockReturnValue(new Promise(() => undefined));
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await confirmButton());
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Modifica Cucina' })).toBeDisabled());
   });
 });

@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { MEASURE_MAX, type MeasureSource, type MeasureState } from '@/types/confirmation';
-import { capitalize } from './text';
+import { capitalize, formatNumber } from './text';
 
 /** Where a value comes from, as the client reads it (`null` source: nobody gave it yet). */
 const SOURCE_LABEL: Record<MeasureSource, string> = {
@@ -11,8 +11,6 @@ const SOURCE_LABEL: Record<MeasureSource, string> = {
   confirmed: 'confermata',
 };
 const NO_VALUE_LABEL = 'da indicare';
-
-const formatNumber = (value: number) => value.toLocaleString('it-IT');
 
 interface MeasureFieldProps {
   measure: MeasureState;
