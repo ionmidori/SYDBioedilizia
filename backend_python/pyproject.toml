@@ -155,10 +155,11 @@ dev = [
 # metrics and log records on both versions (ADK uses the private
 # opentelemetry.sdk._logs and semconv._incubating modules, which is why it
 # caps), and the full pytest suite passes. semantic-conventions follows the
-# sdk pin (0.66b1). Remove once google-adk allows opentelemetry>=1.45.1.
+# sdk pin (0.66b2). Remove once google-adk allows opentelemetry>=1.45.2.
+# CVE-2026-126360 (ReDoS in TraceContextTextMapPropagator.extract) is fixed in 1.45.2.
 override-dependencies = [
-    "opentelemetry-api>=1.45.1",
-    "opentelemetry-sdk>=1.45.1",
+    "opentelemetry-api>=1.45.2",
+    "opentelemetry-sdk>=1.45.2",
 ]
 
 # pyyaml 6.0.3 (via uvicorn[standard]) has no CPython 3.15 wheels, so it is built
