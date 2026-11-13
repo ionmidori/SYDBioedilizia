@@ -970,3 +970,38 @@ async def test_no_amount_in_reply():
 
     for reply in (gated, drafted):
         assert not any(sign in reply for sign in ("€", "euro", "%"))
+
+
+def _room_talk(context: str, label: str) -> str:
+    """The room's own conversation block of an analysis context."""
+    return context.split(f"## Conversazione della stanza {label}\n")[1].split("## Contesto generale")[0]
+
+
+async def test_a_message_without_a_room_that_names_one_room_is_that_room_s_talk():
+    """A correction typed with no room chip ("il bagno è 8 mq") is the room's
+    fact, not background: the analysis must weigh it against the brief."""
+    history = [
+        {"id": "m1", "role": "user", "content": "Il bagno è 5 metri quadri"},
+        *({**m, "id": f"m{i}"} for i, m in enumerate(HISTORY, start=2)),
+        {"id": "m5", "role": "assistant", "content": "Ho registrato la richiesta."},
+        {"id": "m6", "role": "user", "content": "Correggo: il bagno è 8 metri quadri"},
+    ]
+    with _project(history=history) as mocks:
+        await _quote()
+
+    calls = _calls_by_room(mocks["analyze"])
+    bagno = _room_talk(calls["Bagno"][0], "Bagno")
+    # In chat order: the old measure, the room's own message, then the correction.
+    assert bagno.index("5 metri quadri") < bagno.index("Nel bagno voglio la doccia") < bagno.index("8 metri quadri")
+    assert "8 metri quadri" not in _room_talk(calls["Cucina"][0], "Cucina")
+    # A message naming several rooms stays project-wide background.
+    assert "Ristrutturo casa" not in bagno and "Ristrutturo casa" in calls["Bagno"][0]
+
+
+async def test_a_room_is_also_named_by_its_type_when_it_is_the_only_one():
+    rooms = [*ROOMS[:2], _room("cucina1", "Cucina di Anna", "cucina")]
+    history = [*HISTORY, {"role": "user", "content": "In cucina il pavimento è 12 mq"}]
+    with _project(rooms=rooms, history=history) as mocks:
+        await _quote()
+
+    assert "12 mq" in _room_talk(_calls_by_room(mocks["analyze"])["Cucina"][0], "Cucina di Anna")

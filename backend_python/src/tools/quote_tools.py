@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 import logging
 from collections import OrderedDict
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import Any
@@ -41,6 +41,7 @@ from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_
 from src.services.quote_followup import FollowupResult, relay_client_request
 from src.services.quote_state import QuoteStatus, ai_draft_action
 from src.services.room_aggregation import load_rules
+from src.services.room_mentions import messages_naming_one_room
 from src.services.spec_confirmation import (
     apply_confirmations,
     choice_checks,
@@ -632,6 +633,17 @@ async def _general_unit(
     )
 
 
+def _in_chat_order(
+    tagged: list[dict[str, Any]], named: Sequence[Mapping[str, Any]], order: Mapping[str, int]
+) -> list[dict[str, Any]]:
+    """The room's tagged messages and the untagged ones that name it, in chat
+    order (`order`: message id -> position in the project chat). Tagged messages
+    older than the chat window keep their place at the start."""
+    merged = [*tagged, *(dict(m) for m in named)]
+    merged.sort(key=lambda m: order.get(m.get("id") or "", -1))
+    return merged[-_ROOM_HISTORY_MESSAGES:]
+
+
 async def _room_unit(
     room: RoomSchema,
     others: list[str],
@@ -639,12 +651,18 @@ async def _room_unit(
     project_files: dict[str, dict[str, Any]],
     session_id: str,
     project_id: str,
+    named: Sequence[Mapping[str, Any]] = (),
+    order: Mapping[str, int] | None = None,
 ) -> _QuoteUnit:
-    """One room: its messages, its photos, measures and render delta of its own media."""
-    room_messages, room_files = await asyncio.gather(
+    """One room: its messages (and the untagged ones that name only this room),
+    its photos, measures and render delta of its own media."""
+    tagged, room_files = await asyncio.gather(
         ConversationRepository().get_context(session_id, limit=_ROOM_HISTORY_MESSAGES, room_id=room.room_id),
         get_room_repository().files_for_room(project_id, room.room_id),  # newest first
     )
+    room_messages = _in_chat_order(tagged, named, order or {})
+    own = {id(m) for m in named}
+    general = [m for m in general if id(m) not in own]
     photos = [f for f in room_files if f.get("type") == "image"]
     media = [f for f in room_files if f.get("type") in ("image", "video")][:_QUOTE_MEDIA_MAX]
 
@@ -1046,12 +1064,18 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         try:
             if to_quote:
                 general = [m for m in history if m.get("room_id") in (None, DEFAULT_ROOM_ID)]
+                # "Il bagno è 8 mq" typed with no room chip is the bathroom's talk, not background.
+                named = messages_naming_one_room(general, all_rooms)
+                order = {m["id"]: i for i, m in enumerate(history) if m.get("id")}
                 semaphore = asyncio.Semaphore(_ROOM_ANALYSIS_CONCURRENCY)
 
                 async def analyse_room(room: RoomSchema) -> _UnitResult:
                     others = [r.label for r in to_quote if r.room_id != room.room_id]
                     async with semaphore:
-                        unit = await _room_unit(room, others, general, project_files, session_id, target_project_id)
+                        unit = await _room_unit(
+                            room, others, general, project_files, session_id, target_project_id,
+                            named=named.get(room.room_id, ()), order=order,
+                        )
                         return await _analyse(unit, session_id, target_project_id, stored_specs)
 
                 async def analyse_rest_of_home() -> _UnitResult | None:
