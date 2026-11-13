@@ -25,6 +25,7 @@ from src.services.spec_confirmation import (
     has_unconfirmed_measures,
     same_confirmations,
     spec_measures,
+    unassigned_note,
 )
 
 T0 = datetime(2026, 11, 12, 9, 0, tzinfo=UTC)
@@ -194,6 +195,13 @@ def test_conflicting_new_values_for_a_confirmed_measure_are_a_team_check() -> No
     assert merged.measures == [_confirmed("mq", 8)]
     assert len(notes) == 1
     assert "pavimento della stanza (m²)" in notes[0] and "8" in notes[0] and "6" in notes[0] and "9.5" in notes[0]
+
+
+def test_unassigned_note_lists_what_the_client_confirmed() -> None:
+    chat = _spec([_confirmed("mq", 8)], [StoredElementChoice(element="sanitari", action="keep", confirmed=True)])
+    note = unassigned_note(chat)
+    assert "non assegnate" in note
+    assert "pavimento della stanza (m²) 8" in note and "sanitari: lascia in posa" in note
 
 
 # ── The card: a section confirmed by the client ───────────────────────────────

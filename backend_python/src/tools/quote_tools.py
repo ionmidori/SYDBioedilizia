@@ -19,7 +19,7 @@ from src.repositories.room_repository import get_room_repository
 from src.repositories.spec_store import CHAT_SPEC_KEY, chat_on_card, get_spec_store
 from src.schemas.assembly_library import AssemblyLibrary
 from src.schemas.intervention_spec import RoomInterventionSpec
-from src.schemas.quote import ManualWorkItem, QuoteRequest
+from src.schemas.quote import ManualWorkItem, QuoteAiWarning, QuoteRequest
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
 from src.services.assembly_library import load_library
 from src.services.insight_engine import InsightAnalysis, InsightEngineError, get_insight_engine
@@ -48,6 +48,7 @@ from src.services.spec_confirmation import (
     expansion_inputs,
     has_unconfirmed_measures,
     same_confirmations,
+    unassigned_note,
 )
 from src.tools.room_tools import brief_lines, room_of
 from src.utils.datetime_utils import utc_now
@@ -728,16 +729,21 @@ async def _stored_specs(project_id: str) -> dict[str, RoomInterventionSpec] | No
 
 def _with_chat_confirmations(
     specs: Mapping[str, RoomInterventionSpec], to_quote: list[RoomSchema]
-) -> Mapping[str, RoomInterventionSpec]:
+) -> tuple[Mapping[str, RoomInterventionSpec], list[QuoteAiWarning]]:
     """A chat without rooms that now has rooms: what the client confirmed for the
-    whole chat goes to the one room quoted, else to "Generale", if that unit has
-    no spec of its own yet (it is saved there with the unit's spec)."""
-    heir = to_quote[0].room_id if len(to_quote) == 1 else DEFAULT_ROOM_ID
+    whole chat goes to the one room quoted, if it has no spec of its own yet (it is
+    saved there with the room's spec). With several rooms no section takes it (a
+    measure of one room would price another and look confirmed): a check for the team."""
     inherited = confirmations_only(specs.get(CHAT_SPEC_KEY))
-    if inherited is None or heir in specs:
-        return specs
+    if inherited is None:
+        return specs, []
+    if len(to_quote) > 1:
+        return specs, [QuoteAiWarning(kind="admin_check", message=unassigned_note(inherited))]
+    heir = to_quote[0].room_id
+    if heir in specs:
+        return specs, []
     logger.info("[QuoteTool] Chat confirmations moved to a section.", extra={"section_key": heir})
-    return {**specs, heir: inherited}
+    return {**specs, heir: inherited}, []
 
 
 def _build_spec(
@@ -1029,8 +1035,9 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         (to_quote, all_rooms, project_files), stored_specs = await asyncio.gather(
             _rooms_to_quote(target_project_id, history), _stored_specs(target_project_id)
         )
+        unassigned: list[QuoteAiWarning] = []
         if to_quote and stored_specs is not None:
-            stored_specs = _with_chat_confirmations(stored_specs, to_quote)
+            stored_specs, unassigned = _with_chat_confirmations(stored_specs, to_quote)
 
         # A room that cannot be analysed (model or Firestore error) stops the
         # home quote: the other rooms are cancelled, no partial quote is saved.
@@ -1109,7 +1116,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         dossier = await gather_dossier_inputs(db, target_project_id, final_user_id, now)
         request = QuoteRequest(
             summary=summary, channel="chat", session_id=session_id,
-            manual_work=built.manual_work, ai_warnings=built.ai_warnings,
+            manual_work=built.manual_work, ai_warnings=[*built.ai_warnings, *unassigned],
         )
         saved = await save_ai_draft(db, target_project_id, quote, request, now=now, dossier=dossier, specs=built.specs)
         reference = f" (riferimento **{saved.quote_number}**)" if saved.quote_number else ""

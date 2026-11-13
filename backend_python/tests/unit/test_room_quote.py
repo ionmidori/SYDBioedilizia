@@ -837,13 +837,18 @@ async def test_chat_confirmations_go_to_the_one_room_quoted():
     ]
 
 
-async def test_chat_confirmations_go_to_generale_with_several_rooms():
+async def test_chat_confirmations_are_not_assigned_with_several_rooms():
+    """Two rooms or more: whose were the 8 mq? No section takes them (a wrong measure
+    would price a room and look confirmed); the team reads them, the card asks again."""
     with _project(specs=_CHAT_CONFIRMED) as mocks:
         await _quote()
 
     specs = _saved_specs(mocks["store"])
-    assert StoredMeasure(name="mq", value=8.0, source="confirmed") in specs[DEFAULT_ROOM_ID].measures
-    assert all(m.source != "confirmed" for key in ("bagno1", "cucina1") for m in specs[key].measures)
+    assert all(m.source != "confirmed" for spec in specs.values() for m in spec.measures)
+    request = mocks["saved"].await_args.args[3]
+    notes = [w for w in request.ai_warnings if w.kind == "admin_check" and "non assegnate" in w.message]
+    assert len(notes) == 1 and notes[0].room_id is None
+    assert "pavimento della stanza (m²) 8" in notes[0].message
 
 
 async def test_chat_confirmations_never_replace_a_room_spec():

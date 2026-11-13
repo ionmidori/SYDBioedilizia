@@ -119,6 +119,17 @@ def choice_checks(analysis: InsightAnalysis, stored: RoomInterventionSpec | None
     ]
 
 
+def unassigned_note(spec: RoomInterventionSpec) -> str:
+    """The team's check for what the client confirmed in a chat without rooms, when
+    the project then has several rooms: no section takes it (whose was it?)."""
+    measures = [f"{MEASURE_LABELS.get(m.name, m.name)} {_number(m.value)}" for m in _confirmed_measures(spec).values()]
+    choices = [f"{c.element}: {ACTION_LABELS[c.action]}" for c in _confirmed_choices(spec).values()]
+    return (
+        f"Conferme fatte in chat prima delle stanze, non assegnate a una stanza: {'; '.join([*measures, *choices])}. "
+        "Il cliente le conferma di nuovo sulla stanza giusta"
+    )
+
+
 def confirmations_only(spec: RoomInterventionSpec | None) -> RoomInterventionSpec | None:
     """What the client confirmed in `spec`, nothing else (None: nothing confirmed).
 
