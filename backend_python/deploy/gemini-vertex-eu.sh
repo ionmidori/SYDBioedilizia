@@ -25,6 +25,9 @@
 # 2026-11-13: MODEL_INSIGHT=gemini-3.8-flash (set by hand on revision syd-brain-00750).
 # On gemini-3.5-flash-lite the quote InsightEngine returned empty specs (no
 # package, no measure): evals on multi_room_quote passed only with 3.8-flash.
+# 2026-11-13: MODEL_QUOTE=gemini-3.8-flash (quote sub-agent). Evals multi_room_submit and
+# room_correction: on flash-lite the agent registered before the client asked, tried to send in
+# the same turn (blocked by the code check) and told values the tool never gave; 3.8-flash passed.
 #
 # ⚠️ 2026-10-14: the AI Studio key has been REVOKED. `rollback` targets an
 # AI Studio revision (syd-brain-00581-hdv) and would take the whole chat down:
@@ -43,7 +46,7 @@ case "${1:-}" in
     echo "$previous" > "$STATE_FILE"
     echo "Current serving revision: $previous (saved for rollback)"
     gcloud run services update "$SERVICE" --region="$REGION" \
-      --update-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=eu,MODEL_IMAGE=gemini-3.1-flash-image,MODEL_INSIGHT=gemini-3.8-flash,MODEL_VALIDATION_STRICT=true" \
+      --update-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=eu,MODEL_IMAGE=gemini-3.1-flash-image,MODEL_INSIGHT=gemini-3.8-flash,MODEL_QUOTE=gemini-3.8-flash,MODEL_VALIDATION_STRICT=true" \
       --tag=vertex --no-traffic --quiet
     gcloud run services describe "$SERVICE" --region="$REGION" \
       --format='value(status.traffic[].url)' | tr ';' '\n' | grep -i vertex || true
