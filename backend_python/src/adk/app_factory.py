@@ -12,10 +12,10 @@ other compaction, before each model call, is turned off by
 `PostTurnCompactionPlugin` (src/adk/compaction.py).
 """
 from google.adk.agents.context_cache_config import ContextCacheConfig
+from google.adk.agents.invocation_context import InvocationContext
 from google.adk.apps.app import App, EventsCompactionConfig
 from google.adk.plugins.base_plugin import BasePlugin
 from google.adk.runners import Runner
-from google.adk.sessions import Session
 from google.genai import types
 
 from src.adk.agents import syd_orchestrator
@@ -39,8 +39,11 @@ class SydRunner(Runner):
     upgrade.
     """
 
-    async def _run_post_invocation_compaction(self, *, session: Session) -> None:
-        run_in_background(super()._run_post_invocation_compaction(session=session), name="adk_compaction")
+    async def _run_post_invocation_compaction(self, *, invocation_context: InvocationContext) -> None:
+        run_in_background(
+            super()._run_post_invocation_compaction(invocation_context=invocation_context),
+            name="adk_compaction",
+        )
 
 
 def build_context_cache_config() -> ContextCacheConfig | None:

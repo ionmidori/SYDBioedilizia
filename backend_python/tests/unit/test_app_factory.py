@@ -7,9 +7,11 @@ import inspect
 from unittest.mock import patch
 
 from google.adk.agents.context_cache_config import ContextCacheConfig
+from google.adk.agents.invocation_context import InvocationContext
 from google.adk.plugins.base_plugin import BasePlugin
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService, Session
+from src.adk.agents import syd_orchestrator
 from src.adk.app_factory import APP_NAME, SydRunner, build_app, build_context_cache_config
 from src.adk.compaction import RoomAwareEventSummarizer, build_events_compaction_config
 from src.core.config import settings
@@ -61,8 +63,8 @@ def test_overridden_adk_method_keeps_its_signature():
     """SydRunner overrides a private ADK method: an ADK upgrade that renames it
     or changes its parameters would silently bring compaction back inline."""
     params = inspect.signature(Runner._run_post_invocation_compaction).parameters
-    assert list(params) == ["self", "session"]
-    assert params["session"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert list(params) == ["self", "invocation_context"]
+    assert params["invocation_context"].kind is inspect.Parameter.KEYWORD_ONLY
     assert "_run_post_invocation_compaction" in Runner.__dict__
 
 
@@ -70,15 +72,19 @@ async def test_compaction_runs_after_the_turn_without_holding_it():
     release = asyncio.Event()
     done = asyncio.Event()
 
-    async def slow_compaction(self, *, session):
+    async def slow_compaction(self, *, invocation_context):
         await release.wait()
         done.set()
 
-    runner = SydRunner(app=build_app(), session_service=InMemorySessionService())
+    service = InMemorySessionService()
+    runner = SydRunner(app=build_app(), session_service=service)
     session = Session(id="s1", app_name=APP_NAME, user_id="u1")
+    ctx = InvocationContext(
+        session_service=service, invocation_id="inv1", agent=syd_orchestrator, session=session
+    )
     with patch.object(Runner, "_run_post_invocation_compaction", slow_compaction):
         # Returns at once: the summarizer has not even been released yet.
-        await asyncio.wait_for(runner._run_post_invocation_compaction(session=session), timeout=1)
+        await asyncio.wait_for(runner._run_post_invocation_compaction(invocation_context=ctx), timeout=1)
         assert not done.is_set()
         release.set()
         await asyncio.wait_for(done.wait(), timeout=1)
