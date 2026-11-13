@@ -226,7 +226,6 @@ async def upload_image(
     logger.info(
         "image_upload_started",
         extra={
-            "session_id": session_id,
             "file_size_bytes": file_size,
             "mime_type": validated_mime,
             "user_id": user_id,
@@ -266,7 +265,6 @@ async def upload_image(
     logger.info(
         "image_upload_completed",
         extra={
-            "session_id": session_id,
             "file_path": file_path,
             "file_size_bytes": file_size,
             "mime_type": validated_mime,

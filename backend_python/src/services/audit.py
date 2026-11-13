@@ -66,13 +66,13 @@ async def _write_audit_record(record: dict[str, Any]) -> None:
         await db.collection(AUDIT_COLLECTION).add(record)
         logger.debug(
             "Audit record written",
-            extra={"action": record.get("action"), "resource_id": record.get("resource_id")},
+            extra={"action": record.get("action")},
         )
     except Exception as exc:
         logger.error(
             f"[Audit] Failed to write audit record: {exc}",
             exc_info=True,
-            extra={"action": record.get("action"), "resource_id": record.get("resource_id")},
+            extra={"action": record.get("action")},
         )
 
 
@@ -136,5 +136,5 @@ def emit_audit_event(
         # No running event loop (e.g., called from sync context in tests).
         logger.warning(
             "[Audit] No event loop — audit record logged but not persisted",
-            extra={"action": action.value, "resource_id": resource_id},
+            extra={"action": action.value},
         )

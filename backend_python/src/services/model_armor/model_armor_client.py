@@ -83,8 +83,7 @@ class ModelArmorService:
         )
         self._client = self._create_client()
         logger.info(
-            "[ModelArmor] Initialized — project=%s location=%s template=%s",
-            project_id,
+            "[ModelArmor] Initialized — location=%s template=%s",
             location,
             template_id,
         )

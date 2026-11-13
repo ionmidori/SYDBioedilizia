@@ -142,7 +142,7 @@ class RetentionService:
         except Exception as exc:
             logger.error(
                 "[Retention] Could not erase; retried next run",
-                extra={"category": category, "project_id": project_id, "error_type": type(exc).__name__},
+                extra={"category": category, "error_type": type(exc).__name__},
                 exc_info=True,
             )
             report.errors.append(f"retention:{category}:{type(exc).__name__}")

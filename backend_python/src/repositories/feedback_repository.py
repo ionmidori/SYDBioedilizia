@@ -65,7 +65,6 @@ class FeedbackRepository:
         logger.info(
             "[Feedback] Saved.",
             extra={
-                "session_id": session_id,
                 "message_id": message_id,
                 "rating": rating,
                 "feedback_id": doc_ref.id,

@@ -274,7 +274,7 @@ async def download_image_smart(
     Raises:
         Exception: If download fails after all attempts.
     """
-    logger.info(f"[SmartDownload] 📥 Requested download for: {url[:100]}...")
+    logger.info(f"[SmartDownload] 📥 Requested download from: {urlparse(url).hostname}")
 
     # -------------------------------------------------------------------------
     # STRATEGY 0: Gemini File API / internal URIs (pass-through, nothing to fetch)
@@ -298,7 +298,6 @@ async def download_image_smart(
 
         logger.info("[SmartDownload] 🕵️ Detected Firebase Storage URL.")
         logger.info(f"  - Bucket: {bucket_name}")
-        logger.info(f"  - Path: {blob_path}")
         try:
             logger.info("[SmartDownload] ⚡ Attempting direct bucket access via Admin SDK...")
             bucket = storage.bucket(bucket_name)

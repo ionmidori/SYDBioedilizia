@@ -111,7 +111,6 @@ def init_tracing() -> None:
             logger.info(
                 "[Tracing] Cloud Trace exporter initialized",
                 extra={
-                    "project_id": settings.GOOGLE_CLOUD_PROJECT,
                     "region": settings.ADK_LOCATION,
                 },
             )

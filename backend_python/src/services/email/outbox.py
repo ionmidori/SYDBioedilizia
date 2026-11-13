@@ -385,7 +385,7 @@ async def _record_failure(db: Any, entry: dict[str, Any], error: ProviderError, 
         # No recipient address here: ids and the error class are enough to triage.
         logger.error("[Email/Outbox] Dead-letter: delivery abandoned.", extra={
             "event": "email_dead_letter", "outbox_id": entry["id"], "kind": entry.get("kind"),
-            "project_id": entry.get("project_id"), "attempts": entry["attempts"], "last_error": error_type,
+            "attempts": entry["attempts"], "last_error": error_type,
         })
     else:
         # Event-driven retry: one task at the retry time, none otherwise.

@@ -25,7 +25,7 @@ def _check_session_owner(session_id: str, current_owner: str, user_id: str | Non
     legacy `guest_*` one. Chats move between owners only through the guest
     claim, with proof (src/services/guest_claim)."""
     if user_id and current_owner and current_owner != user_id:
-        logger.warning(f"[Repo] ⛔ Session {session_id} owned by another user — access denied for {user_id}")
+        logger.warning("[Repo] ⛔ Session owned by another user — access denied", extra={"actor_uid": user_id})
         raise PermissionDenied("Questa sessione appartiene a un altro utente.")
 
 class ConversationRepository:
@@ -60,7 +60,7 @@ class ConversationRepository:
         if is_guest or not needs_permanence(session_data):
             return
         cleared = await clear_session_expiry(db, session_id)
-        logger.info(f"[Repo] Session {session_id} is now permanent ({cleared} messages unmarked)")
+        logger.info(f"[Repo] Session is now permanent ({cleared} messages unmarked)")
 
     async def save_message(
         self,
@@ -93,7 +93,7 @@ class ConversationRepository:
         """
         try:
             if role == "user":
-                logger.info(f"[Repo] Saving user message to session {session_id} with timestamp {timestamp}")
+                logger.info(f"[Repo] Saving user message with timestamp {timestamp}")
 
             db = self._get_async_db()
 
@@ -166,7 +166,7 @@ class ConversationRepository:
             await session_ref.set(session_update, merge=True)
             await self._make_permanent_if_marked(db, session_id, session_data, is_guest=is_guest)
 
-            logger.info(f"[Repo] Saved {role} message to session {session_id}")
+            logger.info(f"[Repo] Saved {role} message")
             return True
 
         except Exception as e:
@@ -228,7 +228,7 @@ class ConversationRepository:
             # Re-order chronologically for the LLM
             messages = messages_reversed[::-1]
 
-            logger.info(f"[Repo] Retrieved {len(messages)} LATEST messages for session {session_id}")
+            logger.info(f"[Repo] Retrieved {len(messages)} LATEST messages")
             return messages
 
         except Exception as e:
@@ -306,7 +306,7 @@ class ConversationRepository:
                     'messageCount': 0,
                     **expiry_fields(is_guest=is_guest),
                 })
-                logger.info(f"[Repo] Created new session {session_id} for user {owner_id}")
+                logger.info("[Repo] Created new session")
 
                 # Sync to Projects collection
                 project_ref = db.collection('projects').document(session_id)
@@ -320,7 +320,7 @@ class ConversationRepository:
                         'updatedAt': async_firestore.SERVER_TIMESTAMP,
                         'status': 'active'
                     })
-                    logger.info(f"[Repo] 🚀 Sync: Created project {session_id} from session")
+                    logger.info("[Repo] 🚀 Sync: Created project from session")
             else:
                 session_data = doc.to_dict() or {}
                 current_owner = session_data.get('userId', '')
@@ -344,7 +344,7 @@ class ConversationRepository:
                     project_snap = await project_ref.get()
                     if project_snap.exists:
                         await project_ref.update({'userId': user_id, 'updatedAt': async_firestore.SERVER_TIMESTAMP})
-                    logger.info(f"[Repo] Session {session_id} now owned by {user_id}")
+                    logger.info("[Repo] Session ownership transferred")
 
                 if update_data:
                     await session_ref.update(update_data)
@@ -362,7 +362,7 @@ class ConversationRepository:
                         'updatedAt': async_firestore.SERVER_TIMESTAMP,
                         'status': 'active'
                     })
-                     logger.info(f"[Repo] 🚀 Sync: Backfilled missing project {session_id}")
+                     logger.info("[Repo] 🚀 Sync: Backfilled missing project")
 
                 # Last: claim and projection are done even if this cleanup fails.
                 await self._make_permanent_if_marked(db, session_id, session_data, is_guest=is_guest)

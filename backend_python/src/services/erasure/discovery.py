@@ -69,5 +69,5 @@ async def discover_project_ids(db: Any, uid: str, *, known: Iterable[str] = ()) 
         elif await _not_someone_elses(db, pid, uid):
             ids.add(pid)
         else:
-            logger.warning("[Erasure] Ignoring a project owned by another user", extra={"project_id": pid})
+            logger.warning("[Erasure] Ignoring a project owned by another user")
     return ids

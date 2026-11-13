@@ -137,10 +137,10 @@ async def sync_project_cover(session_id: str) -> bool:
                  "updatedAt": utc_now()
             }, merge=True)
 
-            logger.info(f"[Projects] 🖼️ Smart Cover: Updated {session_id} -> {new_thumbnail}")
+            logger.info(f"[Projects] 🖼️ Smart Cover: Updated -> {new_thumbnail}")
             return True
 
         return False
     except Exception as e:
-        logger.error(f"[Projects] Error syncing cover for {session_id}: {str(e)}", exc_info=True)
+        logger.error(f"[Projects] Error syncing cover: {str(e)}", exc_info=True)
         return False

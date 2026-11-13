@@ -38,5 +38,5 @@ def get_storage_client() -> storage.Client:
         project=app.project_id
     )
 
-    logger.info(f"Storage client initialized for project: {app.project_id}")
+    logger.info("Storage client initialized")
     return client

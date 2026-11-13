@@ -13,9 +13,17 @@ from src.core.context import get_request_id, get_session_id, get_user_id
 _EMAIL_RE = re.compile(r'[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}')
 _PHONE_RE = re.compile(r'\+?[\d\s\-()]{7,20}')
 _JWT_RE = re.compile(r'Bearer\s+[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+')
+# Project and session ids are UUIDs (for a guest, a bearer token).
+_UUID_RE = re.compile(r'\b[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\b')
+
+def _mask_ids(text: str) -> str:
+    """Replace project/session ids with a placeholder (before the phone pattern can split them)."""
+    return _UUID_RE.sub('[ID]', text)
+
 
 def _redact(text: str) -> str:
     """Replace PII patterns with safe placeholders."""
+    text = _mask_ids(text)
     text = _EMAIL_RE.sub('[EMAIL]', text)
     text = _PHONE_RE.sub('[PHONE]', text)
     text = _JWT_RE.sub('Bearer [TOKEN]', text)
@@ -57,7 +65,30 @@ class JsonFormatter(logging.Formatter):
         if record.exc_info:
             log_record["exception"] = _redact(self.formatException(record.exc_info))
 
-        return json.dumps(log_record, default=str)
+        # The whole line: context fields and nested extra values included.
+        return _mask_ids(json.dumps(log_record, default=str))
+
+class MaskedFormatter(logging.Formatter):
+    """Human-readable console formatter (dev) that masks ids like the JSON one."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return _mask_ids(super().format(record))
+
+
+class AccessLogIdFilter(logging.Filter):
+    """uvicorn access lines carry the URL path (/api/projects/<id>/...): mask the ids in it."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(_mask_ids(a) if isinstance(a, str) else a for a in record.args)
+        return True
+
+
+def install_access_log_filter() -> None:
+    access = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, AccessLogIdFilter) for f in access.filters):
+        access.addFilter(AccessLogIdFilter())
+
 
 def setup_logging():
     """
@@ -74,7 +105,7 @@ def setup_logging():
          console_handler.setFormatter(JsonFormatter(datefmt='%H:%M:%S'))
     else:
          # Pretty print in dev
-         console_handler.setFormatter(logging.Formatter(
+         console_handler.setFormatter(MaskedFormatter(
             '%(asctime)s | %(levelname)-8s | [%(name)s] %(message)s',
             datefmt='%H:%M:%S'
         ))
@@ -104,6 +135,7 @@ def setup_logging():
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("google").setLevel(logging.WARNING)
+    install_access_log_filter()
 
 def get_logger(name: str) -> logging.Logger:
     """Get a standard logger instance."""
