@@ -68,7 +68,7 @@ async def get_project(
         404: Project not found or not owned by user.
     """
     user_id = user_session.uid
-    logger.info(f"[API] get_project request for session_id: {session_id} from user_id: {user_id}")
+    logger.info("[API] get_project request")
 
     project = await projects_db.get_project(session_id, user_id)
 
@@ -105,7 +105,7 @@ async def update_project_details(
         422: Validation error (handled by Pydantic).
     """
     user_id = user_session.uid
-    logger.info(f"[API] update_project_details request for session_id: {session_id} from user_id: {user_id}")
+    logger.info("[API] update_project_details request")
 
     # Ensure the details ID matches the session_id
     if details.id != session_id:
@@ -122,7 +122,7 @@ async def update_project_details(
             detail="Progetto non trovato o non autorizzato"
         )
 
-    logger.info(f"[API] Successfully updated construction details for project {session_id}")
+    logger.info("[API] Successfully updated construction details")
     return {"success": True, "message": "Dettagli del cantiere aggiornati con successo"}
 
 
@@ -136,7 +136,7 @@ async def add_project_file(
     Add file metadata to a project after a successful upload.
     """
     user_id = user_session.uid
-    logger.info(f"[API] add_project_file request for session_id: {session_id} from user_id: {user_id}")
+    logger.info("[API] add_project_file request")
 
     # An explicit path into another project is a client error (a path only read
     # from the URL is dropped by save_project_file_metadata with the same rule).
@@ -181,7 +181,7 @@ async def delete_project_file(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File non trovato")
 
     await file_ref.delete()
-    logger.info(f"[API] Deleted file {file_id} from project {session_id} for user {user_id}")
+    logger.info(f"[API] Deleted file {file_id}")
     emit_audit_event(
         AuditAction.FILE_DELETE, AuditResourceType.FILE, file_id,
         user_id=user_id, metadata={"project_id": session_id},

@@ -111,7 +111,7 @@ async def save_quote_draft(
         collection_ref = db.collection('quotes')
         _, doc_ref = await collection_ref.add(quote_model.to_firestore())
 
-        logger.info(f"[QuoteSystem] Draft saved with ID: {doc_ref.id} for User: {user_id}")
+        logger.info("[QuoteSystem] Draft saved")
         return doc_ref.id
 
     except Exception as e:

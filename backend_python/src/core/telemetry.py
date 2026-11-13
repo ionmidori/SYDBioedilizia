@@ -135,7 +135,6 @@ def instrumented_tool(tool_name: str | None = None):
                         extra={
                             "event": "tool_call",
                             "tool_name": name,
-                            "session_id": session_id,
                             "duration_ms": duration_ms,
                             "request_id": req_id,
                             "status": "ok",
@@ -155,7 +154,6 @@ def instrumented_tool(tool_name: str | None = None):
                         extra={
                             "event": "tool_call",
                             "tool_name": name,
-                            "session_id": session_id,
                             "duration_ms": duration_ms,
                             "request_id": req_id,
                             "status": "error",
@@ -189,7 +187,6 @@ def instrumented_tool(tool_name: str | None = None):
                         extra={
                             "event": "tool_call",
                             "tool_name": name,
-                            "session_id": session_id,
                             "duration_ms": duration_ms,
                             "request_id": req_id,
                             "status": "ok",
@@ -208,7 +205,6 @@ def instrumented_tool(tool_name: str | None = None):
                         extra={
                             "event": "tool_call",
                             "tool_name": name,
-                            "session_id": session_id,
                             "duration_ms": duration_ms,
                             "request_id": req_id,
                             "status": "error",

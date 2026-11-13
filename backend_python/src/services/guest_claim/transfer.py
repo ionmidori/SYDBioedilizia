@@ -112,4 +112,4 @@ async def move_session(db: Any, session_id: str, from_uid: str, to_uid: str) -> 
     await refresh_quote_owner(db, session_id, to_uid)  # no quote: no-op
     await _move_owner(db, session_id, from_uid, to_uid)
     await clear_session_expiry(db, session_id)
-    logger.info(f"[GuestClaim] Session {session_id} moved from {from_uid} to {to_uid}")
+    logger.info("[GuestClaim] Session moved between accounts")

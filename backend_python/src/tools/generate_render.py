@@ -183,7 +183,7 @@ async def generate_render_wrapper(
             await get_conversation_repository().save_file_metadata(
                 session_id, file_meta, room_id=room_id or (source_file or {}).get(FILE_ROOM_FIELD)
             )
-            logger.info(f"[Render] 📂 Registered render file in project {session_id}")
+            logger.info("[Render] 📂 Registered render file")
 
         except Exception as file_error:  # noqa: BLE001
              logger.warning(f"[Render] Failed to register file metadata: {file_error}")

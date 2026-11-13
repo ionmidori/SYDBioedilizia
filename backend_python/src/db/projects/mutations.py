@@ -70,12 +70,12 @@ async def update_project_details(session_id: str, user_id: str, details: Project
         doc = await doc_ref.get()
 
         if not doc.exists:
-            logger.warning(f"[Projects] Cannot update details for non-existent project {session_id}")
+            logger.warning("[Projects] Cannot update details for non-existent project")
             return False
 
         # Ownership check
         if (doc.to_dict() or {}).get("userId") != user_id:
-            logger.warning(f"[Projects] User {user_id} not authorized to update details for {session_id}")
+            logger.warning("[Projects] User not authorized to update details")
             return False
 
         # Convert Pydantic model to dict for Firestore
@@ -98,11 +98,11 @@ async def update_project_details(session_id: str, user_id: str, details: Project
             "updatedAt": utc_now(),
         })
 
-        logger.info(f"[Projects] Updated construction details for project {session_id}")
+        logger.info("[Projects] Updated construction details")
         return True
 
     except Exception as e:
-        logger.error(f"[Projects] Error updating project details {session_id}: {str(e)}", exc_info=True)
+        logger.error(f"[Projects] Error updating project details: {str(e)}", exc_info=True)
         return False
 
 
@@ -134,12 +134,12 @@ async def save_project_file_metadata(session_id: str, user_id: str, file_metadat
         doc = await doc_ref.get()
 
         if not doc.exists:
-            logger.warning(f"[Projects] Cannot save file metadata for non-existent project {session_id}")
+            logger.warning("[Projects] Cannot save file metadata for non-existent project")
             return False
 
         # Ownership check
         if (doc.to_dict() or {}).get("userId") != user_id:
-            logger.warning(f"[Projects] User {user_id} not authorized to save file to {session_id}")
+            logger.warning("[Projects] User not authorized to save file")
             return False
 
         file_id = file_metadata.get("file_id")
@@ -164,7 +164,7 @@ async def save_project_file_metadata(session_id: str, user_id: str, file_metadat
         if storage_path and is_dashboard_upload_path(session_id, storage_path):
             doc_data["metadata"]["storage_path"] = storage_path
         elif storage_path:
-            logger.warning(f"[Projects] Ignored storage path outside project {session_id} uploads")
+            logger.warning("[Projects] Ignored storage path outside project uploads")
         if file_metadata.get("room_id"):
             doc_data[FILE_ROOM_FIELD] = file_metadata["room_id"]
 
@@ -177,9 +177,9 @@ async def save_project_file_metadata(session_id: str, user_id: str, file_metadat
         # Also update the project's updatedAt timestamp
         await doc_ref.update({"updatedAt": utc_now()})
 
-        logger.info(f"[Projects] Saved file metadata {file_id} for project {session_id}")
+        logger.info(f"[Projects] Saved file metadata {file_id}")
         return True
 
     except Exception as e:
-        logger.error(f"[Projects] Error saving file metadata for {session_id}: {str(e)}", exc_info=True)
+        logger.error(f"[Projects] Error saving file metadata: {str(e)}", exc_info=True)
         return False

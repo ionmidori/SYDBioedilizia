@@ -394,7 +394,7 @@ async def generate_render(
             source_image_url=source,
             room_id=target_room,
         )
-        _logger.info(f"[ADK Tool] generate_render completed. Status: {result.get('status')}, session: {session_id}")
+        _logger.info(f"[ADK Tool] generate_render completed. Status: {result.get('status')}")
         if result.get("status") == "success":
             await increment_quota(user_id, "generate_render")
 
@@ -427,7 +427,7 @@ async def generate_render(
             }
         return result
     except Exception as e:
-        _logger.error(f"[ADK Tool] generate_render FAILED for session {session_id}: {e}", exc_info=True)
+        _logger.error(f"[ADK Tool] generate_render FAILED: {e}", exc_info=True)
         return {"status": "error", "error": "Render generation failed. Please try again."}
 
 

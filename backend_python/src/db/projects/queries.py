@@ -36,14 +36,14 @@ async def get_project(session_id: str, user_id: str) -> ProjectDocument | None:
         doc = await doc_ref.get()
 
         if not doc.exists:
-            logger.warning(f"[Projects] Project {session_id} not found")
+            logger.warning("[Projects] Project not found")
             return None
 
         data = doc.to_dict() or {}
 
         # Ownership check
         if data.get("userId") != user_id:
-            logger.warning(f"[Projects] User {user_id} not authorized for project {session_id}")
+            logger.warning("[Projects] User not authorized for project")
             return None
 
         # Handle datetime conversion
@@ -87,5 +87,5 @@ async def get_project(session_id: str, user_id: str) -> ProjectDocument | None:
         )
 
     except Exception as e:
-        logger.error(f"[Projects] Error fetching project {session_id}: {str(e)}", exc_info=True)
+        logger.error(f"[Projects] Error fetching project: {str(e)}", exc_info=True)
         return None

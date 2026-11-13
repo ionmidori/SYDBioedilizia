@@ -413,7 +413,7 @@ async def _signed_pdf_url(project_id: str, blob_path: str) -> QuotePdfUrlRespons
 
         pdf_url = await run_in_threadpool(_generate_url)
     except Exception as e:
-        logger.exception("Error generating PDF URL.", extra={"project_id": project_id})
+        logger.exception("Error generating PDF URL.")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate PDF URL.",

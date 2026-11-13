@@ -267,7 +267,7 @@ async def _rehydrate_session(
         await session_service.append_event(session, event)
     logger.info(
         f"[ADK] Injected {len(events)} history events into restored session",
-        extra={"session_id": session_id, "rooms": len(context.rooms) if context else 0},
+        extra={"rooms": len(context.rooms) if context else 0},
     )
     return next((m.get("id") for m in reversed(history) if m.get("role") == "assistant"), None)
 
@@ -651,7 +651,7 @@ class ADKOrchestrator(BaseOrchestrator):
             # state (e.g. refused videos) carries over.
             carried_state: dict[str, Any] | None = None
             if session is not None and _is_stale(_synced_marker.get(sync_key), firestore_marker):
-                logger.info("[ADK] Stale session resynced", extra={"session_id": session_id})
+                logger.info("[ADK] Stale session resynced")
                 carried_state = dict(session.state)
                 await session_service.delete_session(app_name=_APP_NAME, user_id=user_id, session_id=session_id)
                 _synced_marker.pop(sync_key, None)
@@ -664,7 +664,7 @@ class ADKOrchestrator(BaseOrchestrator):
                     session_service, user_id, session_id, carried_state,
                     _restore_context(session_id, rooms, room_id),
                 )
-                logger.info("Created new ADK session", extra={"session_id": session_id, "user_id": user_id})
+                logger.info("Created new ADK session")
 
             if turn is not None:
                 turn.mark("adk_session_ready")
@@ -682,7 +682,7 @@ class ADKOrchestrator(BaseOrchestrator):
                     content_parts = [types.Part(text="[No content]")]
 
                 actual_message = types.Content(role="user", parts=content_parts)
-                logger.info(f"[ADK] Starting run_async. Session: {session_id}, Parts: {len(content_parts)}")
+                logger.info(f"[ADK] Starting run_async. Parts: {len(content_parts)}")
 
                 async def _run_with_session_recovery(
                     message: types.Content, state_delta: dict[str, Any] | None = None
@@ -715,8 +715,8 @@ class ADKOrchestrator(BaseOrchestrator):
                             if is_session_err and attempt == 0:
                                 logger.warning(
                                     f"[ADK] SessionNotFoundError mid-stream on attempt {attempt+1} "
-                                    f"— recreating session and retrying. session_id={session_id}",
-                                    extra={"session_id": session_id, "restored": True},
+                                    "— recreating session and retrying.",
+                                    extra={"restored": True},
                                 )
                                 try:
                                     session = await _open_restored_session(
@@ -777,7 +777,7 @@ class ADKOrchestrator(BaseOrchestrator):
                             raise
                         logger.warning(
                             "[ADK] Model refused the request with videos; retrying the turn without them",
-                            extra={"session_id": session_id, "status": exc.code, "videos": len(refusable)},
+                            extra={"status": exc.code, "videos": len(refusable)},
                         )
                         yield _VideosRefused(notice=skipped_notice_text(
                             current=len(videos.skipped) + len(videos.uris), earlier=len(earlier)
@@ -815,7 +815,7 @@ class ADKOrchestrator(BaseOrchestrator):
                     # This ensures a clean error message reaches the client if it truly hangs.
                     async with asyncio.timeout(180):
                         logger.info(
-                            f"[ADK] Calling run_async. session_id={session_id}, "
+                            "[ADK] Calling run_async. "
                             f"parts={len(actual_message.parts or [])}, restored={session is not None}"
                         )
 
@@ -1039,7 +1039,7 @@ class ADKOrchestrator(BaseOrchestrator):
                     await vertex_ai_breaker.on_failure(
                         TimeoutError("run_async timed out after 180s")
                     )
-                    logger.error(f"[ADK] run_async timed out after 180s for session {session_id}")
+                    logger.error("[ADK] run_async timed out after 180s")
                     async for chunk in stream_error("Syd ha impiegato troppo tempo a rispondere. Riprova tra poco."):
                         yield chunk
 
@@ -1081,7 +1081,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                 room_id=room_id or (getattr(session, "state", None) or {}).get(ACTIVE_ROOM_STATE_KEY),
                                 is_guest=is_guest,
                             ))
-                        logger.info(f"[Repo] Saved assistant message for session {session_id}")
+                        logger.info("[Repo] Saved assistant message")
                     except Exception as e:  # noqa: BLE001
                         logger.error(f"Failed to persist assistant message: {e}")
                     if turn is not None:

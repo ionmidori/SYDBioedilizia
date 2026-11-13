@@ -13,9 +13,17 @@ from src.core.context import get_request_id, get_session_id, get_user_id
 _EMAIL_RE = re.compile(r'[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}')
 _PHONE_RE = re.compile(r'\+?[\d\s\-()]{7,20}')
 _JWT_RE = re.compile(r'Bearer\s+[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+')
+# Project and session ids are UUIDs (for a guest, a bearer token).
+_UUID_RE = re.compile(r'\b[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\b')
+
+def _mask_ids(text: str) -> str:
+    """Replace project/session ids with a placeholder (before the phone pattern can split them)."""
+    return _UUID_RE.sub('[ID]', text)
+
 
 def _redact(text: str) -> str:
     """Replace PII patterns with safe placeholders."""
+    text = _mask_ids(text)
     text = _EMAIL_RE.sub('[EMAIL]', text)
     text = _PHONE_RE.sub('[PHONE]', text)
     text = _JWT_RE.sub('Bearer [TOKEN]', text)
@@ -51,13 +59,28 @@ class JsonFormatter(logging.Formatter):
         # Merge ALL extra fields (method, path, status_code, duration_ms, span, etc.)
         for key, value in record.__dict__.items():
             if key not in self._STDLIB_ATTRS and key not in log_record:
-                log_record[key] = value
+                log_record[key] = _mask_ids(value) if isinstance(value, str) else value
 
         # Handle Exception info (redact tracebacks too)
         if record.exc_info:
             log_record["exception"] = _redact(self.formatException(record.exc_info))
 
         return json.dumps(log_record, default=str)
+
+class AccessLogIdFilter(logging.Filter):
+    """uvicorn access lines carry the URL path (/api/projects/<id>/...): mask the ids in it."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(_mask_ids(a) if isinstance(a, str) else a for a in record.args)
+        return True
+
+
+def install_access_log_filter() -> None:
+    access = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, AccessLogIdFilter) for f in access.filters):
+        access.addFilter(AccessLogIdFilter())
+
 
 def setup_logging():
     """
@@ -104,6 +127,7 @@ def setup_logging():
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("google").setLevel(logging.WARNING)
+    install_access_log_filter()
 
 def get_logger(name: str) -> logging.Logger:
     """Get a standard logger instance."""

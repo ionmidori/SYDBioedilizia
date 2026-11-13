@@ -74,15 +74,14 @@ async def get_chat_history(
         if not session_doc.exists:
             # If session doesn't exist, it's a "fresh" session.
             # We return empty messages instead of 404 to prevent UI crashes.
-            logger.info(f"[ChatHistory] Session {session_id} not found. Returning empty history.")
+            logger.info("[ChatHistory] Session not found. Returning empty history.")
             return ChatHistoryResponse(messages=[], has_more=False)
 
         # Owner only: a guest's chat reaches its account through the guest claim.
         session_data = session_doc.to_dict() or {}
         if not is_owner(session_data, user_id):
             logger.warning(
-                f"[ChatHistory] Access denied: User '{user_id}' "
-                f"tried to access session '{session_id}' owned by '{session_data.get('userId', '')}'"
+                "[ChatHistory] Access denied: the session belongs to another user"
             )
             raise HTTPException(status_code=403, detail="Access denied to this session")
 
@@ -166,7 +165,7 @@ async def get_chat_history(
                 tool_calls=tool_calls_val
             ))
 
-        logger.info(f"[ChatHistory] Retrieved {len(messages)} messages for session {session_id}")
+        logger.info(f"[ChatHistory] Retrieved {len(messages)} messages")
 
         return ChatHistoryResponse(
             messages=messages,

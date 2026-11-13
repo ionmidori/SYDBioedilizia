@@ -72,7 +72,7 @@ class RoomRepository:
             {"brief": brief.model_dump(), "summary": summary, "updated_at": utc_now()},
             option=self._db().write_option(last_update_time=expected_update_time),
         )
-        logger.info("[Rooms] Brief updated", extra={"project_id": project_id, "room_id": room_id})
+        logger.info("[Rooms] Brief updated", extra={"room_id": room_id})
 
     async def require_room(self, project_id: str, room_id: str) -> RoomSchema:
         """The room, or RoomNotFoundError (404)."""
@@ -99,7 +99,7 @@ class RoomRepository:
             room_id=_new_room_id(), label=data.label, room_type=data.room_type, created_at=now, updated_at=now
         )
         await rooms_ref.document(room.room_id).set(room.model_dump())
-        logger.info("[Rooms] Room created", extra={"project_id": project_id, "room_id": room.room_id})
+        logger.info("[Rooms] Room created", extra={"room_id": room.room_id})
         return room
 
     async def update_room(self, project_id: str, room_id: str, data: RoomUpdate) -> RoomSchema:
@@ -120,7 +120,7 @@ class RoomRepository:
         """
         assigned = await self._file_unfiled_media(project_id)
         room = await self._create_default_room(project_id)
-        logger.info("[Rooms] Default room ready", extra={"project_id": project_id, "files_assigned": assigned})
+        logger.info("[Rooms] Default room ready", extra={"files_assigned": assigned})
         return room
 
     async def _file_unfiled_media(self, project_id: str) -> int:
@@ -207,7 +207,7 @@ class RoomRepository:
         if not (await file_ref.get()).exists:
             raise ProjectFileNotFoundError(project_id, file_id)
         await file_ref.update({FILE_ROOM_FIELD: room_id})
-        logger.info("[Rooms] File assigned", extra={"project_id": project_id, "file_id": file_id, "room_id": room_id})
+        logger.info("[Rooms] File assigned", extra={"file_id": file_id, "room_id": room_id})
 
 
 def get_room_repository() -> RoomRepository:

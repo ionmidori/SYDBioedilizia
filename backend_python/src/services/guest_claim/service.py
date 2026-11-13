@@ -107,7 +107,7 @@ async def claim_guest_sessions(
             AuditAction.PROJECT_CLAIM, AuditResourceType.PROJECT, session_id,
             user_id=user.uid, metadata={"from_uid": anon_uid},
         )
-    logger.info(f"[GuestClaim] {len(found.session_ids)} sessions of {anon_uid} claimed by {user.uid}")
+    logger.info(f"[GuestClaim] {len(found.session_ids)} sessions claimed")
     if outcome.open_session_id is None:
         return outcome  # the guest never wrote
     chat_id = await _into_one_chat(db, user.uid, outcome, now or utc_now())
