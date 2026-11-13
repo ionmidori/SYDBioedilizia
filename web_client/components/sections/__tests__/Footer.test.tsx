@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { Footer } from '@/components/sections/Footer';
 import { VCARD_PATH } from '@/lib/company-info/vcard';
-import { renderWithCompany, TEST_IDENTITY } from '@/test-utils/company';
+import { renderWithCompany, TEST_HOURS, TEST_IDENTITY } from '@/test-utils/company';
 
 jest.mock('next/navigation', () => ({ usePathname: () => '/' }));
 
@@ -44,5 +44,27 @@ describe('Footer', () => {
         const save = screen.getByRole('link', { name: 'Salva il contatto di SYD' });
         expect(save).toHaveAttribute('href', VCARD_PATH);
         expect(save).toHaveAttribute('download');
+    });
+
+    it('hides the opening hours row when hours are empty, even if a note is set', () => {
+        renderWithCompany(<Footer />, TEST_IDENTITY, { hours: [], hoursNote: 'Su appuntamento' });
+        expect(screen.queryByText(/Orari di apertura/i)).not.toBeInTheDocument();
+        expect(screen.queryByText('Su appuntamento')).not.toBeInTheDocument();
+    });
+
+    it('shows the opening hours rows when provided, without note if empty', () => {
+        renderWithCompany(<Footer />, TEST_IDENTITY, { hours: TEST_HOURS, hoursNote: '   ' });
+        expect(screen.getByText('Lun-Ven: 09:00–18:00')).toBeInTheDocument();
+        expect(screen.getByText('Sabato: 09:00–13:00')).toBeInTheDocument();
+        expect(screen.getByText(/Orari di apertura/i)).toBeInTheDocument();
+    });
+
+    it('shows the optional hours note under the opening hours when present', () => {
+        renderWithCompany(<Footer />, TEST_IDENTITY, {
+            hours: TEST_HOURS,
+            hoursNote: 'Sabato pomeriggio su appuntamento',
+        });
+        expect(screen.getByText('Lun-Ven: 09:00–18:00')).toBeInTheDocument();
+        expect(screen.getByText('Sabato pomeriggio su appuntamento')).toBeInTheDocument();
     });
 });
