@@ -108,5 +108,20 @@ describe('ConsentAwareAnalytics', () => {
         expect((lastVaCall?.[1] as BeforeSendFn)(sampleEvent)).toBeNull();
         expect(lastSiCall?.[0]).toBe('beforeSend');
         expect((lastSiCall?.[1] as BeforeSendFn)({ type: 'vital', url: '/test' })).toBeNull();
+
+        // Simulate re-enabling analytics mid-session without reload
+        CookieManager.setConsent({ essential: true, analytics: true, marketing: false });
+        mockUseCookieConsent.mockReturnValue(
+            consentHookState({ essential: true, analytics: true, marketing: false })
+        );
+        rerender(<ConsentAwareAnalytics />);
+
+        const regrantVaCall = vaMock.mock.calls.at(-1);
+        const regrantSiCall = siMock.mock.calls.at(-1);
+        expect((regrantVaCall?.[1] as BeforeSendFn)(sampleEvent)).toEqual(sampleEvent);
+        expect((regrantSiCall?.[1] as BeforeSendFn)({ type: 'vital', url: '/test' })).toEqual({
+            type: 'vital',
+            url: '/test',
+        });
     });
 });

@@ -20,11 +20,11 @@ export function ConsentAwareAnalytics() {
     const analyticsAllowed = isInitialized && consent?.analytics === true;
 
     useEffect(() => {
-        if (!isInitialized || analyticsAllowed || typeof window === 'undefined') {
+        if (!isInitialized || typeof window === 'undefined') {
             return;
         }
-        window.va?.('beforeSend', () => null);
-        window.si?.('beforeSend', () => null);
+        window.va?.('beforeSend', filterAnalyticsEvent);
+        window.si?.('beforeSend', (event) => (CookieManager.isAllowed('analytics') ? event : null));
     }, [isInitialized, analyticsAllowed]);
 
     if (!analyticsAllowed) {
