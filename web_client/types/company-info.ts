@@ -150,6 +150,7 @@ export const sectionSchema = z
 export type Section = z.infer<typeof sectionSchema>;
 
 export const faqCategorySchema = z.object({ name: z.string().trim().min(1).max(40), icon: iconNameSchema }).strict();
+export type FaqCategory = z.infer<typeof faqCategorySchema>;
 export const faqItemSchema = z
   .object({
     slug,
