@@ -49,12 +49,26 @@ interface UseUploadOptions {
     roomId?: string | null;
 }
 
+const MAX_DOCUMENT_SIZE = 25 * 1024 * 1024; // 25MB (matches backend MAX_DOCUMENT_SIZE)
+
 const DEFAULT_OPTIONS: Required<UseUploadOptions> = {
     maxSize: 100 * 1024 * 1024, // 100MB
-    allowedTypes: ['image/*', 'video/*'],
+    allowedTypes: ['image/*', 'video/*', 'application/pdf'],
     sessionId: '',
     roomId: null,
 };
+
+function createRejectedUploadItem(file: File, error: string): UploadItem {
+    return {
+        id: crypto.randomUUID(),
+        file,
+        previewUrl: '',
+        progress: 0,
+        status: 'error',
+        retryable: false,
+        error,
+    };
+}
 
 // =============================================================================
 // HOOK
@@ -196,8 +210,13 @@ export function useUpload(options: UseUploadOptions = {}) {
                 // BUILD FORM DATA
                 const formData = new FormData();
                 formData.append('file', fileToUpload);
-                // Images and videos are stored under the session's Storage prefix.
-                if (sessionId && (item.file.type.startsWith('image/') || item.file.type.startsWith('video/'))) {
+                // Images, videos, and PDF documents are stored under the session's Storage prefix.
+                if (
+                    sessionId &&
+                    (item.file.type.startsWith('image/') ||
+                        item.file.type.startsWith('video/') ||
+                        item.file.type === 'application/pdf')
+                ) {
                     formData.append('session_id', sessionId);
                     // The room active when the file was added (the backend checks it belongs to the project).
                     if (roomId) formData.append('room_id', roomId);
@@ -283,17 +302,31 @@ export function useUpload(options: UseUploadOptions = {}) {
     const addFiles = useCallback(
         async (files: File[]) => {
             const validFiles: UploadItem[] = [];
+            const rejectedFiles: UploadItem[] = [];
 
             for (const file of files) {
                 // Validate type
                 if (!isAllowedType(file, allowedTypes)) {
-                    console.warn(`[useUpload] Skipping unsupported file: ${file.name} (${file.type})`);
+                    console.warn(`[useUpload] Rejecting unsupported file: ${file.name} (${file.type})`);
+                    rejectedFiles.push(
+                        createRejectedUploadItem(file, 'Formato file non supportato.')
+                    );
                     continue;
                 }
 
-                // Validate size
-                if (file.size > maxSize) {
-                    console.warn(`[useUpload] Skipping oversized file: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+                // Validate size (PDF documents follow backend 25MB cap)
+                const effectiveMaxSize =
+                    file.type === 'application/pdf'
+                        ? Math.min(maxSize, MAX_DOCUMENT_SIZE)
+                        : maxSize;
+                if (file.size > effectiveMaxSize) {
+                    console.warn(`[useUpload] Rejecting oversized file: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+                    rejectedFiles.push(
+                        createRejectedUploadItem(
+                            file,
+                            'Il file supera la dimensione massima consentita.'
+                        )
+                    );
                     continue;
                 }
 
@@ -310,16 +343,16 @@ export function useUpload(options: UseUploadOptions = {}) {
                 validFiles.push(item);
             }
 
-            if (validFiles.length === 0) return;
+            if (rejectedFiles.length === 0 && validFiles.length === 0) return;
 
-            // Optimistic UI update
+            // Optimistic UI update (includes rejected items so UploadErrorNotice renders reasons)
             const newUploads: Record<string, UploadItem> = {};
-            validFiles.forEach((item) => {
+            [...rejectedFiles, ...validFiles].forEach((item) => {
                 newUploads[item.id] = item;
             });
             setUploads((prev) => ({ ...prev, ...newUploads }));
 
-            // Process uploads in parallel
+            // Process valid uploads in parallel
             validFiles.forEach((item) => processUpload(item));
         },
         [allowedTypes, maxSize, processUpload]
@@ -340,7 +373,9 @@ export function useUpload(options: UseUploadOptions = {}) {
             }
 
             // Revoke blob URL to free memory
-            URL.revokeObjectURL(item.previewUrl);
+            if (item.previewUrl) {
+                URL.revokeObjectURL(item.previewUrl);
+            }
 
             // Remove from state
             const next = { ...prev };
@@ -389,7 +424,7 @@ export function useUpload(options: UseUploadOptions = {}) {
     const clearAll = useCallback(() => {
         Object.values(uploads).forEach((item) => {
             if (item.abortController) item.abortController.abort();
-            URL.revokeObjectURL(item.previewUrl);
+            if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
         });
         setUploads({});
     }, [uploads]);

@@ -182,6 +182,7 @@ describe('ChatInput', () => {
         const accepts = Array.from(fileInputs).map(el => el.getAttribute('accept'));
         expect(accepts).toContain('image/*');
         expect(accepts).toContain('application/pdf');
+        expect(accepts).toContain('application/pdf,image/jpeg,image/png,image/webp,video/mp4,video/quicktime');
     });
 
     it('should open attach dialog when paperclip button clicked', () => {

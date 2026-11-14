@@ -67,4 +67,16 @@ describe('FilePreviewItem — failed upload', () => {
 
         expect(screen.queryByText('Non riuscito')).not.toBeInTheDocument();
     });
+
+    it('renders PDF document indicator and filename for application/pdf uploads', () => {
+        const pdfItem = item({
+            status: 'success',
+            progress: 100,
+            file: new File(['%PDF-1.7'], 'planimetria-casa.pdf', { type: 'application/pdf' }),
+        });
+        render(<FilePreviewItem item={pdfItem} onRemove={jest.fn()} />);
+
+        expect(screen.getByTestId('pdf-preview')).toBeInTheDocument();
+        expect(screen.getByText('planimetria-casa.pdf')).toBeInTheDocument();
+    });
 });

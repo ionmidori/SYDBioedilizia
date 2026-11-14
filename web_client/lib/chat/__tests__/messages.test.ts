@@ -40,6 +40,18 @@ describe('historyToUIMessage', () => {
         ]);
     });
 
+    it('restores document attachments from Firestore history as application/pdf file parts', () => {
+        const msg = historyToUIMessage({
+            id: 'doc-msg',
+            role: 'user',
+            content: '',
+            attachments: { documents: ['https://cdn/pianta.pdf'] },
+        });
+        expect(msg.parts).toEqual([
+            { type: 'file', mediaType: 'application/pdf', url: 'https://cdn/pianta.pdf' },
+        ]);
+    });
+
     it('skips non-string attachment urls', () => {
         const msg = historyToUIMessage({
             id: 'a',

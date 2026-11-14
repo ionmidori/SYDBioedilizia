@@ -340,7 +340,7 @@ export function ChatInput({
                     type="file"
                     ref={cloudInputRef}
                     className="hidden"
-                    accept="application/pdf,application/octet-stream,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,video/mp4"
+                    accept="application/pdf,image/jpeg,image/png,image/webp,video/mp4,video/quicktime"
                     onChange={handleFileChange}
                     multiple
                     aria-hidden="true"
