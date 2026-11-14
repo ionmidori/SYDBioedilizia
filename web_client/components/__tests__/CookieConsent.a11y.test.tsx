@@ -72,9 +72,16 @@ describe('CookieConsent settings, for keyboard and screen-reader users', () => {
       jest.advanceTimersByTime(2000);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /rifiuta opzionali/i }));
+    const rejectBtn = screen.getByRole('button', { name: /rifiuta opzionali/i });
+    const wrapper = rejectBtn.closest('.fixed');
+    expect(wrapper).toHaveClass('z-[80]');
+
+    fireEvent.click(rejectBtn);
     fireEvent.click(screen.getByRole('button', { name: /continua senza accettare i cookie opzionali/i }));
     expect(declineAll).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole('button', { name: /personalizza/i }));
+    expect(wrapper).toHaveClass('z-[200]');
   });
 
   it('reopens directly in settings mode from open_cookie_settings and closes without falling back to the first layer', async () => {

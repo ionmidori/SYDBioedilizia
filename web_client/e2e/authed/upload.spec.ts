@@ -80,33 +80,31 @@ test.describe('chat file upload', () => {
   });
 
   test('rejects an image above the 10MB cap', async ({ page }) => {
-    const alerts = collectDialogs(page);
-
     await page.getByTestId('chat-file-input').setInputFiles({
       name: 'huge.png',
       mimeType: 'image/png',
       buffer: Buffer.alloc(11 * 1024 * 1024),
     });
 
-    await expect
-      .poll(() => alerts.join('\n'))
-      .toContain('Le immagini non possono superare i 10MB');
-
-    await expect(page.getByTestId('file-preview')).toHaveCount(0);
+    const preview = page.getByTestId('file-preview');
+    await expect(preview).toHaveAttribute('data-upload-status', 'error');
+    await expect(page.getByTestId('upload-errors')).toHaveText(
+      'Il file supera la dimensione massima consentita.',
+    );
+    await expect(preview.getByRole('button', { name: 'Riprova il caricamento' })).toHaveCount(0);
   });
 
   test('rejects an unsupported file type', async ({ page }) => {
-    const alerts = collectDialogs(page);
-
     await page.getByTestId('chat-file-input').setInputFiles({
       name: 'notes.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('hello'),
     });
 
-    await expect.poll(() => alerts.join('\n')).toContain('Tipo di file non supportato');
-
-    await expect(page.getByTestId('file-preview')).toHaveCount(0);
+    const preview = page.getByTestId('file-preview');
+    await expect(preview).toHaveAttribute('data-upload-status', 'error');
+    await expect(page.getByTestId('upload-errors')).toHaveText('Formato file non supportato.');
+    await expect(preview.getByRole('button', { name: 'Riprova il caricamento' })).toHaveCount(0);
   });
 
   test('caps a single selection at 3 files', async ({ page }) => {

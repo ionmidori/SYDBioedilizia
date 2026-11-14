@@ -91,7 +91,7 @@ export function CookieConsent() {
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] inset-x-4 sm:inset-x-6 z-[200] flex justify-center pointer-events-none"
+                    className={`fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] inset-x-4 sm:inset-x-6 ${showSettings ? 'z-[200]' : 'z-[80]'} flex justify-center pointer-events-none`}
                 >
                     <div className="w-full max-w-4xl glass !bg-canvas/95 p-6 md:p-8 rounded-[2rem] border-line shadow-2xl pointer-events-auto relative overflow-hidden group">
                         {/* Atmospheric Background Element */}
