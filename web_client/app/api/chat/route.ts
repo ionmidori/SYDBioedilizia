@@ -15,6 +15,7 @@ export const runtime = 'nodejs';
 
 import { affinityCookieForBackend, affinityCookieForBrowser } from './affinity-cookie';
 import { buildBackendPayload, type ChatProxyBody } from './backend-payload';
+import { appendBackendForwardHeaders } from '@/lib/security/headers';
 import { logger } from '@/lib/logger';
 
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:8080';
@@ -78,7 +79,6 @@ export async function POST(req: Request) {
         }
 
         const idToken = authHeader.split('Bearer ')[1];
-        const appCheckToken = req.headers.get('X-Firebase-AppCheck');
 
         logger.debug('[Proxy] Forwarding to Python backend:', PYTHON_BACKEND_URL);
 
@@ -89,9 +89,7 @@ export async function POST(req: Request) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${idToken}`,
         };
-        if (appCheckToken) {
-            proxyHeaders['X-Firebase-AppCheck'] = appCheckToken;
-        }
+        appendBackendForwardHeaders(req.headers, proxyHeaders);
         // Route the turn to the Cloud Run instance holding this conversation.
         const affinityCookie = affinityCookieForBackend(req.headers.get('Cookie'));
         if (affinityCookie) {

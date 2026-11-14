@@ -20,9 +20,9 @@ export function DashboardClientLayout({
     const { logout, user, isInitialized } = useAuth();
     const router = useRouter();
 
-    // Protection Logic: Redirect if not authenticated after initialization
+    // Protection Logic: Redirect if not authenticated (or anonymous) after initialization
     useEffect(() => {
-        if (isInitialized && !user) {
+        if (isInitialized && (!user || user.isAnonymous)) {
             router.push('/');
         }
     }, [isInitialized, user, router]);
@@ -44,7 +44,7 @@ export function DashboardClientLayout({
 
     // Redirect fires via useEffect; show spinner while Firebase session restores
     // so there's never a blank flash between init and redirect
-    if (!user) return <ScallopedPageTransition isNavigating />;
+    if (!user || user.isAnonymous) return <ScallopedPageTransition isNavigating />;
 
     return (
         <SidebarProvider>

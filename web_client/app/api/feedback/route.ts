@@ -3,6 +3,8 @@
  * Pattern: same as api/chat/route.ts (minimal proxy, auth forwarded).
  */
 
+import { appendBackendForwardHeaders } from '@/lib/security/headers';
+
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
@@ -24,11 +26,7 @@ export async function POST(req: Request) {
             'Content-Type': 'application/json',
             'Authorization': authHeader,
         };
-
-        const appCheckToken = req.headers.get('X-Firebase-AppCheck');
-        if (appCheckToken) {
-            proxyHeaders['X-Firebase-AppCheck'] = appCheckToken;
-        }
+        appendBackendForwardHeaders(req.headers, proxyHeaders);
 
         const backendResponse = await fetch(`${PYTHON_BACKEND_URL}/feedback`, {
             method: 'POST',

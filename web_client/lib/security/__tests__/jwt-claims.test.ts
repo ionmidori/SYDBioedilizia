@@ -1,4 +1,4 @@
-import { decodeJwtClaims, hasAdminRoleClaim, isTokenExpired } from '../jwt-claims';
+import { decodeJwtClaims, hasAdminRoleClaim, isAnonymousToken, isTokenExpired } from '../jwt-claims';
 
 function token(payload: Record<string, unknown>): string {
   const b64 = (value: object) =>
@@ -30,5 +30,13 @@ describe('jwt-claims (UX-only decoding, never a security check)', () => {
     expect(hasAdminRoleClaim(token({ role: 'Admin' }))).toBe(false);
     expect(hasAdminRoleClaim(token({ admin: true }))).toBe(false);
     expect(hasAdminRoleClaim('garbage')).toBe(false);
+  });
+
+  it('identifies Firebase anonymous tokens via firebase.sign_in_provider', () => {
+    expect(isAnonymousToken(token({ uid: 'anon1', firebase: { sign_in_provider: 'anonymous' } }))).toBe(true);
+    expect(isAnonymousToken(token({ uid: 'u1', firebase: { sign_in_provider: 'google.com' } }))).toBe(false);
+    expect(isAnonymousToken(token({ uid: 'u1' }))).toBe(false);
+    expect(isAnonymousToken(token({ uid: 'u1', firebase: 'anonymous' }))).toBe(false);
+    expect(isAnonymousToken('garbage')).toBe(false);
   });
 });
