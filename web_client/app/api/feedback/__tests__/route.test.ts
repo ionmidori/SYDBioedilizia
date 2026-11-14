@@ -50,6 +50,7 @@ describe('POST /api/feedback proxy header forwarding', () => {
       makeFeedbackRequest({
         'x-forwarded-for': '198.51.100.42',
         'X-Firebase-AppCheck': 'app-check-tok',
+        'Idempotency-Key': 'idem-fb-123',
       }),
     );
 
@@ -60,9 +61,10 @@ describe('POST /api/feedback proxy header forwarding', () => {
     expect(forwardedHeaders.Authorization).toBe('Bearer test-jwt');
     expect(forwardedHeaders['X-Firebase-AppCheck']).toBe('app-check-tok');
     expect(forwardedHeaders['X-Forwarded-For']).toBe('198.51.100.42');
+    expect(forwardedHeaders['Idempotency-Key']).toBe('idem-fb-123');
   });
 
-  it('omits X-Forwarded-For and X-Firebase-AppCheck when absent', async () => {
+  it('omits X-Forwarded-For, X-Firebase-AppCheck, and Idempotency-Key when absent', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       status: 200,
       text: async () => '{"ok":true}',
@@ -75,5 +77,6 @@ describe('POST /api/feedback proxy header forwarding', () => {
     const forwardedHeaders = init.headers as Record<string, string>;
     expect(forwardedHeaders['X-Forwarded-For']).toBeUndefined();
     expect(forwardedHeaders['X-Firebase-AppCheck']).toBeUndefined();
+    expect(forwardedHeaders['Idempotency-Key']).toBeUndefined();
   });
 });

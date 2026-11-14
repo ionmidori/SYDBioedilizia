@@ -26,6 +26,10 @@ export async function POST(req: Request) {
             'Content-Type': 'application/json',
             'Authorization': authHeader,
         };
+        const idempotencyKey = req.headers.get('Idempotency-Key');
+        if (idempotencyKey) {
+            proxyHeaders['Idempotency-Key'] = idempotencyKey;
+        }
         appendBackendForwardHeaders(req.headers, proxyHeaders);
 
         const backendResponse = await fetch(`${PYTHON_BACKEND_URL}/feedback`, {
