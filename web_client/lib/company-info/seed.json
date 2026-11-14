@@ -413,24 +413,24 @@
     "faq": [
       {
         "slug": "costo-ristrutturazione-mq",
-        "question": "Quanto costa ristrutturare casa al mq nel 2026?",
+        "question": "Quanto costa ristrutturare casa al mq a Roma e provincia?",
         "category": "Costi & Tempi",
         "answer": [
           {
             "type": "lead",
-            "text": "Il costo medio per una ristrutturazione completa in Italia varia tra **800€ e 1.200€ al mq** per finiture standard."
+            "text": "Su **Roma e provincia** il costo indicativo di una ristrutturazione completa si orienta tra **800€ e 1.200€ al mq** per finiture standard, con listini di riferimento basati sul Prezzario Regione Lazio."
           },
           {
             "type": "p",
-            "text": "Per ristrutturazioni di lusso o interventi strutturali complessi, i prezzi possono superare i **1.500€ al mq**. I fattori principali che influenzano il prezzo sono:"
+            "text": "Per interventi di ristrutturazione completa o parziale, i fattori principali che determinano la stima sono:"
           },
           {
             "type": "ul",
             "items": [
-              "**Demolizioni e Smaltimento:** circa 10-15% del budget.",
-              "**Impianti (Elettrico/Idraulico):** rifacimento completo certificato.",
-              "**Finiture:** pavimenti, rivestimenti e infissi (voci più variabili).",
-              "**Zona Geografica:** Milano e Roma tendono ad avere costi del 15-20% superiori."
+              "**Demolizioni e Smaltimento:** circa 10-15% del budget negli interventi tradizionali.",
+              "**Impianti (Elettrico/Idraulico):** rifacimento completo con dichiarazione di conformità.",
+              "**Finiture:** pavimenti, rivestimenti e infissi scelti sul progetto.",
+              "**Zona e Accesso Cantiere:** condizioni logistiche e ZTL a Roma e Città metropolitana."
             ]
           }
         ]
@@ -505,6 +505,42 @@
         "section_slug": "pratiche-permessi"
       },
       {
+        "slug": "cos-e-syd-assistente-agentico",
+        "question": "Cos'è SYD e come funziona l'assistente AI agentico?",
+        "category": "Design & AI",
+        "answer": [
+          {
+            "type": "lead",
+            "text": "SYD è l'**assistente AI multi-agente** di SYD Bioedilizia che coordina in un'unica conversazione l'analisi tecnica degli spazi, la generazione dei render 3D e la preparazione della bozza di preventivo."
+          },
+          {
+            "type": "p",
+            "text": "A differenza di una chat tradizionale a risposte preimpostate, SYD orchestra tre moduli specializzati:"
+          },
+          {
+            "type": "definitions",
+            "items": [
+              {
+                "term": "Agente Triage & Visione:",
+                "description": "Analizza foto, video e planimetrie per rilevare superfici, stato degli impianti, infissi e tipologia di intervento."
+              },
+              {
+                "term": "Agente Design & Render 3D:",
+                "description": "Trasforma le foto dei tuoi ambienti in anteprime fotorealistiche rispettando la geometria reale della stanza."
+              },
+              {
+                "term": "Agente Computo & Preventivo:",
+                "description": "Compila la bozza delle lavorazioni usando il Prezzario Regione Lazio 2023 e il listino interno SYD, passandola poi al nostro tecnico per la revisione umana."
+              }
+            ]
+          },
+          {
+            "type": "note",
+            "text": "Ogni conversazione, file e render resta salvato nella tua Area Personale per riprendere il progetto in qualsiasi momento."
+          }
+        ]
+      },
+      {
         "slug": "funzionamento-render-ai",
         "question": "Come funzionano i rendering AI di SYD?",
         "category": "Design & AI",
@@ -555,33 +591,6 @@
           {
             "type": "p",
             "text": "Il progetto definitivo viene perfezionato insieme al nostro team tecnico sulla base delle tue preferenze emerse dai render."
-          }
-        ]
-      },
-      {
-        "slug": "smart-remodel",
-        "question": "Cos'è lo Smart Remodel di SYD?",
-        "category": "Servizi SYD",
-        "answer": [
-          {
-            "type": "lead",
-            "text": "Lo Smart Remodel è la nostra tecnica di ristrutturazione **senza demolizioni**, che riduce costi fino al 40% e tempi di cantiere a settimane."
-          },
-          {
-            "type": "p",
-            "text": "Utilizziamo materiali sovrapponibili di ultima generazione:"
-          },
-          {
-            "type": "ul",
-            "items": [
-              "**Pavimenti SPC/LVT:** Si posano sopra le piastrelle esistenti (spessore 4-6mm).",
-              "**Microcemento e resine:** Coprono pavimenti e pareti senza rimuovere il sottostante.",
-              "**Wrapping mobili:** Rinnovo cucina e bagno senza sostituzione dei mobili."
-            ]
-          },
-          {
-            "type": "p",
-            "text": "Ideale per chi vuole rinnovare casa in tempi rapidi, senza polvere e con un budget contenuto."
           }
         ]
       },
@@ -655,6 +664,68 @@
               "**In autonomia:** Puoi occuparti personalmente della scelta e dell'acquisto dei mobili per i tuoi nuovi spazi.",
               "**Tramite studi associati:** Se desideri un servizio \"chiavi in mano\", SYD Bioedilizia collabora con **studi di progettazione e arredamento partner** che sapranno valorizzare al meglio la ristrutturazione."
             ]
+          }
+        ]
+      },
+      {
+        "slug": "come-funziona-preventivo-online",
+        "question": "Come funziona il preventivo online con SYD?",
+        "category": "Costi & Tempi",
+        "answer": [
+          {
+            "type": "lead",
+            "text": "Puoi richiedere una stima preliminare direttamente in chat caricando **foto, planimetria o un breve video** degli ambienti da rinnovare."
+          },
+          {
+            "type": "p",
+            "text": "La bozza elaborata dall'assistente non è mai definitiva: viene sempre verificata da un nostro tecnico prima di inviarti via email il **preventivo PDF firmato**, valido per **30 giorni** dalla data di emissione."
+          }
+        ]
+      },
+      {
+        "slug": "bonus-fiscali-detrazioni",
+        "question": "Gestite pratiche per bonus fiscali o sconto in fattura?",
+        "category": "Permessi & Normative",
+        "section_slug": "bonus-fiscali",
+        "answer": [
+          {
+            "type": "lead",
+            "text": "No: SYD Bioedilizia **non gestisce le pratiche dei bonus fiscali** (detrazioni edili, Ecobonus) e **non applica lo sconto in fattura**."
+          },
+          {
+            "type": "p",
+            "text": "Forniamo un computo chiaro su lavorazioni e materiali certificati, lasciandoti piena libertà di affidare eventuali pratiche fiscali al tuo consulente o CAF di fiducia."
+          }
+        ]
+      },
+      {
+        "slug": "certificazioni-materiali-bioedilizia",
+        "question": "Che certificazioni hanno materiali e impianti SYD Bioedilizia?",
+        "category": "Servizi SYD",
+        "section_slug": "certificazioni-materiali",
+        "answer": [
+          {
+            "type": "lead",
+            "text": "Selezioniamo isolanti termici in **Classe A1** conformi ai criteri ambientali minimi (**CAM**), finiture naturali a basso impatto ed esecuzione curata dalla nostra **squadra interna**."
+          },
+          {
+            "type": "p",
+            "text": "A fine cantiere vengono rilasciate le dichiarazioni e certificazioni previste dalla normativa vigente per l'impianto elettrico e l'impianto idraulico."
+          }
+        ]
+      },
+      {
+        "slug": "privacy-foto-video-chat",
+        "question": "Come vengono trattati foto, video e planimetrie caricati in chat?",
+        "category": "Design & AI",
+        "answer": [
+          {
+            "type": "lead",
+            "text": "Foto, video e planimetrie caricati in chat vengono utilizzati esclusivamente per generare i **render 3D** del tuo immobile e impostare la bozza tecnica del progetto."
+          },
+          {
+            "type": "p",
+            "text": "I materiali restano protetti nel tuo account personale secondo la normativa vigente: puoi consultare ogni dettaglio nella pagina dedicata alla privacy (/privacy)."
           }
         ]
       }
