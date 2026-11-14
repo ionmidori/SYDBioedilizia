@@ -51,6 +51,11 @@ IMAGE_SIGNATURES = {
     ],
 }
 
+# PDF document magic bytes (ISO 32000-1 header)
+DOCUMENT_SIGNATURES: dict[str, list[bytes]] = {
+    "application/pdf": [b"%PDF-"],
+}
+
 
 async def validate_video_magic_bytes(file: UploadFile, max_header_size: int = 2048) -> str:
     """
@@ -215,6 +220,80 @@ async def validate_image_magic_bytes(file: UploadFile, max_header_size: int = 16
         raise HTTPException(
             status_code=500,
             detail="Image validation failed. Please try again."
+        ) from e
+
+
+async def validate_document_magic_bytes(file: UploadFile, max_header_size: int = 16) -> str:
+    """Validate document upload using Magic Bytes inspection (PDF only).
+
+    Prevents attackers from uploading arbitrary executables or scripts disguised
+    as PDF documents (e.g., exploit.exe renamed to planimetria.pdf).
+
+    Args:
+        file: Uploaded file object.
+        max_header_size: Number of bytes to read for signature detection.
+
+    Returns:
+        Validated MIME type (``"application/pdf"``).
+
+    Raises:
+        HTTPException(400): If header is too short, lacks ``%PDF-``, or
+            Content-Type does not match ``"application/pdf"``.
+    """
+    try:
+        header = await file.read(max_header_size)
+        await file.seek(0)
+
+        if len(header) < 5:
+            raise HTTPException(
+                status_code=400,
+                detail="File too small or corrupted. Minimum 5 bytes required.",
+            )
+
+        detected_type = next(
+            (
+                mime
+                for mime, signatures in DOCUMENT_SIGNATURES.items()
+                if any(header.startswith(sig) for sig in signatures)
+            ),
+            None,
+        )
+        declared_type = file.content_type
+
+        if not detected_type:
+            logger.warning(
+                f"Security Alert: Rejected document with unknown signature. "
+                f"Declared: {declared_type}, Header: {header[:16].hex()}"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="Security validation failed. File signature not recognized as a valid PDF document.",
+            )
+
+        if not declared_type:
+            raise HTTPException(
+                status_code=400,
+                detail="Missing Content-Type header for document upload",
+            )
+
+        if declared_type != detected_type:
+            logger.warning(
+                f"MIME Type Mismatch: Declared={declared_type}, Detected={detected_type}"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail=f"Security Alert: File claims to be {declared_type} but detected as {detected_type}",
+            )
+
+        logger.info(f"Document Magic Bytes validation passed: {detected_type}")
+        return detected_type
+    except HTTPException:
+        raise
+    except (OSError, ValueError) as e:
+        logger.error(f"Error during document magic bytes validation: {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Document validation failed. Please try again.",
         ) from e
 
 

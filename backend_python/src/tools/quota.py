@@ -105,6 +105,7 @@ _ROME = ZoneInfo("Europe/Rome")
 _TOOL_LABELS = {
     "upload_video": "caricamenti video",
     "upload_image": "caricamenti foto",
+    "upload_document": "caricamenti documenti",
     "generate_render": "render",
 }
 _PERIOD_LABELS = {"daily": "giornaliero", "weekly": "settimanale"}

@@ -694,6 +694,40 @@ async def _is_project_room(project_id: str, room_id: str) -> bool:
         return False
 
 
+def _extract_chat_attachments(body: ChatRequest) -> dict[str, list[str]] | None:
+    """Partition user-turn media attachments into Firestore-storable buckets."""
+    media_urls: list[str] = getattr(body, "media_urls", None) or []
+    video_file_uris: list[str] = getattr(body, "video_file_uris", None) or []
+    if not media_urls and not video_file_uris:
+        return None
+
+    media_types: list[str] = getattr(body, "media_types", None) or []
+    raw_metadata = getattr(body, "media_metadata", None)
+    media_metadata: dict[str, dict[str, str]] = raw_metadata if isinstance(raw_metadata, dict) else {}
+
+    image_urls: list[str] = []
+    document_urls: list[str] = []
+    for idx, url in enumerate(media_urls):
+        hinted = media_types[idx] if idx < len(media_types) else None
+        meta_entry = media_metadata.get(url)
+        meta_mime = meta_entry.get("mimeType") if isinstance(meta_entry, dict) else None
+        mime = hinted or meta_mime
+        if mime == "application/pdf" or (
+            mime is None and isinstance(url, str) and url.split("?", 1)[0].lower().endswith(".pdf")
+        ):
+            document_urls.append(url)
+        else:
+            image_urls.append(url)
+
+    attachments: dict[str, list[str]] = {
+        "images": image_urls,
+        "videos": list(video_file_uris),
+    }
+    if document_urls:
+        attachments["documents"] = document_urls
+    return attachments
+
+
 @app.post("/chat/stream")
 @limiter.limit("30/minute")
 async def chat_stream(
@@ -753,15 +787,7 @@ async def chat_stream(
     anchor_timestamp = datetime.now(UTC) - timedelta(milliseconds=100)
 
     # Extract attachments for persistence
-    attachments = None
-    media_urls = getattr(body, "media_urls", None)
-    video_file_uris = getattr(body, "video_file_uris", None)
-
-    if media_urls or video_file_uris:
-        attachments = {
-            "images": media_urls if media_urls else [],
-            "videos": video_file_uris if video_file_uris else []
-        }
+    attachments = _extract_chat_attachments(body)
 
     # CRITICAL: ensure_session MUST run synchronously before streaming.
     # This sets userId on the session doc so Firestore security rules allow
