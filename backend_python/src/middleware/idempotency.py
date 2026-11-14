@@ -16,13 +16,14 @@ Scope: In-memory per Cloud Run instance.  For multi-instance deployments this
        should be moved to a shared Firestore/Redis store, but single-instance
        Cloud Run is the current deployment model.
 
-Applicable paths: Only routes listed in _IDEMPOTENCY_PATHS.
+Applicable paths: Only routes matching `is_idempotent_path(path)`.
 Excluded paths:   /chat/stream (streaming — never buffer) and any other SSE endpoint.
 """
 import asyncio
 import hashlib
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 
@@ -71,6 +72,20 @@ class _CachedResponse:
         return time.monotonic() - self.created_at > _TTL_SECONDS
 
 
+_IDEMPOTENCY_PATHS: frozenset[str] = frozenset({
+    "/feedback",
+    "/api/content/testimonials",
+})
+_IDEMPOTENCY_PATH_RE = re.compile(
+    r"^/api/projects/[a-zA-Z0-9_-]{1,128}/(files|rooms)$"
+)
+
+
+def is_idempotent_path(path: str) -> bool:
+    """Return True when a POST request path supports Idempotency-Key replay."""
+    return path in _IDEMPOTENCY_PATHS or bool(_IDEMPOTENCY_PATH_RE.fullmatch(path))
+
+
 class IdempotencyMiddleware:
     """
     Raw ASGI middleware: idempotency key replay for non-streaming POST endpoints.
@@ -78,12 +93,6 @@ class IdempotencyMiddleware:
     Uses raw ASGI __call__ (not BaseHTTPMiddleware) to avoid buffering
     StreamingResponse bodies — this middleware only buffers explicitly listed paths.
     """
-
-    # Only apply to endpoints where idempotency makes sense.
-    # /chat/stream is intentionally excluded (streaming, not repeatable).
-    _IDEMPOTENCY_PATHS: frozenset[str] = frozenset({
-        "/api/submit-lead",
-    })
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -120,7 +129,7 @@ class IdempotencyMiddleware:
         method: str = scope.get("method", "")
 
         # Only intercept eligible POST endpoints
-        if method != "POST" or path not in self._IDEMPOTENCY_PATHS:
+        if method != "POST" or not is_idempotent_path(path):
             await self.app(scope, receive, send)
             return
 
@@ -141,9 +150,9 @@ class IdempotencyMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Scope the key to the caller's identity (R3) so a key chosen by one
-        # user can never replay another user's cached response.
-        idempotency_key = f"{_identity_prefix(scope.get('headers', []))}:{idempotency_key}"
+        # Scope the key to caller identity (R3) and path so a key chosen by one
+        # user or reused across endpoints can never replay another response.
+        idempotency_key = f"{_identity_prefix(scope.get('headers', []))}:{path}:{idempotency_key}"
 
         async with self._lock:
             # Replay a cached response
