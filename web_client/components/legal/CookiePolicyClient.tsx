@@ -53,7 +53,7 @@ export function CookiePolicyClient() {
                     {/* Content */}
                     <div className="prose max-w-3xl space-y-10 text-ink leading-relaxed font-normal">
                         <p className="text-lg leading-relaxed">
-                            Questo Sito utilizza cookie tecnici (necessari), e con il tuo consenso anche cookie analitici e di profilazione, utili rispettivamente per consentire funzionalità fondamentali, misurare le performance o fornirti indicazioni promozionali in linea con i tuoi interessi.
+                            Questo Sito utilizza cookie tecnici (necessari) e, esclusivamente previo tuo consenso esplicito, strumenti di analisi statistica aggregata e cookie di marketing, utili rispettivamente per consentire funzionalità fondamentali, misurare le performance del sito o proporti contenuti in linea con i tuoi interessi.
                         </p>
 
                         <section className="space-y-6">
@@ -69,20 +69,16 @@ export function CookiePolicyClient() {
                             <div className="grid gap-6">
                                 <CookieCategoryItem
                                     title="1. Cookie Tecnici (Necessari)"
-                                    desc="Questi cookie non richiedono consenso e vengono installati automaticamente. Permettono al sito di funzionare correttamente (es. mantenimento della sessione)."
+                                    desc="Questi cookie non richiedono consenso e vengono installati automaticamente. Permettono al sito di funzionare correttamente (es. mantenimento della sessione, sicurezza e memorizzazione della tua scelta sul consenso)."
                                     required={true}
                                 />
                                 <CookieCategoryItem
-                                    title="2. Cookie Funzionali"
-                                    desc="Consentono di ricordare le preferenze selezionate durante la navigazione (es. lingua). Richiedono il tuo preventivo consenso."
+                                    title="2. Cookie Analitici"
+                                    desc="Utilizzati per raccogliere informazioni statistiche in forma aggregata sull'uso e sulle prestazioni del Sito (Vercel Analytics e Speed Insights). Vengono attivati solo dopo il tuo consenso esplicito."
                                 />
                                 <CookieCategoryItem
-                                    title="3. Cookie Analitici"
-                                    desc="Utilizzati per raccogliere informazioni statistiche sull'uso del Sito in forma aggregata o non. Richiedono il preventivo consenso."
-                                />
-                                <CookieCategoryItem
-                                    title="4. Cookie di Profilazione"
-                                    desc="Utilizzati per raggruppare gli utenti in categorie omogenee per inviare messaggi pubblicitari in linea con i tuoi interessi."
+                                    title="3. Cookie di Marketing e Profilazione"
+                                    desc="Utilizzati, previo tuo esplicito consenso, per mostrarti contenuti e comunicazioni pertinenti con i tuoi interessi."
                                 />
                             </div>
                         </section>
@@ -90,8 +86,17 @@ export function CookiePolicyClient() {
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-accent-ink italic">Come gestire le tue preferenze</h2>
                             <p>
-                                Puoi gestire le tue preferenze tramite il pop-up banner che appare al primo accesso o cliccando sull&apos;icona della gestione consenso presente in basso a sinistra in ogni pagina. Inoltre, puoi gestire i cookie direttamente dalle impostazioni del tuo browser:
+                                Puoi gestire, modificare o revocare il tuo consenso in qualsiasi momento tramite il pop-up banner al primo accesso, cliccando su &ldquo;Preferenze Cookie&rdquo; nel footer del sito oppure utilizzando il pulsante qui sotto. Inoltre, puoi gestire i cookie direttamente dalle impostazioni del tuo browser:
                             </p>
+                            <div>
+                                <button
+                                    type="button"
+                                    onClick={() => window.dispatchEvent(new Event('open_cookie_settings'))}
+                                    className="inline-flex items-center gap-2 min-h-11 px-6 py-2.5 rounded-xl border border-line bg-surface hover:bg-surface-muted text-sm font-bold text-accent-ink transition-colors cursor-pointer"
+                                >
+                                    Gestisci Preferenze Cookie
+                                </button>
+                            </div>
                             <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 list-none p-0">
                                 <BrowserLink name="Google Chrome" url="https://support.google.com/chrome/answer/95647?hl=it" />
                                 <BrowserLink name="Mozilla Firefox" url="https://support.mozilla.org/it/kb/Gestione%20dei%20cookie" />
@@ -115,9 +120,16 @@ export function CookiePolicyClient() {
                     </div>
 
                     <footer className="pt-20 border-t border-line flex flex-col md:flex-row justify-between items-center gap-6">
-                        <div className="flex items-center gap-6">
+                        <div className="flex flex-wrap items-center gap-6">
                             <Link href="/privacy" className="text-xs font-bold uppercase tracking-widest text-ink-subtle hover:text-accent-ink transition-colors">Privacy Policy</Link>
                             <Link href="/terms" className="text-xs font-bold uppercase tracking-widest text-ink-subtle hover:text-accent-ink transition-colors">Termini e Condizioni</Link>
+                            <button
+                                type="button"
+                                onClick={() => window.dispatchEvent(new Event('open_cookie_settings'))}
+                                className="text-xs font-bold uppercase tracking-widest text-ink-subtle hover:text-accent-ink transition-colors cursor-pointer"
+                            >
+                                Preferenze Cookie
+                            </button>
                         </div>
                         {identity && <p className="text-xs text-ink-muted">&copy; {new Date().getFullYear()} {legalLine(identity)}</p>}
                     </footer>

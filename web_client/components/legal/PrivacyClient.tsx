@@ -171,9 +171,16 @@ export function PrivacyClient() {
                     </div>
 
                     <footer className="pt-20 border-t border-line flex flex-col md:flex-row justify-between items-center gap-6">
-                        <div className="flex items-center gap-6">
+                        <div className="flex flex-wrap items-center gap-6">
                             <Link href="/cookie-policy" className="text-xs font-bold uppercase tracking-widest text-ink-subtle hover:text-accent-ink transition-colors">Cookie Policy</Link>
                             <Link href="/terms" className="text-xs font-bold uppercase tracking-widest text-ink-subtle hover:text-accent-ink transition-colors">Termini e Condizioni</Link>
+                            <button
+                                type="button"
+                                onClick={() => window.dispatchEvent(new Event('open_cookie_settings'))}
+                                className="text-xs font-bold uppercase tracking-widest text-ink-subtle hover:text-accent-ink transition-colors cursor-pointer"
+                            >
+                                Preferenze Cookie
+                            </button>
                         </div>
                         {identity && <p className="text-xs text-ink-muted">&copy; {new Date().getFullYear()} {legalLine(identity)}</p>}
                     </footer>
