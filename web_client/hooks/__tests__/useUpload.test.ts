@@ -470,4 +470,30 @@ describe('useUpload', () => {
             expect(result.current.isUploading).toBe(false);
         });
     });
+
+    it('rejects an image still exceeding 10MB after compression without firing XHR', async () => {
+        const compressionUtils = jest.requireMock('@/lib/compression-utils') as {
+            shouldCompress: jest.Mock;
+            compressImage: jest.Mock;
+        };
+        compressionUtils.shouldCompress.mockReturnValueOnce(true);
+        compressionUtils.compressImage.mockRejectedValueOnce(new Error('canvas failure'));
+
+        const hugeImage = new File(['x'], 'enorme.jpg', { type: 'image/jpeg' });
+        Object.defineProperty(hugeImage, 'size', { value: 11 * 1024 * 1024 });
+
+        const { result } = renderHook(() => useUpload({ sessionId: 'sess-img' }));
+
+        await act(async () => {
+            await result.current.addFiles([hugeImage]);
+        });
+
+        await waitFor(() => {
+            const item = Object.values(result.current.uploads)[0];
+            expect(item?.status).toBe('error');
+            expect(item?.retryable).toBe(false);
+            expect(item?.error).toMatch(/dimensione massima/i);
+        });
+        expect(MockXHR.instances).toHaveLength(0);
+    });
 });

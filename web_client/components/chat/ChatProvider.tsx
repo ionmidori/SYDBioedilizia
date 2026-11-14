@@ -204,18 +204,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             const mediaTypes = Array.isArray(data?.mediaTypes) ? (data.mediaTypes as unknown[]) : [];
             const mediaMetadata =
                 data?.mediaMetadata && typeof data.mediaMetadata === 'object'
-                    ? (data.mediaMetadata as Record<string, { mimeType?: string } | undefined>)
+                    ? (data.mediaMetadata as Record<string, { mimeType?: string; originalFileName?: string } | undefined>)
                     : undefined;
             const files = hasAttachments
                 ? attachments!.map((url, idx) => {
                     const hintedType = typeof mediaTypes[idx] === 'string' ? (mediaTypes[idx] as string) : undefined;
-                    const metaType = mediaMetadata?.[url]?.mimeType;
+                    const meta = mediaMetadata?.[url];
                     const isPdf =
-                        (hintedType || metaType) === 'application/pdf' ||
+                        (hintedType || meta?.mimeType) === 'application/pdf' ||
                         url.split('?')[0].toLowerCase().endsWith('.pdf');
                     return {
                         type: 'file' as const,
-                        mediaType: hintedType || metaType || (isPdf ? 'application/pdf' : 'image/jpeg'),
+                        mediaType: hintedType || meta?.mimeType || (isPdf ? 'application/pdf' : 'image/jpeg'),
+                        ...(meta?.originalFileName ? { filename: meta.originalFileName } : {}),
                         url,
                     };
                 })

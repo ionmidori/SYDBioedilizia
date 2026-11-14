@@ -349,19 +349,19 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
 
                 {/* 1b. User PDF Documents Bubble */}
                 {message.role === 'user' && (() => {
-                    const pdfPartUrls = (message.parts as { type: string; url?: string; mediaType?: string }[] | undefined)
+                    const pdfParts = (message.parts as { type: string; url?: string; mediaType?: string; filename?: string }[] | undefined)
                         ?.filter((p) => p.type === 'file' && typeof p.url === 'string' && p.mediaType === 'application/pdf')
-                        .map((p) => p.url as string) ?? [];
-                    const documentUrls = pdfPartUrls.length > 0
-                        ? pdfPartUrls
-                        : (message.attachments?.documents ?? []);
-                    const safeDocumentUrls = documentUrls
-                        .map((docUrl) => ({ docUrl, safeHref: safeUrlTransform(docUrl) }))
+                        .map((p) => ({ url: p.url as string, filename: p.filename })) ?? [];
+                    const documentEntries = pdfParts.length > 0
+                        ? pdfParts
+                        : (message.attachments?.documents ?? []).map((url) => ({ url, filename: undefined }));
+                    const safeDocumentEntries = documentEntries
+                        .map(({ url, filename }) => ({ url, filename, safeHref: safeUrlTransform(url) }))
                         .filter((entry) => entry.safeHref.length > 0);
-                    if (safeDocumentUrls.length === 0) return null;
+                    if (safeDocumentEntries.length === 0) return null;
                     return (
                         <div className="flex flex-wrap gap-2 justify-end" data-testid="message-documents">
-                            {safeDocumentUrls.map(({ docUrl, safeHref }, docIdx) => (
+                            {safeDocumentEntries.map(({ url, filename, safeHref }, docIdx) => (
                                 <a
                                     key={docIdx}
                                     href={safeHref}
@@ -370,7 +370,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                                     className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-line bg-surface text-ink text-xs font-medium shadow-sm hover:border-primary/50 transition-colors"
                                 >
                                     <FileText className="w-4 h-4 text-primary-ink shrink-0" aria-hidden="true" />
-                                    <span className="max-w-[180px] truncate">{extractDocumentName(docUrl)}</span>
+                                    <span className="max-w-[180px] truncate">{filename || extractDocumentName(url)}</span>
                                 </a>
                             ))}
                         </div>

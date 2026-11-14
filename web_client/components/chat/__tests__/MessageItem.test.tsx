@@ -323,4 +323,26 @@ describe('MessageItem — user PDF attachments', () => {
         expect(link).toHaveAttribute('href', pdfUrl);
         expect(link).toHaveTextContent('pianta.pdf');
     });
+
+    it('prefers original FileUIPart filename over UUID storage path in user PDF bubbles', () => {
+        const pdfUrl = 'https://storage.googleapis.com/bucket/user-uploads/s1/a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4.pdf?X-Goog-Signature=sig';
+        const message = {
+            id: 'pdf-2',
+            role: 'user',
+            parts: [
+                {
+                    type: 'file',
+                    mediaType: 'application/pdf',
+                    filename: 'Planimetria Piano Terra.pdf',
+                    url: pdfUrl,
+                },
+            ],
+        } as unknown as Message;
+
+        render(<MessageItem message={message} sessionId="s1" onImageClick={jest.fn()} />);
+
+        const link = screen.getByTestId('message-documents').querySelector('a');
+        expect(link).toHaveAttribute('href', pdfUrl);
+        expect(link).toHaveTextContent('Planimetria Piano Terra.pdf');
+    });
 });

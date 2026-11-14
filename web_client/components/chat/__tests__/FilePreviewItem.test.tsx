@@ -79,4 +79,21 @@ describe('FilePreviewItem — failed upload', () => {
         expect(screen.getByTestId('pdf-preview')).toBeInTheDocument();
         expect(screen.getByText('planimetria-casa.pdf')).toBeInTheDocument();
     });
+
+    it('renders fallback icon instead of an empty <Image src=""> for rejected images', () => {
+        const rejectedImage = item({
+            status: 'error',
+            retryable: false,
+            previewUrl: '',
+            error: 'Il file supera la dimensione massima consentita.',
+            file: new File(['img'], 'enorme.jpg', { type: 'image/jpeg' }),
+        });
+        render(<FilePreviewItem item={rejectedImage} onRemove={jest.fn()} />);
+
+        expect(screen.queryByRole('img')).not.toBeInTheDocument();
+        expect(screen.getByText('Non riuscito')).toHaveAttribute(
+            'title',
+            'Il file supera la dimensione massima consentita.'
+        );
+    });
 });

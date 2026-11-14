@@ -124,7 +124,7 @@ export function FilePreviewItem({
             aria-label={`File: ${item.file.name}`}
         >
             {/* Preview Content */}
-            {isImage && (
+            {isImage && item.previewUrl && (
                 <div className="relative w-full h-full">
                     <Image
                         src={item.previewUrl}
@@ -158,8 +158,8 @@ export function FilePreviewItem({
                 </div>
             )}
 
-            {/* Fallback for other file types */}
-            {!isImage && !isVideo && !isPdf && (
+            {/* Fallback for other file types or rejected images without preview */}
+            {((isImage && !item.previewUrl) || (!isImage && !isVideo && !isPdf)) && (
                 <div className="w-full h-full flex items-center justify-center bg-canvas">
                     <ImageIcon className="w-6 h-6 text-ink-subtle" />
                 </div>

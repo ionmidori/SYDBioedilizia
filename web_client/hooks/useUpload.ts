@@ -49,6 +49,7 @@ interface UseUploadOptions {
     roomId?: string | null;
 }
 
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB (matches backend MAX_IMAGE_SIZE)
 const MAX_DOCUMENT_SIZE = 25 * 1024 * 1024; // 25MB (matches backend MAX_DOCUMENT_SIZE)
 
 const DEFAULT_OPTIONS: Required<UseUploadOptions> = {
@@ -178,6 +179,19 @@ export function useUpload(options: UseUploadOptions = {}) {
                     }
                 }
 
+                // Enforce the backend image size limit after client-side compression.
+                if (
+                    item.file.type.startsWith('image/') &&
+                    fileToUpload.size > Math.min(maxSize, MAX_IMAGE_SIZE)
+                ) {
+                    updateItem(item.id, {
+                        status: 'error',
+                        retryable: false,
+                        error: 'Il file supera la dimensione massima consentita.',
+                    });
+                    return;
+                }
+
                 // GET UPLOAD ENDPOINT
                 const endpoint = getUploadEndpoint(item.file.type);
 
@@ -292,7 +306,7 @@ export function useUpload(options: UseUploadOptions = {}) {
                 }
             }
         },
-        [refreshToken, sessionId, roomId, updateItem, requestWakeLock, releaseWakeLock, signInAnonymously, user]
+        [maxSize, refreshToken, sessionId, roomId, updateItem, requestWakeLock, releaseWakeLock, signInAnonymously, user]
     );
 
     // ==========================================================================
