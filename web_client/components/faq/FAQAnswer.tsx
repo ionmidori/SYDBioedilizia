@@ -58,14 +58,14 @@ export function FAQAnswer({ blocks }: { blocks: Block[] }) {
             );
           case "definitions":
             return (
-              <div key={i} className="mt-3 space-y-3">
+              <dl key={i} className="mt-3 space-y-3">
                 {block.items.map((def, j) => (
                   <div key={j}>
-                    <strong>{renderInline(def.term)}</strong>
-                    <p className="text-sm">{renderInline(def.description)}</p>
+                    <dt className="font-semibold text-ink">{renderInline(def.term)}</dt>
+                    <dd className="text-sm">{renderInline(def.description)}</dd>
                   </div>
                 ))}
-              </div>
+              </dl>
             );
         }
       })}
