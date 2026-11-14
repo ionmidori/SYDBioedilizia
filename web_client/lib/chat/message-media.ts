@@ -15,6 +15,7 @@ import type { UploadItem } from '@/types/media';
 // explicit `[key: string]: unknown` index signature would silently disable.
 export type ChatMediaPayload = {
     mediaUrls: string[];
+    mediaTypes?: string[];
     mediaMetadata: Record<string, { mimeType: string; fileSize: number; originalFileName: string }>;
     videoFileUris?: string[];
     /** Room of the project the turn (and its uploads) is about (Phase 138). */
@@ -26,9 +27,11 @@ export type ChatMediaPayload = {
  * goes to that room instead (the chip may have moved since the upload).
  */
 export function buildMediaPayload(completedUploads: UploadItem[], roomId?: string | null): ChatMediaPayload {
-    const mediaUrls = completedUploads
-        .filter(u => u.serverData?.asset_type === 'image')
-        .map(u => u.serverData!.url);
+    const urlUploads = completedUploads.filter(
+        u => u.serverData?.asset_type === 'image' || u.serverData?.asset_type === 'document'
+    );
+    const mediaUrls = urlUploads.map(u => u.serverData!.url);
+    const mediaTypes = urlUploads.map(u => u.serverData!.mime_type);
 
     const videoFileUris = completedUploads
         .filter(u => u.serverData?.asset_type === 'video')
@@ -47,6 +50,7 @@ export function buildMediaPayload(completedUploads: UploadItem[], roomId?: strin
 
     return {
         mediaUrls,
+        ...(mediaTypes.length > 0 ? { mediaTypes } : {}),
         mediaMetadata,
         videoFileUris: videoFileUris.length > 0 ? videoFileUris : undefined,
         roomId: completedUploads.find((u) => u.serverData && u.roomId)?.roomId ?? roomId ?? undefined,

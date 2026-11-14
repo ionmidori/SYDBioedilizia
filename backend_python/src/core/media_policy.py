@@ -3,6 +3,7 @@
 
 MAX_IMAGE_SIZE = 10 * 1024 * 1024   # 10MB
 MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100MB
+MAX_DOCUMENT_SIZE = 25 * 1024 * 1024  # 25MB
 
 # Video MIME type (as detected from magic bytes and stored on the object) -> file extension
 VIDEO_MIME_EXTENSIONS = {"video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm"}

@@ -38,6 +38,7 @@ def _ai_revision(items: list[dict], version: int = 1) -> dict:
 def _quote(items: list[dict], **overrides) -> dict:
     quote = {
         "quote_number": "PRV-2026-0001", "project_id": "session-token", "items": items,
+        "reviewed_by": ADMIN,
         "admin_notes": "Il cliente paga in contanti",
         "client_snapshot": {"uid": "u1", "display_name": "Mario Rossi", "email": "m@example.com"},
         "request": {
@@ -53,12 +54,43 @@ def _quote(items: list[dict], **overrides) -> dict:
 
 def _build(quote: dict, ai_revision: dict, approved_version: int = 3) -> LearningLedgerEntry | None:
     return ledger.build_entry(
-        quote=quote, ai_revision=ai_revision, approved_version=approved_version, admin_uid=ADMIN, now=NOW
+        quote=quote, ai_revision=ai_revision, approved_version=approved_version, now=NOW
     )
 
 
-def test_the_entry_id_is_the_quote_number_and_the_approved_version():
-    assert ledger.entry_id("PRV-2026-0001", 3) == "PRV-2026-0001_r3"
+def test_write_entry_generates_a_distinct_random_doc_id_without_quote_number():
+    assert not hasattr(ledger, "entry_id")
+    entry = _build(_quote([_item("PIT-001")]), _ai_revision([_item("PIT-001")]))
+    assert entry is not None
+
+    written: list[tuple[tuple[str, str], dict]] = []
+
+    class _FakeRef:
+        def __init__(self, col: str, doc_id: str) -> None:
+            self.path = (col, doc_id)
+
+    class _FakeCollection:
+        def __init__(self, col: str) -> None:
+            self._col = col
+
+        def document(self, doc_id: str) -> _FakeRef:
+            return _FakeRef(self._col, doc_id)
+
+    class _FakeDb:
+        def collection(self, col: str) -> _FakeCollection:
+            return _FakeCollection(col)
+
+    class _FakeTx:
+        def set(self, ref: _FakeRef, data: dict) -> None:
+            written.append((ref.path, data))
+
+    doc_id_1 = ledger.write_entry(_FakeTx(), _FakeDb(), entry)
+    doc_id_2 = ledger.write_entry(_FakeTx(), _FakeDb(), entry)
+    assert isinstance(doc_id_1, str) and len(doc_id_1) == 32
+    assert doc_id_1 != doc_id_2
+    assert "PRV-2026-0001" not in doc_id_1 and "PRV-2026-0001" not in doc_id_2
+    assert written[0][0] == (ledger.LEARNING_LEDGER_COLLECTION, doc_id_1)
+    assert written[1][0] == (ledger.LEARNING_LEDGER_COLLECTION, doc_id_2)
 
 
 def test_the_entry_keeps_the_net_correction_and_the_context_of_the_draft():
@@ -68,8 +100,8 @@ def test_the_entry_keeps_the_net_correction_and_the_context_of_the_draft():
     entry = _build(_quote(approved), _ai_revision(ai_items))
 
     assert entry is not None
-    assert (entry.quote_number, entry.ai_version, entry.approved_version) == ("PRV-2026-0001", 1, 3)
-    assert (entry.approved_by, entry.approved_at, entry.ai_created_at) == (ADMIN, NOW, AI_AT)
+    assert (entry.ai_version, entry.approved_version) == (1, 3)
+    assert (entry.approved_at, entry.ai_created_at) == (NOW, AI_AT)
     assert entry.changes == diff_items(ai_items, approved)
     assert [i.sku for i in entry.ai_items] == ["PIT-001", "PAV-001"]
     assert [i.sku for i in entry.approved_items] == ["PIT-001", "DEM-001"]
@@ -94,17 +126,42 @@ def _keys(node: object) -> set[str]:
     return set()
 
 
-def test_ledger_entry_has_no_client_data():
-    entry = _build(_quote([_item("PIT-001")]), _ai_revision([_item("PIT-001")]))
+def test_ledger_entry_has_no_client_or_quote_identifiers():
+    spec_with_free_text = RevisionRoomSpec(
+        room_id="bagno1",
+        spec=RoomInterventionSpec(
+            packages=[StoredPackage(assembly_id="ASM-BAGNO-FULL")],
+            unmapped_work_requests=["Spostare citofono di Mario Rossi"],
+            library_version="2.0.0",
+            generated_at=AI_AT,
+        ),
+    )
+    ai_rev = _ai_revision([_item("PIT-001")]) | {"specs": [spec_with_free_text]}
+    quote = _quote([_item("PIT-001")])
+    quote["request"]["manual_work"].append({
+        "work": "Spostare citofono di Mario Rossi",
+        "room_id": "bagno1",
+        "room_label": "Bagno di Mario Rossi",
+        "origin": "client_request",
+    })
+
+    entry = _build(quote, ai_rev)
     assert entry is not None
     dumped = entry.model_dump()
 
-    assert not _keys(dumped) & {"project_id", "client_snapshot", "admin_notes", "address", "session_id"}
+    assert not _keys(dumped) & {
+        "quote_number", "approved_by", "project_id", "client_snapshot", "admin_notes", "address", "session_id"
+    }
     text = json.dumps(dumped, default=str)
-    for secret in ("Mario Rossi", "Via Roma", "session-token", "contanti", "nota interna", "example.com"):
+    for secret in (
+        "PRV-2026-0001", ADMIN, "Mario Rossi", "Via Roma", "session-token",
+        "contanti", "nota interna", "citofono", "example.com",
+    ):
         assert secret not in text
     assert all(w.room_label is None for w in [*entry.manual_work, *entry.ai_warnings])
     assert all(i.ai_reasoning is None for i in [*entry.ai_items, *entry.approved_items])
+    assert all(m.origin != "client_request" for m in entry.manual_work)
+    assert all(s.spec.unmapped_work_requests == [] for s in entry.specs)
 
 
 def test_the_entry_rejects_a_field_it_does_not_know():

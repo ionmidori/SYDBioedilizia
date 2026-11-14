@@ -197,7 +197,7 @@ def _attachment_labels(msg: dict[str, Any], context: _RestoreContext) -> list[st
         return []
     labels = {r.room_id: r.label for r in context.rooms}
     found = []
-    for kind, key in (("image", "images"), ("video", "videos")):
+    for kind, key in (("image", "images"), ("video", "videos"), ("document", "documents")):
         for ref in attachments.get(key) or []:
             path = session_media_path(ref if isinstance(ref, str) else None, context.session_id)
             found.append(_media_label_for(context.files_by_path.get(path or ""), kind, labels))
@@ -585,17 +585,21 @@ class ADKOrchestrator(BaseOrchestrator):
         # Optimized Media Fetching: Parallelize using asyncio.gather
         async def fetch_media(i, url, mime=None):
             try:
+                hinted_mime = mime or (media_types[i] if i < len(media_types) else None)
+                default_kind = "document" if hinted_mime == "application/pdf" else "image"
                 # Read by Storage path, only among this session's files (a URL
                 # of another project or bucket is refused).
                 (image_bytes, stored_mime), label_part = await asyncio.gather(
                     download_session_media(url, session_id),
-                    _media_label_part(url, "image", session_id, room_labels),
+                    _media_label_part(url, default_kind, session_id, room_labels),
                 )
-                final_mime = mime or (media_types[i] if i < len(media_types) else stored_mime)
+                final_mime = hinted_mime or stored_mime
+                if default_kind != "document" and final_mime == "application/pdf":
+                    label_part = await _media_label_part(url, "document", session_id, room_labels)
                 logger.info(f"[ADK] Fetched media {i}: {len(image_bytes)} bytes ({final_mime})")
-                # The label goes before the image: "[Foto f_123 · Bagno]".
-                img_part = types.Part(inline_data=types.Blob(mime_type=final_mime, data=image_bytes))
-                return [label_part, img_part]
+                # The label goes before the media: "[Foto f_123 · Bagno]" / "[Documento ...]".
+                media_part = types.Part(inline_data=types.Blob(mime_type=final_mime, data=image_bytes))
+                return [label_part, media_part]
             except Exception as e:  # noqa: BLE001
                 # Never log the URL: it is a signed URL (a bearer credential).
                 logger.error(f"Failed to fetch media {i}: {type(e).__name__}: {e}")

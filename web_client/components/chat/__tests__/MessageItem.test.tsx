@@ -303,3 +303,46 @@ describe('MessageItem — welcome quick actions', () => {
         expect(screen.queryByRole('group', { name: 'Azioni rapide' })).not.toBeInTheDocument();
     });
 });
+
+describe('MessageItem — user PDF attachments', () => {
+    it('renders user PDF attachments as document links without treating them as broken images', () => {
+        const pdfUrl = 'https://storage.googleapis.com/bucket/user-uploads/s1/pianta.pdf?X-Goog-Signature=sig';
+        const message = {
+            id: 'pdf-1',
+            role: 'user',
+            parts: [
+                { type: 'text', text: 'Ecco la planimetria' },
+                { type: 'file', mediaType: 'application/pdf', url: pdfUrl },
+            ],
+        } as unknown as Message;
+
+        render(<MessageItem message={message} sessionId="s1" onImageClick={jest.fn()} />);
+
+        const docsContainer = screen.getByTestId('message-documents');
+        const link = docsContainer.querySelector('a');
+        expect(link).toHaveAttribute('href', pdfUrl);
+        expect(link).toHaveTextContent('pianta.pdf');
+    });
+
+    it('prefers original FileUIPart filename over UUID storage path in user PDF bubbles', () => {
+        const pdfUrl = 'https://storage.googleapis.com/bucket/user-uploads/s1/a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4.pdf?X-Goog-Signature=sig';
+        const message = {
+            id: 'pdf-2',
+            role: 'user',
+            parts: [
+                {
+                    type: 'file',
+                    mediaType: 'application/pdf',
+                    filename: 'Planimetria Piano Terra.pdf',
+                    url: pdfUrl,
+                },
+            ],
+        } as unknown as Message;
+
+        render(<MessageItem message={message} sessionId="s1" onImageClick={jest.fn()} />);
+
+        const link = screen.getByTestId('message-documents').querySelector('a');
+        expect(link).toHaveAttribute('href', pdfUrl);
+        expect(link).toHaveTextContent('Planimetria Piano Terra.pdf');
+    });
+});

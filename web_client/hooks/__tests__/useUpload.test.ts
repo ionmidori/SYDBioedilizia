@@ -15,13 +15,15 @@ jest.mock('../useAuth', () => ({
     }),
 }));
 
-// Mock compression utils
-jest.mock('@/lib/compression-utils', () => ({
-    compressImage: jest.fn().mockResolvedValue(new Blob(['compressed'], { type: 'image/jpeg' })),
-    shouldCompress: jest.fn().mockReturnValue(false),
-    getUploadEndpoint: jest.fn().mockReturnValue('/upload/image'),
-    isAllowedType: jest.fn().mockReturnValue(true),
-}));
+// Mock compression utils (keep real MIME/endpoint routing, mock canvas compression)
+jest.mock('@/lib/compression-utils', () => {
+    const actual = jest.requireActual('@/lib/compression-utils');
+    return {
+        ...actual,
+        compressImage: jest.fn().mockResolvedValue(new Blob(['compressed'], { type: 'image/jpeg' })),
+        shouldCompress: jest.fn().mockReturnValue(false),
+    };
+});
 
 // Mock crypto.randomUUID
 const mockUUID = 'test-uuid-123';
@@ -340,13 +342,14 @@ describe('useUpload', () => {
 
         const uploadId = Object.keys(result.current.uploads)[0];
 
-        // Retry the upload
-        act(() => {
+        // Retry the upload (flush setTimeout(0) so retry XHR fires within this test)
+        await act(async () => {
             result.current.retryUpload(uploadId);
+            await new Promise((resolve) => setTimeout(resolve, 0));
         });
 
         // Should have created a new XHR
-        expect(MockXHR.instances.length).toBeGreaterThanOrEqual(1);
+        expect(MockXHR.instances.length).toBeGreaterThanOrEqual(2);
     });
 
     it('should clear all uploads and abort pending requests', async () => {
@@ -376,18 +379,70 @@ describe('useUpload', () => {
         expect(URL.revokeObjectURL).toHaveBeenCalled();
     });
 
-    it('should skip files exceeding maxSize', async () => {
-        const { result } = renderHook(() => useUpload({ maxSize: 100 }));
+    it('records error items instead of silently dropping oversized or unsupported files', async () => {
+        let count = 0;
+        (crypto.randomUUID as jest.Mock).mockImplementation(() => `err-uuid-${count++}`);
 
-        // Create a large file (simulate with Object.defineProperty)
-        const largeFile = new File(['x'.repeat(200)], 'large.jpg', { type: 'image/jpeg' });
-        Object.defineProperty(largeFile, 'size', { value: 200 });
+        const { result } = renderHook(() => useUpload({ maxSize: 100 }));
+        const bigFile = new File(['x'.repeat(200)], 'enorme.jpg', { type: 'image/jpeg' });
+        Object.defineProperty(bigFile, 'size', { value: 200 });
+        const badType = new File(['zip'], 'archivio.zip', { type: 'application/zip' });
 
         await act(async () => {
-            await result.current.addFiles([largeFile]);
+            await result.current.addFiles([bigFile, badType]);
         });
 
-        expect(Object.keys(result.current.uploads)).toHaveLength(0);
+        const items = Object.values(result.current.uploads);
+        expect(items).toHaveLength(2);
+        expect(items[0]).toMatchObject({
+            status: 'error',
+            retryable: false,
+            error: expect.stringMatching(/dimensione massima/i),
+        });
+        expect(items[1]).toMatchObject({
+            status: 'error',
+            retryable: false,
+            error: expect.stringMatching(/non supportato/i),
+        });
+        expect(MockXHR.instances).toHaveLength(0);
+    });
+
+    it('enforces the 25MB limit for PDF files even with default maxSize', async () => {
+        const { result } = renderHook(() => useUpload({ sessionId: 'sess-pdf' }));
+        const hugePdf = new File(['%PDF-1.7'], 'Enorme.pdf', { type: 'application/pdf' });
+        Object.defineProperty(hugePdf, 'size', { value: 26 * 1024 * 1024 });
+
+        await act(async () => {
+            await result.current.addFiles([hugePdf]);
+        });
+
+        const items = Object.values(result.current.uploads);
+        expect(items).toHaveLength(1);
+        expect(items[0]).toMatchObject({
+            status: 'error',
+            retryable: false,
+            error: expect.stringMatching(/dimensione massima/i),
+        });
+        expect(MockXHR.instances).toHaveLength(0);
+    });
+
+    it('accepts application/pdf by default, routes to /api/py/upload/document, and appends session_id and room_id to FormData', async () => {
+        const { result } = renderHook(() => useUpload({ sessionId: 'sess-pdf', roomId: 'r_bagno' }));
+        const pdf = new File(['%PDF-1.7'], 'pianta.pdf', { type: 'application/pdf' });
+
+        await act(async () => {
+            await result.current.addFiles([pdf]);
+        });
+
+        const items = Object.values(result.current.uploads);
+        expect(items).toHaveLength(1);
+        expect(items[0].status).toBe('uploading');
+
+        const xhr = MockXHR.instances[0];
+        expect(xhr.open).toHaveBeenCalledWith('POST', '/api/py/upload/document');
+        const sentForm = xhr.send.mock.calls[0][0] as FormData;
+        expect(sentForm.get('session_id')).toBe('sess-pdf');
+        expect(sentForm.get('room_id')).toBe('r_bagno');
     });
 
     it('should set isUploading to true during active uploads', async () => {
@@ -414,5 +469,31 @@ describe('useUpload', () => {
         await waitFor(() => {
             expect(result.current.isUploading).toBe(false);
         });
+    });
+
+    it('rejects an image still exceeding 10MB after compression without firing XHR', async () => {
+        const compressionUtils = jest.requireMock('@/lib/compression-utils') as {
+            shouldCompress: jest.Mock;
+            compressImage: jest.Mock;
+        };
+        compressionUtils.shouldCompress.mockReturnValueOnce(true);
+        compressionUtils.compressImage.mockRejectedValueOnce(new Error('canvas failure'));
+
+        const hugeImage = new File(['x'], 'enorme.jpg', { type: 'image/jpeg' });
+        Object.defineProperty(hugeImage, 'size', { value: 11 * 1024 * 1024 });
+
+        const { result } = renderHook(() => useUpload({ sessionId: 'sess-img' }));
+
+        await act(async () => {
+            await result.current.addFiles([hugeImage]);
+        });
+
+        await waitFor(() => {
+            const item = Object.values(result.current.uploads)[0];
+            expect(item?.status).toBe('error');
+            expect(item?.retryable).toBe(false);
+            expect(item?.error).toMatch(/dimensione massima/i);
+        });
+        expect(MockXHR.instances).toHaveLength(0);
     });
 });

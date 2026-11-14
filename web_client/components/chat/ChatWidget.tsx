@@ -161,10 +161,10 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
     const submitMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (isUploading || !isInitialized || !sessionId) return;
-        if (!input.trim() && Object.keys(uploads).length === 0) return;
 
-        // Prepare Media
+        // Prepare Media (ignore failed/error-only items so Submit never wipes error notices)
         const completedUploads = successfulUploads;
+        if (!input.trim() && completedUploads.length === 0) return;
 
         logger.debug('[ChatWidget] Submit: completedUploads:', completedUploads.map(u => ({
             id: u.id,

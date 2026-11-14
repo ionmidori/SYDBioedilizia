@@ -24,7 +24,7 @@ _ROOM_ID = re.compile(ROOM_ID_PATTERN)
 _FILE_ID = re.compile(r"^[a-zA-Z0-9_-]{1,128}$")
 ROOM_MEDIA_LIMIT = 20
 
-_MEDIA_KIND = {"image": "Foto", "video": "Video", "render": "Render"}
+_MEDIA_KIND = {"image": "Foto", "video": "Video", "render": "Render", "document": "Documento"}
 NO_ROOM = "senza stanza"
 
 

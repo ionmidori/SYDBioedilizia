@@ -406,9 +406,11 @@ async def test_ledger_records_the_net_diff_from_the_last_ai_revision():
     transaction = tx(db)
     await svc.approve_tx(transaction, db, PID, ADMIN, 3, NOW)
 
-    entry = _ledger(db)["PRV-2026-0001_r3"]
+    doc_id, entry = next(iter(_ledger(db).items()))
     approved_items = db.get_data(*QUOTE)["items"]
-    assert (entry["ai_version"], entry["approved_version"], entry["approved_by"]) == (1, 3, ADMIN)
+    assert "PRV-2026-0001" not in doc_id
+    assert "quote_number" not in entry and "approved_by" not in entry
+    assert (entry["ai_version"], entry["approved_version"]) == (1, 3)
     assert entry["changes"] == [c.model_dump() for c in diff_items(ai_items, approved_items)]
     assert {(c["change"], c["sku"]) for c in entry["changes"]} == {
         ("changed", "PIT-001"), ("removed", "PAV-001"), ("added", "DEM-001")
@@ -422,7 +424,10 @@ async def test_an_approval_without_edits_records_no_changes():
     _seed(db, version=1)
     _seed_revisions(db, "ai", items=db.get_data(*QUOTE)["items"])
     await svc.approve_tx(tx(db), db, PID, ADMIN, 1, NOW)
-    assert _ledger(db)["PRV-2026-0001_r1"]["changes"] == []
+    doc_id, entry = next(iter(_ledger(db).items()))
+    assert "PRV-2026-0001" not in doc_id
+    assert "quote_number" not in entry and "approved_by" not in entry
+    assert entry["changes"] == []
 
 
 
@@ -431,7 +436,10 @@ async def test_the_last_ai_revision_up_to_the_approved_version_wins():
     _seed(db, version=4)
     _seed_revisions(db, "ai", "admin", "ai", "admin", "ai")  # v5: an AI revision after the approved one
     await svc.approve_tx(tx(db), db, PID, ADMIN, 4, NOW)
-    assert _ledger(db)["PRV-2026-0001_r4"]["ai_version"] == 3
+    doc_id, entry = next(iter(_ledger(db).items()))
+    assert "PRV-2026-0001" not in doc_id
+    assert "quote_number" not in entry and "approved_by" not in entry
+    assert entry["ai_version"] == 3
 
 
 async def test_an_ai_revision_beyond_the_lookback_records_nothing_and_says_so(caplog):
@@ -464,7 +472,7 @@ async def test_an_approval_whose_entry_cannot_be_built_still_approves(seed):
     assert result.status == "approved" and _ledger(db) == {}
 
 
-async def test_approving_the_same_version_again_overwrites_its_entry_and_a_new_version_adds_one():
+async def test_each_approval_writes_an_anonymous_entry_with_a_distinct_random_id():
     db = FakeDb()
     _seed(db, version=1)
     _seed_revisions(db, "ai")
@@ -472,13 +480,15 @@ async def test_approving_the_same_version_again_overwrites_its_entry_and_a_new_v
     await svc.reopen_tx(tx(db), db, PID, ADMIN, "ricontrollo", NOW)
     later = NOW + timedelta(hours=1)
     await svc.approve_tx(tx(db), db, PID, ADMIN, 1, later)
-    assert list(_ledger(db)) == ["PRV-2026-0001_r1"]
-    assert _ledger(db)["PRV-2026-0001_r1"]["approved_at"] == later
+    assert len(_ledger(db)) == 2
+    assert sorted(e["approved_at"] for e in _ledger(db).values()) == [NOW, later]
 
     await svc.reopen_tx(tx(db), db, PID, ADMIN, "ancora", later)
     await svc.edit_tx(tx(db), db, PID, ADMIN, 1, later, admin_notes="x")
     await svc.approve_tx(tx(db), db, PID, ADMIN, 2, later)
-    assert sorted(_ledger(db)) == ["PRV-2026-0001_r1", "PRV-2026-0001_r2"]
+    assert len(_ledger(db)) == 3
+    assert all("PRV-2026-0001" not in doc_id for doc_id in _ledger(db))
+    assert sorted(e["approved_version"] for e in _ledger(db).values()) == [1, 1, 2]
 
 
 class _FailingLedgerWrite(FakeTransaction):

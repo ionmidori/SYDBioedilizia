@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { motion, Variants } from 'framer-motion';
-import { User, Calculator, ImagePlus, Layers, Building2, ArrowRight, type LucideIcon } from 'lucide-react';
+import { User, Calculator, ImagePlus, Layers, Building2, ArrowRight, FileText, type LucideIcon } from 'lucide-react';
 import { type Components } from 'react-markdown';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
 import { ImagePreview } from '@/components/chat/ImagePreview';
@@ -26,6 +26,15 @@ import { contactRules, mentionsCompanyContact, remarkCompanyLinks } from '@/lib/
 
 /** Backend tool that asks a guest to sign in (backend_python/src/adk/tools.py). */
 const LOGIN_TOOL = 'request_login';
+
+function extractDocumentName(docUrl: string): string {
+    const rawSegment = docUrl.split('?')[0].split('/').pop() || 'Documento.pdf';
+    try {
+        return decodeURIComponent(rawSegment) || 'Documento.pdf';
+    } catch {
+        return rawSegment || 'Documento.pdf';
+    }
+}
 
 interface MessageItemProps {
     message: Message;
@@ -253,10 +262,16 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
     });
 
     // Determine if the bubble (AND the entire row) should be visible
+    const hasDocumentAttachments =
+        (message.attachments?.documents && message.attachments.documents.length > 0) ||
+        (message.parts as { type: string; mediaType?: string }[] | undefined)?.some(
+            (p) => p.type === 'file' && p.mediaType === 'application/pdf'
+        );
     const shouldShow =
         (text && text.trim().length > 0) ||
         hasVisibleTools ||
-        (message.attachments?.images && message.attachments.images.length > 0); // User images
+        (message.attachments?.images && message.attachments.images.length > 0) || // User images
+        !!hasDocumentAttachments;
 
     if (!shouldShow) return null;
 
@@ -327,6 +342,36 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                                         className="w-full h-auto object-cover hover:scale-105 transition-transform duration-500"
                                     />
                                 </div>
+                            ))}
+                        </div>
+                    );
+                })()}
+
+                {/* 1b. User PDF Documents Bubble */}
+                {message.role === 'user' && (() => {
+                    const pdfParts = (message.parts as { type: string; url?: string; mediaType?: string; filename?: string }[] | undefined)
+                        ?.filter((p) => p.type === 'file' && typeof p.url === 'string' && p.mediaType === 'application/pdf')
+                        .map((p) => ({ url: p.url as string, filename: p.filename })) ?? [];
+                    const documentEntries = pdfParts.length > 0
+                        ? pdfParts
+                        : (message.attachments?.documents ?? []).map((url) => ({ url, filename: undefined }));
+                    const safeDocumentEntries = documentEntries
+                        .map(({ url, filename }) => ({ url, filename, safeHref: safeUrlTransform(url) }))
+                        .filter((entry) => entry.safeHref.length > 0);
+                    if (safeDocumentEntries.length === 0) return null;
+                    return (
+                        <div className="flex flex-wrap gap-2 justify-end" data-testid="message-documents">
+                            {safeDocumentEntries.map(({ url, filename, safeHref }, docIdx) => (
+                                <a
+                                    key={docIdx}
+                                    href={safeHref}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-line bg-surface text-ink text-xs font-medium shadow-sm hover:border-primary/50 transition-colors"
+                                >
+                                    <FileText className="w-4 h-4 text-primary-ink shrink-0" aria-hidden="true" />
+                                    <span className="max-w-[180px] truncate">{filename || extractDocumentName(url)}</span>
+                                </a>
                             ))}
                         </div>
                     );

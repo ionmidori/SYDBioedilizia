@@ -32,3 +32,16 @@ export function isTokenExpired(token: string, nowSeconds: number = Date.now() / 
 export function hasAdminRoleClaim(token: string): boolean {
   return decodeJwtClaims(token)?.role === 'admin';
 }
+
+/** UX hint only: does the (unverified) token belong to a Firebase anonymous user? */
+export function isAnonymousToken(token: string): boolean {
+  const claims = decodeJwtClaims(token);
+  if (!claims) return false;
+  const fb = claims.firebase;
+  return (
+    typeof fb === 'object' &&
+    fb !== null &&
+    !Array.isArray(fb) &&
+    (fb as Record<string, unknown>).sign_in_provider === 'anonymous'
+  );
+}

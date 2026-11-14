@@ -200,13 +200,26 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             setInput('');
 
             // Build FileUIPart[] for AI SDK v7 — these populate message.parts with type:'file'
-            // which MessageItem reads to render image thumbnails in the user bubble.
+            // which MessageItem reads to render image thumbnails and PDF document links in the user bubble.
+            const mediaTypes = Array.isArray(data?.mediaTypes) ? (data.mediaTypes as unknown[]) : [];
+            const mediaMetadata =
+                data?.mediaMetadata && typeof data.mediaMetadata === 'object'
+                    ? (data.mediaMetadata as Record<string, { mimeType?: string; originalFileName?: string } | undefined>)
+                    : undefined;
             const files = hasAttachments
-                ? attachments!.map(url => ({
-                    type: 'file' as const,
-                    mediaType: 'image/jpeg',
-                    url,
-                }))
+                ? attachments!.map((url, idx) => {
+                    const hintedType = typeof mediaTypes[idx] === 'string' ? (mediaTypes[idx] as string) : undefined;
+                    const meta = mediaMetadata?.[url];
+                    const isPdf =
+                        (hintedType || meta?.mimeType) === 'application/pdf' ||
+                        url.split('?')[0].toLowerCase().endsWith('.pdf');
+                    return {
+                        type: 'file' as const,
+                        mediaType: hintedType || meta?.mimeType || (isPdf ? 'application/pdf' : 'image/jpeg'),
+                        ...(meta?.originalFileName ? { filename: meta.originalFileName } : {}),
+                        url,
+                    };
+                })
                 : undefined;
 
             // AI SDK v7: sendMessage({ text, files }, { body, headers })

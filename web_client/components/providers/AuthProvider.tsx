@@ -160,8 +160,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             const token = await currentUser.getIdToken();
                             setIdToken(token);
 
-                            // Sync cookie with server
-                            await setAuthCookie(token);
+                            // Sync cookie with server (registered users only; anonymous sessions stay cookie-less)
+                            if (currentUser.isAnonymous) {
+                                await removeAuthCookie();
+                            } else {
+                                await setAuthCookie(token);
+                            }
 
                             // Start monitoring token expiration
                             tokenManager.startMonitoring(currentUser);
@@ -214,8 +218,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (isMounted) {
                 logger.debug('[AuthProvider] Token refreshed');
                 setIdToken(newToken);
-                // Sync refreshed token
-                await setAuthCookie(newToken);
+                // Sync refreshed token for registered users only
+                if (publishedAnonymousRef.current === false) {
+                    await setAuthCookie(newToken);
+                }
             }
         });
 
@@ -308,6 +314,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = async (): Promise<void> => {
         try {
             // 1. CLEAR LOCAL STATE IMMEDIATELY (Prevent UI from thinking it's logged in)
+            publishedAnonymousRef.current = null;
             setUser(null);
             setIdToken(null);
             tokenManager.stopMonitoring();
@@ -364,7 +371,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             const token = await currentUser.getIdToken(force);
             setIdToken(token);
-            await setAuthCookie(token);
+            if (!currentUser.isAnonymous) {
+                await setAuthCookie(token);
+            }
             return token;
         } catch (err) {
             console.error('[AuthProvider] Token refresh failed:', err);

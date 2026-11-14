@@ -163,7 +163,7 @@ export function useChatHistory(
 
                             // Clean content (strip internal attachment markers)
                             let content = (data.content || '') as string;
-                            if (content && (attachments?.images?.length || attachments?.videos?.length)) {
+                            if (content && (attachments?.images?.length || attachments?.videos?.length || attachments?.documents?.length)) {
                                 content = content
                                     .replace(/\[(Immagine|Video) allegata:.*?\]/g, '')
                                     .replace(/\[https?:\/\/.*?\]/g, '')

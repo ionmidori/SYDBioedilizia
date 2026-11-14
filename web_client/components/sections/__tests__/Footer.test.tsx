@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { Footer } from '@/components/sections/Footer';
 import { VCARD_PATH } from '@/lib/company-info/vcard';
 import { renderWithCompany, TEST_HOURS, TEST_IDENTITY } from '@/test-utils/company';
@@ -75,5 +75,18 @@ describe('Footer', () => {
         expect(footer).not.toHaveClass('overflow-hidden');
         const privacyLink = screen.getByRole('link', { name: 'Informativa sulla Privacy' });
         expect(privacyLink).toHaveClass('min-h-11');
+    });
+
+    it('provides a Preferenze Cookie button with adequate touch target that dispatches open_cookie_settings', () => {
+        const listener = jest.fn();
+        window.addEventListener('open_cookie_settings', listener);
+
+        renderWithCompany(<Footer />);
+        const button = screen.getByRole('button', { name: 'Preferenze Cookie' });
+        expect(button).toHaveClass('min-h-11');
+
+        fireEvent.click(button);
+        expect(listener).toHaveBeenCalledTimes(1);
+        window.removeEventListener('open_cookie_settings', listener);
     });
 });

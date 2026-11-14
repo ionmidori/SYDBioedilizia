@@ -21,7 +21,6 @@ import type { UploadItem } from '@/types/media';
 import { FilePreviewItem } from '@/components/chat/FilePreviewItem';
 import { UploadErrorNotice } from '@/components/chat/UploadErrorNotice';
 import { triggerHaptic } from '@/lib/haptics';
-import { validateFileForUpload } from "@/lib/validation/file-upload-schema";
 import { validateVideo } from "@/lib/media-utils";
 import { AttachmentMenu } from '@/components/chat/AttachmentMenu';
 import { VideoTrimmer } from '@/components/chat/VideoTrimmer';
@@ -84,11 +83,15 @@ export function ChatInput({
         () => uploadItems.some((i) => i.status === 'uploading' || i.status === 'compressing'),
         [uploadItems]
     );
+    const hasSuccessfulUploads = useMemo(
+        () => uploadItems.some((i) => i.status === 'success'),
+        [uploadItems]
+    );
     const isGlobalUploading = hasActiveUploads;
     const isSendDisabled =
         isLoading ||
         authLoading ||
-        (!inputValue.trim() && uploadItems.length === 0) ||
+        (!inputValue.trim() && !hasSuccessfulUploads) ||
         hasActiveUploads;
 
     // Handle click outside to close attachment menu
@@ -137,11 +140,6 @@ export function ChatInput({
                         filesToUpload.push(file);
                     }
                 } else {
-                    const validation = validateFileForUpload(file);
-                    if (!validation.valid) {
-                        alert(validation.error);
-                        continue;
-                    }
                     filesToUpload.push(file);
                 }
             }
@@ -340,7 +338,7 @@ export function ChatInput({
                     type="file"
                     ref={cloudInputRef}
                     className="hidden"
-                    accept="application/pdf,application/octet-stream,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,video/mp4"
+                    accept="application/pdf,image/jpeg,image/png,image/webp,video/mp4,video/quicktime"
                     onChange={handleFileChange}
                     multiple
                     aria-hidden="true"

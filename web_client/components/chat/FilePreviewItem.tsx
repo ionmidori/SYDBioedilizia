@@ -16,7 +16,7 @@ import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { X, Loader2, FileVideo, AlertCircle, RefreshCw, Image as ImageIcon } from 'lucide-react';
+import { X, Loader2, FileVideo, FileText, AlertCircle, RefreshCw, Image as ImageIcon } from 'lucide-react';
 import type { UploadItem, UploadStatus } from '@/types/media';
 
 interface FilePreviewItemProps {
@@ -89,6 +89,7 @@ export function FilePreviewItem({
 }: FilePreviewItemProps) {
     const isImage = item.file.type.startsWith('image/');
     const isVideo = item.file.type.startsWith('video/');
+    const isPdf = item.file.type === 'application/pdf';
     const statusInfo = getStatusInfo(item.status);
 
     const handleRemove = (e: React.MouseEvent) => {
@@ -123,7 +124,7 @@ export function FilePreviewItem({
             aria-label={`File: ${item.file.name}`}
         >
             {/* Preview Content */}
-            {isImage && (
+            {isImage && item.previewUrl && (
                 <div className="relative w-full h-full">
                     <Image
                         src={item.previewUrl}
@@ -145,8 +146,20 @@ export function FilePreviewItem({
                 </div>
             )}
 
-            {/* Fallback for other file types */}
-            {!isImage && !isVideo && (
+            {isPdf && (
+                <div
+                    data-testid="pdf-preview"
+                    className="w-full h-full flex flex-col items-center justify-center gap-1 p-1.5 bg-canvas"
+                >
+                    <FileText className="w-6 h-6 text-primary-ink shrink-0" />
+                    <span className="text-[10px] font-medium text-ink truncate max-w-full px-1">
+                        {item.file.name}
+                    </span>
+                </div>
+            )}
+
+            {/* Fallback for other file types or rejected images without preview */}
+            {((isImage && !item.previewUrl) || (!isImage && !isVideo && !isPdf)) && (
                 <div className="w-full h-full flex items-center justify-center bg-canvas">
                     <ImageIcon className="w-6 h-6 text-ink-subtle" />
                 </div>

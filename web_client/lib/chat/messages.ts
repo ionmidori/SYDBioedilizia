@@ -23,7 +23,7 @@ export interface HistoryRow {
     id?: string;
     role?: string;
     content?: unknown;
-    attachments?: { images?: string[] } | undefined;
+    attachments?: { images?: string[]; videos?: string[]; documents?: string[] } | undefined;
 }
 
 /**
@@ -42,6 +42,9 @@ export function historyToUIMessage(m: HistoryRow): Message {
     if (text) parts.push({ type: 'text', text });
     for (const url of m.attachments?.images ?? []) {
         if (typeof url === 'string') parts.push({ type: 'file', mediaType: 'image/jpeg', url });
+    }
+    for (const url of m.attachments?.documents ?? []) {
+        if (typeof url === 'string') parts.push({ type: 'file', mediaType: 'application/pdf', url });
     }
     // v7 messages must have at least one part; an empty assistant renders as "thinking".
     if (parts.length === 0) parts.push({ type: 'text', text: '' });

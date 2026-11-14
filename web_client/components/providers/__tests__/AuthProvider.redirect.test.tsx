@@ -2,7 +2,8 @@ import React from 'react';
 import { act, render, waitFor } from '@testing-library/react';
 import { onAuthStateChanged, onIdTokenChanged, type User } from 'firebase/auth';
 import { AuthProvider, completeRedirectLogin, useAuthContext } from '../AuthProvider';
-import { setAuthCookie } from '@/app/actions/auth-session';
+import { removeAuthCookie, setAuthCookie } from '@/app/actions/auth-session';
+import { auth } from '@/lib/firebase';
 import * as guestClaim from '@/lib/auth/guest-claim';
 import * as redirectLogin from '@/lib/auth/redirect-login';
 import { pendingMessageStore } from '@/lib/auth/pending-message';
@@ -158,6 +159,40 @@ describe('social login: popup or redirect', () => {
 });
 
 describe('a guest linked to a new account', () => {
+    it('does not persist an auth-token cookie for anonymous sessions and clears any existing cookie', async () => {
+        const anonUser = { uid: 'anon-1', isAnonymous: true, getIdToken: jest.fn(async () => 'anon-token') };
+        let authChanged: (u: unknown) => Promise<void> = async () => {};
+        (onAuthStateChanged as jest.Mock).mockImplementation((_auth, cb) => { authChanged = cb; return jest.fn(); });
+        const prevCurrentUser = auth.currentUser;
+        (auth as unknown as { currentUser: unknown }).currentUser = anonUser;
+        try {
+            const ctx = await renderAuthReady();
+
+            await act(async () => { await authChanged(anonUser); });
+
+            expect(setAuthCookie).not.toHaveBeenCalled();
+            expect(removeAuthCookie).toHaveBeenCalledTimes(1);
+
+            await act(async () => {
+                await expect(ctx().refreshToken()).resolves.toBe('anon-token');
+            });
+            expect(setAuthCookie).not.toHaveBeenCalled();
+        } finally {
+            (auth as unknown as { currentUser: unknown }).currentUser = prevCurrentUser;
+        }
+    });
+
+    it('persists auth-token cookie for signed-in non-anonymous sessions', async () => {
+        const regUser = { uid: 'u-1', isAnonymous: false, getIdToken: jest.fn(async () => 'reg-token') };
+        let authChanged: (u: unknown) => Promise<void> = async () => {};
+        (onAuthStateChanged as jest.Mock).mockImplementation((_auth, cb) => { authChanged = cb; return jest.fn(); });
+        await renderAuthReady();
+
+        await act(async () => { await authChanged(regUser); });
+
+        expect(setAuthCookie).toHaveBeenCalledWith('reg-token');
+    });
+
     it('becomes the registered user in context and cookie, though the uid did not change', async () => {
         // Firebase upgrades the linked user in place and onAuthStateChanged stays silent.
         const user = { uid: 'anon-1', isAnonymous: true, getIdToken: jest.fn(async () => 'registered-token') };

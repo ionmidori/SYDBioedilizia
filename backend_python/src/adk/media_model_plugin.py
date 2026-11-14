@@ -28,16 +28,17 @@ from src.adk.video_attachments import UNREADABLE_VIDEOS_STATE_KEY
 from src.core.models import ModelRole, build_thinking_config, get_model_id
 
 _MEDIA_PREFIXES = ("image/", "video/")
+_MEDIA_EXACT_MIMES = frozenset({"application/pdf"})
 
 
 def _is_customer_media(part: types.Part, refused: frozenset[str] = frozenset()) -> bool:
-    """An image or video the model will receive. A video the model refused is
-    not: VideoGuardPlugin sends a placeholder in its place."""
+    """An image, video, or PDF document the model will receive. A video the model
+    refused is not: VideoGuardPlugin sends a placeholder in its place."""
     if part.file_data is not None and part.file_data.file_uri in refused:
         return False
     blob = part.inline_data or part.file_data
     mime = (blob.mime_type or "") if blob is not None else ""
-    return mime.startswith(_MEDIA_PREFIXES)
+    return mime.startswith(_MEDIA_PREFIXES) or mime in _MEDIA_EXACT_MIMES
 
 
 def current_user_message(contents: list[types.Content]) -> types.Content | None:

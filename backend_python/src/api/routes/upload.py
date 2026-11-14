@@ -10,7 +10,9 @@ MIME type spoofing attacks (e.g., .exe files renamed to .jpg).
 """
 import re
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -18,14 +20,24 @@ from firebase_admin import storage as fb_storage
 from pydantic import BaseModel
 from src.auth.jwt_handler import verify_token
 from src.core.logger import get_logger
-from src.core.media_policy import MAX_IMAGE_SIZE, MAX_VIDEO_SIZE, VIDEO_MIME_EXTENSIONS
-from src.models.media import ImageMediaAsset, VideoMediaAsset
+from src.core.media_policy import (
+    MAX_DOCUMENT_SIZE,
+    MAX_IMAGE_SIZE,
+    MAX_VIDEO_SIZE,
+    VIDEO_MIME_EXTENSIONS,
+)
+from src.models.media import DocumentMediaAsset, ImageMediaAsset, VideoMediaAsset
 from src.repositories.conversation_repository import get_conversation_repository
 from src.repositories.room_repository import get_room_repository
 from src.schemas.internal import UserSession
 from src.schemas.room import ROOM_ID_PATTERN
 from src.tools.quota import enforce_quota, increment_quota
-from src.utils.security import sanitize_filename, validate_image_magic_bytes, validate_video_magic_bytes
+from src.utils.security import (
+    sanitize_filename,
+    validate_document_magic_bytes,
+    validate_image_magic_bytes,
+    validate_video_magic_bytes,
+)
 
 logger = get_logger(__name__)
 
@@ -177,6 +189,104 @@ def _firebase_upload_stream(
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
 
+async def _store_buffered_upload(
+    *,
+    request: Request,
+    file: UploadFile,
+    session_id: str,
+    room_id: str | None,
+    user_id: str,
+    max_size: int,
+    tool_name: str,
+    media_kind: Literal["image", "document"],
+    default_filename: str,
+    default_ext: str,
+    validate_magic_bytes: Callable[[UploadFile], Awaitable[str]],
+) -> tuple[str, str, str, str, int, str]:
+    """Validate ownership/quota/magic bytes, store buffered file in GCS, and persist metadata.
+
+    Returns ``(asset_id, signed_url, safe_filename, validated_mime, file_size, file_path)``.
+    """
+    await _check_target(session_id, room_id, user_id)
+
+    # 1. Early rejection via Content-Length header (fast fail, advisory only)
+    _reject_oversized_body(request, max_size)
+
+    # 2. Quota: a denial is a 429/503 raised for the global exception handler
+    remaining = (await enforce_quota(user_id, tool_name)).remaining
+
+    # 3. Magic Bytes Validation (before reading full body)
+    validated_mime = await validate_magic_bytes(file)
+    logger.info(f"{media_kind.capitalize()} Magic Bytes check passed: {validated_mime}")
+
+    safe_filename = await sanitize_filename(file.filename or default_filename)
+
+    # 4. Chunked read with enforced size limit (memory safety)
+    content = await _safe_read_file(file, max_size)
+    file_size = len(content)
+
+    logger.info(
+        f"{media_kind}_upload_started",
+        extra={
+            "file_size_bytes": file_size,
+            "mime_type": validated_mime,
+            "user_id": user_id,
+            "quota_remaining": remaining,
+        },
+    )
+
+    # 5. Generate unique storage path
+    asset_id = uuid.uuid4().hex
+    ext = (
+        default_ext
+        if media_kind == "document"
+        else (safe_filename.split(".")[-1] if "." in safe_filename else default_ext)
+    )
+    file_path = f"user-uploads/{session_id}/{asset_id}.{ext}"
+
+    # 6. Firebase upload in threadpool (non-blocking)
+    # Both URLs are short-lived signed URLs (object stays private — H-2).
+    signed_url, _ = await run_in_threadpool(
+        _firebase_upload, file_path, content, validated_mime, safe_filename
+    )
+
+    # 7. Increment quota
+    await increment_quota(user_id, tool_name)
+
+    # 8. Persist metadata to Firestore so uploaded assets appear in the gallery.
+    # The gallery regenerates fresh signed URLs from storage_path on read, so
+    # storing a (transient) signed URL here is acceptable. The document id is
+    # the asset id: the file has one stable identity everywhere.
+    repo = get_conversation_repository()
+    await repo.save_file_metadata(
+        session_id,
+        {
+            "url": signed_url,
+            "type": media_kind,
+            "name": safe_filename,
+            "size": file_size,
+            "uploadedBy": user_id,
+            "mimeType": validated_mime,
+            "metadata": {"source": "user_upload", "storage_path": file_path},
+        },
+        file_id=asset_id,
+        room_id=room_id,
+    )
+
+    logger.info(
+        f"{media_kind}_upload_completed",
+        extra={
+            "file_path": file_path,
+            "file_size_bytes": file_size,
+            "mime_type": validated_mime,
+            "user_id": user_id,
+            "storage_url": signed_url.split("?")[0],
+        },
+    )
+
+    return asset_id, signed_url, safe_filename, validated_mime, file_size, file_path
+
+
 @router.post("/image", response_model=ImageMediaAsset)
 async def upload_image(
     request: Request,
@@ -203,77 +313,56 @@ async def upload_image(
         QuotaUnavailableError (503, Retry-After): the quota store could not answer.
         Any other failure reaches the global handler as a logged 500.
     """
-    await _check_target(session_id, room_id, user_session.uid)
-
-    # 1. Early rejection via Content-Length header (fast fail, advisory only)
-    _reject_oversized_body(request, MAX_IMAGE_SIZE)
-
-    user_id = user_session.uid
-
-    # 2. Quota: a denial is a 429/503 raised for the global exception handler
-    remaining = (await enforce_quota(user_id, "upload_image")).remaining
-
-    # 3. Magic Bytes Validation (before reading full body)
-    validated_mime = await validate_image_magic_bytes(file)
-    logger.info(f"Image Magic Bytes check passed: {validated_mime}")
-
-    safe_filename = await sanitize_filename(file.filename or "upload.jpg")
-
-    # 4. Chunked read with enforced size limit (memory safety)
-    content = await _safe_read_file(file, MAX_IMAGE_SIZE)
-    file_size = len(content)
-
-    logger.info(
-        "image_upload_started",
-        extra={
-            "file_size_bytes": file_size,
-            "mime_type": validated_mime,
-            "user_id": user_id,
-            "quota_remaining": remaining,
-        }
-    )
-
-    # 5. Generate unique storage path
-    asset_id = uuid.uuid4().hex
-    ext = safe_filename.split('.')[-1] if '.' in safe_filename else 'jpg'
-    file_path = f"user-uploads/{session_id}/{asset_id}.{ext}"
-
-    # 6. Firebase upload in threadpool (non-blocking)
-    # Both URLs are short-lived signed URLs (object stays private — H-2).
-    signed_url, _ = await run_in_threadpool(
-        _firebase_upload, file_path, content, validated_mime, safe_filename
-    )
-
-    # 7. Increment quota
-    await increment_quota(user_id, "upload_image")
-
-    # 8. Persist metadata to Firestore so uploaded photos appear in the gallery.
-    # The gallery regenerates fresh signed URLs from storage_path on read, so
-    # storing a (transient) signed URL here is acceptable. The document id is
-    # the asset id: the file has one stable identity everywhere.
-    repo = get_conversation_repository()
-    await repo.save_file_metadata(session_id, {
-        "url": signed_url,
-        "type": "image",
-        "name": safe_filename,
-        "size": file_size,
-        "uploadedBy": user_id,
-        "mimeType": validated_mime,
-        "metadata": {"source": "user_upload", "storage_path": file_path},
-    }, file_id=asset_id, room_id=room_id)
-
-    logger.info(
-        "image_upload_completed",
-        extra={
-            "file_path": file_path,
-            "file_size_bytes": file_size,
-            "mime_type": validated_mime,
-            "user_id": user_id,
-            "storage_url": signed_url.split("?")[0],
-        }
+    asset_id, signed_url, safe_filename, validated_mime, file_size, file_path = await _store_buffered_upload(
+        request=request,
+        file=file,
+        session_id=session_id,
+        room_id=room_id,
+        user_id=user_session.uid,
+        max_size=MAX_IMAGE_SIZE,
+        tool_name="upload_image",
+        media_kind="image",
+        default_filename="upload.jpg",
+        default_ext="jpg",
+        validate_magic_bytes=validate_image_magic_bytes,
     )
 
     return ImageMediaAsset(
+        id=asset_id,
+        url=signed_url,
+        filename=safe_filename,
+        mime_type=validated_mime,
+        size_bytes=file_size,
+        file_path=file_path,
+        signed_url=signed_url,
+        room_id=room_id,
+    )
+
+
+@router.post("/document", response_model=DocumentMediaAsset)
+async def upload_document(
+    request: Request,
+    file: UploadFile = File(...),
+    session_id: str = Form(...),
+    room_id: str | None = Form(None, pattern=ROOM_ID_PATTERN),
+    user_session: UserSession = Depends(verify_token),
+) -> DocumentMediaAsset:
+    """Upload a PDF document to Firebase Storage after magic-bytes validation."""
+    asset_id, signed_url, safe_filename, validated_mime, file_size, file_path = await _store_buffered_upload(
+        request=request,
+        file=file,
+        session_id=session_id,
+        room_id=room_id,
+        user_id=user_session.uid,
+        max_size=MAX_DOCUMENT_SIZE,
+        tool_name="upload_document",
+        media_kind="document",
+        default_filename="document.pdf",
+        default_ext="pdf",
+        validate_magic_bytes=validate_document_magic_bytes,
+    )
+
+    return DocumentMediaAsset(
         id=asset_id,
         url=signed_url,
         filename=safe_filename,

@@ -1,4 +1,4 @@
-import type { UploadItem, ImageMediaAsset, VideoMediaAsset } from '@/types/media';
+import type { UploadItem, ImageMediaAsset, VideoMediaAsset, DocumentMediaAsset } from '@/types/media';
 import { buildMediaPayload } from '../message-media';
 
 function makeImageUpload(overrides: Partial<ImageMediaAsset> = {}): UploadItem {
@@ -142,5 +142,34 @@ describe('buildMediaPayload — room of the uploads (Phase 138)', () => {
 
     it('falls back to the active room for uploads without a room', () => {
         expect(buildMediaPayload([uploaded(null)], 'r_cucina').roomId).toBe('r_cucina');
+    });
+
+    it('includes completed document (PDF) uploads in mediaUrls, mediaTypes, and mediaMetadata', () => {
+        const serverData: DocumentMediaAsset = {
+            id: 'doc-1',
+            asset_type: 'document',
+            url: 'https://storage.googleapis.com/b/pianta.pdf',
+            filename: 'pianta.pdf',
+            mime_type: 'application/pdf',
+            size_bytes: 4096,
+            created_at: '2026-11-14T10:00:00Z',
+            file_path: 'user-uploads/s1/doc-1.pdf',
+        };
+        const docUpload: UploadItem = {
+            id: 'upload-doc-1',
+            file: new File(['%PDF'], 'pianta.pdf', { type: 'application/pdf' }),
+            previewUrl: '',
+            progress: 100,
+            status: 'success',
+            serverData,
+        };
+        const payload = buildMediaPayload([docUpload]);
+        expect(payload.mediaUrls).toEqual(['https://storage.googleapis.com/b/pianta.pdf']);
+        expect(payload.mediaTypes).toEqual(['application/pdf']);
+        expect(payload.mediaMetadata['https://storage.googleapis.com/b/pianta.pdf']).toEqual({
+            mimeType: 'application/pdf',
+            fileSize: 4096,
+            originalFileName: 'pianta.pdf',
+        });
     });
 });

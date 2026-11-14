@@ -4,8 +4,7 @@ import { SITE_URL } from "@/lib/site";
 import { getCompanyInfo } from "@/lib/company-info/server";
 import { BRAND_ICONS, THEME_COLOR } from "@/lib/brand";
 import { Playfair_Display, Lato, Red_Hat_Display } from "next/font/google";
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Analytics } from "@vercel/analytics/next";
+import { ConsentAwareAnalytics } from "@/components/analytics/ConsentAwareAnalytics";
 import { AppCheckProvider } from "@/components/providers/AppCheckProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import "./globals.css";
@@ -136,8 +135,7 @@ export default async function RootLayout({
             </QueryProvider>
           </AuthProvider>
         </AppCheckProvider>
-        <SpeedInsights />
-        <Analytics />
+        <ConsentAwareAnalytics />
       </body>
     </html>
   );

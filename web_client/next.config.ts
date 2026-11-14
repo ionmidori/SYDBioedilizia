@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import createBundleAnalyzer from '@next/bundle-analyzer';
 import { LEGACY_LOGO_REDIRECTS } from './lib/brand';
+import { COMMON_SECURITY_HEADERS } from './lib/security/headers';
 
 // Firebase domain that serves the Auth handler (`/__/auth/*`).
 const FIREBASE_AUTH_HANDLER_DOMAIN = `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'chatbotluca-a8a73'}.firebaseapp.com`;
@@ -104,10 +105,6 @@ const nextConfig: NextConfig = {
             value: 'on'
           },
           {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains; preload'
-          },
-          {
             key: 'Cross-Origin-Opener-Policy',
             value: 'same-origin-allow-popups'
           },
@@ -115,22 +112,7 @@ const nextConfig: NextConfig = {
             key: 'Cross-Origin-Embedder-Policy',
             value: 'unsafe-none'
           },
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN'
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff'
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin'
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(self), microphone=(self), geolocation=(), browsing-topics=()'
-          },
+          ...COMMON_SECURITY_HEADERS.map((h) => ({ ...h })),
           // NOTE: Content-Security-Policy is set dynamically by proxy.ts (the
           // Next.js 16 middleware file) with a per-request cryptographic nonce
           // and 'strict-dynamic' — enforcing, not Report-Only (F-01).
@@ -162,12 +144,6 @@ const nextConfig: NextConfig = {
           source: '/__/auth/:path*',
           destination: `https://${FIREBASE_AUTH_HANDLER_DOMAIN}/__/auth/:path*`,
         },
-        {
-          source: '/chat/stream',
-          destination: process.env.NODE_ENV === 'development'
-            ? 'http://127.0.0.1:8080/chat/stream' // Local Python Backend (8080 on Windows)
-            : 'https://syd-brain-w6yrkh3gfa-ew.a.run.app/chat/stream', // Cloud Run (Active)
-        }
       ],
       afterFiles: [],
       fallback: [],

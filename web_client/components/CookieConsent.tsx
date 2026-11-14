@@ -36,6 +36,40 @@ export function CookieConsent() {
         return () => clearTimeout(timer);
     }, [consent, isInitialized]);
 
+    useEffect(() => {
+        const handleOpenSettings = () => {
+            setTempConsent(
+                consent ?? {
+                    essential: true,
+                    analytics: false,
+                    marketing: false,
+                }
+            );
+            setShowSettings(true);
+            setIsVisible(true);
+        };
+
+        window.addEventListener('open_cookie_settings', handleOpenSettings);
+        return () => window.removeEventListener('open_cookie_settings', handleOpenSettings);
+    }, [consent]);
+
+    const handleAcceptAll = () => {
+        acceptAll();
+        setShowSettings(false);
+    };
+
+    const handleDeclineAll = () => {
+        declineAll();
+        setShowSettings(false);
+    };
+
+    const handleCloseSettings = () => {
+        setShowSettings(false);
+        if (consent) {
+            setIsVisible(false);
+        }
+    };
+
     const handleSaveSettings = () => {
         updateConsent(tempConsent);
         setShowSettings(false);
@@ -57,14 +91,23 @@ export function CookieConsent() {
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] inset-x-4 sm:inset-x-6 z-[200] flex justify-center pointer-events-none"
+                    className={`fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] inset-x-4 sm:inset-x-6 ${showSettings ? 'z-[200]' : 'z-[80]'} flex justify-center pointer-events-none`}
                 >
                     <div className="w-full max-w-4xl glass !bg-canvas/95 p-6 md:p-8 rounded-[2rem] border-line shadow-2xl pointer-events-auto relative overflow-hidden group">
                         {/* Atmospheric Background Element */}
                         <div className="absolute -top-10 -right-10 w-40 h-40 bg-accent-subtle rounded-full blur-3xl pointer-events-none group-hover:bg-accent-subtle transition-all duration-700" />
 
                         {!showSettings ? (
-                            <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">
+                            <div className="flex flex-col md:flex-row items-center gap-6 relative z-10 pr-10 md:pr-12">
+                                <button
+                                    type="button"
+                                    onClick={handleDeclineAll}
+                                    aria-label="Continua senza accettare i cookie opzionali"
+                                    className="absolute -top-2 -right-2 min-w-11 min-h-11 flex items-center justify-center text-ink-muted hover:text-accent-ink transition-colors rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+                                >
+                                    <X className="w-5 h-5" aria-hidden="true" />
+                                </button>
+
                                 <div className="bg-accent-subtle p-4 rounded-2xl border border-line shadow-inner">
                                     <ShieldCheck className="w-8 h-8 text-accent-ink" />
                                 </div>
@@ -75,21 +118,37 @@ export function CookieConsent() {
                                     </h3>
                                     <p className="text-sm text-ink-muted leading-relaxed max-w-2xl">
                                         Utilizziamo i cookie per migliorare la tua esperienza e analizzare il traffico.
-                                        Puoi accettare tutti i cookie o personalizzare le tue preferenze. Leggi i nostri <Link href="/terms" target="_blank" className="text-accent-ink underline underline-offset-2 hover:decoration-2">Termini di Servizio</Link>, l&apos;<Link href="/privacy" target="_blank" className="text-accent-ink underline underline-offset-2 hover:decoration-2">Informativa sulla Privacy</Link> e la <Link href="/cookie-policy" target="_blank" className="text-accent-ink underline underline-offset-2 hover:decoration-2">Cookie Policy</Link>.
+                                        Puoi accettare, rifiutare i cookie opzionali o personalizzare le tue preferenze. Leggi i nostri <Link href="/terms" target="_blank" className="text-accent-ink underline underline-offset-2 hover:decoration-2">Termini di Servizio</Link>, l&apos;<Link href="/privacy" target="_blank" className="text-accent-ink underline underline-offset-2 hover:decoration-2">Informativa sulla Privacy</Link> e la <Link href="/cookie-policy" target="_blank" className="text-accent-ink underline underline-offset-2 hover:decoration-2">Cookie Policy</Link>.
                                     </p>
                                 </div>
 
                                 <div className="flex flex-wrap justify-center gap-3">
                                     <Button
                                         variant="ghost"
-                                        onClick={() => setShowSettings(true)}
-                                        className="text-accent-ink hover:bg-accent-subtle font-bold uppercase tracking-wider text-xs h-12 px-6 rounded-xl transition-all"
+                                        onClick={() => {
+                                            setTempConsent(
+                                                consent ?? {
+                                                    essential: true,
+                                                    analytics: false,
+                                                    marketing: false,
+                                                }
+                                            );
+                                            setShowSettings(true);
+                                        }}
+                                        className="text-accent-ink hover:bg-accent-subtle font-bold uppercase tracking-wider text-xs h-12 px-5 rounded-xl transition-all"
                                     >
                                         <Settings className="w-4 h-4 mr-2" />
                                         Personalizza
                                     </Button>
                                     <Button
-                                        onClick={acceptAll}
+                                        variant="secondary"
+                                        onClick={handleDeclineAll}
+                                        className="font-bold uppercase tracking-wider text-xs h-12 px-6 rounded-xl transition-all"
+                                    >
+                                        Rifiuta Opzionali
+                                    </Button>
+                                    <Button
+                                        onClick={handleAcceptAll}
                                         className="bg-primary hover:bg-primary-hover text-on-primary font-bold uppercase tracking-wider text-xs h-12 px-8 rounded-xl shadow-lg transition-all hover:scale-[1.02] active:scale-95 border border-line"
                                     >
                                         Accetta Tutti
@@ -106,7 +165,7 @@ export function CookieConsent() {
                                     <h3 className="text-xl font-bold text-ink font-serif">
                                         Impostazioni <span className="text-accent-ink italic">Avanzate</span>
                                     </h3>
-                                    <button type="button" onClick={() => setShowSettings(false)} aria-label="Chiudi le impostazioni" className="min-w-11 min-h-11 flex items-center justify-center text-ink-muted hover:text-accent-ink transition-colors rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
+                                    <button type="button" onClick={handleCloseSettings} aria-label="Chiudi le impostazioni" className="min-w-11 min-h-11 flex items-center justify-center text-ink-muted hover:text-accent-ink transition-colors rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring cursor-pointer">
                                         <X className="w-6 h-6" aria-hidden="true" />
                                     </button>
                                 </div>
@@ -136,7 +195,7 @@ export function CookieConsent() {
                                 <div className="flex justify-end gap-3 pt-2">
                                     <Button
                                         variant="ghost"
-                                        onClick={declineAll}
+                                        onClick={handleDeclineAll}
                                         className="text-ink-muted hover:text-danger-ink hover:bg-danger-subtle font-bold uppercase tracking-wider text-xs h-12 px-6 rounded-xl"
                                     >
                                         Rifiuta Opzionali

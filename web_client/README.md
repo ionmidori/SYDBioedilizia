@@ -51,7 +51,7 @@ quotes) ask anonymous visitors to sign in.
 
 ## Security headers
 
-`next.config.ts` sets HSTS, `X-Frame-Options: SAMEORIGIN`, `nosniff`, a
+`next.config.ts` sets HSTS, `X-Frame-Options: DENY`, `nosniff`, a
 restrictive `Permissions-Policy` and a referrer policy. `proxy.ts` adds the
 Content Security Policy built in `lib/security/csp.ts`: dynamic routes such as
 `/dashboard/*` get a strict nonce-based policy, and statically pre-rendered

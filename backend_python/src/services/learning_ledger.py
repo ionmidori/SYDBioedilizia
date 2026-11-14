@@ -13,6 +13,7 @@ quotes, calibration from ~100). Purge and retention never touch the collection.
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -30,11 +31,6 @@ logger = logging.getLogger(__name__)
 LEARNING_LEDGER_COLLECTION = "learning_ledger"
 # How many revisions back (from the approved one) the last AI revision is looked for.
 AI_REVISION_LOOKBACK = 20
-
-
-def entry_id(quote_number: str, approved_version: int) -> str:
-    """Deterministic: approving the same version again overwrites its entry."""
-    return f"{quote_number}_r{approved_version}"
 
 
 def ledger_ref(db: Any, doc_id: str) -> Any:
@@ -58,7 +54,7 @@ def last_ai_revision(revisions: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 
 def build_entry(
-    *, quote: dict[str, Any], ai_revision: dict[str, Any], approved_version: int, admin_uid: str, now: datetime
+    *, quote: dict[str, Any], ai_revision: dict[str, Any], approved_version: int, now: datetime
 ) -> LearningLedgerEntry | None:
     """The ledger entry of an approval. Pure, never raises: None if it cannot be built."""
     quote_number = quote.get("quote_number")
@@ -70,11 +66,9 @@ def build_entry(
         approved_items = [QuoteItem(**item) for item in quote.get("items") or []]
         request = QuoteRequest(**(quote.get("request") or {}))
         return LearningLedgerEntry(
-            quote_number=quote_number,
             approved_version=approved_version,
             ai_version=draft.version,
             approved_at=now,
-            approved_by=admin_uid,
             ai_created_at=draft.created_at,
             rooms=[LedgerRoom.model_validate(room.model_dump(include=set(LedgerRoom.model_fields))) for room in draft.rooms],
             specs=draft.specs,
@@ -97,7 +91,7 @@ def build_entry(
 
 
 async def prepare_entry(
-    transaction: Any, quote_ref: Any, quote: dict[str, Any], approved_version: int, admin_uid: str, now: datetime
+    transaction: Any, quote_ref: Any, quote: dict[str, Any], approved_version: int, now: datetime
 ) -> LearningLedgerEntry | None:
     """Read phase of the approval transaction: the entry to write, or None."""
     revisions = await read_recent_revisions(transaction, quote_ref, approved_version)
@@ -117,10 +111,14 @@ async def prepare_entry(
             )
         return None
     return build_entry(
-        quote=quote, ai_revision=ai_revision, approved_version=approved_version, admin_uid=admin_uid, now=now
+        quote=quote, ai_revision=ai_revision, approved_version=approved_version, now=now
     )
 
 
-def write_entry(transaction: Any, db: Any, entry: LearningLedgerEntry) -> None:
+def write_entry(
+    transaction: Any, db: Any, entry: LearningLedgerEntry, *, doc_id: str | None = None
+) -> str:
     """Write phase: amounts dump as JSON numbers (Firestore cannot store a Decimal)."""
-    transaction.set(ledger_ref(db, entry_id(entry.quote_number, entry.approved_version)), entry.model_dump())
+    resolved_id = doc_id or uuid.uuid4().hex
+    transaction.set(ledger_ref(db, resolved_id), entry.model_dump())
+    return resolved_id

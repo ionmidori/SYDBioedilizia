@@ -182,6 +182,7 @@ describe('ChatInput', () => {
         const accepts = Array.from(fileInputs).map(el => el.getAttribute('accept'));
         expect(accepts).toContain('image/*');
         expect(accepts).toContain('application/pdf');
+        expect(accepts).toContain('application/pdf,image/jpeg,image/png,image/webp,video/mp4,video/quicktime');
     });
 
     it('should open attach dialog when paperclip button clicked', () => {
@@ -196,5 +197,52 @@ describe('ChatInput', () => {
 
         // After clicking, the dialog should open showing "Allega" title
         expect(screen.getByText(/allega/i)).toBeInTheDocument();
+    });
+
+    it('keeps Send disabled when only failed uploads exist without text, and enables it on success', () => {
+        const failedOnly = {
+            err1: {
+                id: 'err1',
+                file: new File(['x'], 'bad.zip', { type: 'application/zip' }),
+                previewUrl: '',
+                progress: 0,
+                status: 'error' as const,
+                retryable: false,
+                error: 'Formato file non supportato.',
+            },
+        };
+        const { rerender } = render(<ChatInput {...defaultProps} inputValue="" uploads={failedOnly} />);
+        expect(screen.getByTestId('icon-send').closest('button')).toBeDisabled();
+
+        rerender(
+            <ChatInput
+                {...defaultProps}
+                inputValue=""
+                uploads={{
+                    ok1: {
+                        id: 'ok1',
+                        file: new File(['%PDF-1.7'], 'pianta.pdf', { type: 'application/pdf' }),
+                        previewUrl: 'blob:ok1',
+                        progress: 100,
+                        status: 'success' as const,
+                    },
+                }}
+            />
+        );
+        expect(screen.getByTestId('icon-send').closest('button')).not.toBeDisabled();
+    });
+
+    it('forwards non-video file selections to onFileSelect without blocking alert popups', () => {
+        const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+        const { container } = render(<ChatInput {...defaultProps} />);
+        const docInput = container.querySelector('input[accept="application/pdf"]') as HTMLInputElement;
+        const hugePdf = new File(['%PDF-1.7'], 'enorme.pdf', { type: 'application/pdf' });
+        Object.defineProperty(hugePdf, 'size', { value: 26 * 1024 * 1024 });
+
+        fireEvent.change(docInput, { target: { files: [hugePdf] } });
+
+        expect(defaultProps.onFileSelect).toHaveBeenCalledWith([hugePdf]);
+        expect(alertSpy).not.toHaveBeenCalled();
+        alertSpy.mockRestore();
     });
 });

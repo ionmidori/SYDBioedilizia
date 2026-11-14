@@ -133,6 +133,13 @@ export function Footer() {
                         <Link href="/privacy" className="inline-flex items-center min-h-11 md:min-h-7 py-1 hover:text-accent-ink transition-colors">Informativa sulla Privacy</Link>
                         <Link href="/terms" className="inline-flex items-center min-h-11 md:min-h-7 py-1 hover:text-accent-ink transition-colors">Termini di Servizio</Link>
                         <Link href="/cookie-policy" className="inline-flex items-center min-h-11 md:min-h-7 py-1 hover:text-accent-ink transition-colors">Cookie Policy</Link>
+                        <button
+                            type="button"
+                            onClick={() => window.dispatchEvent(new Event('open_cookie_settings'))}
+                            className="inline-flex items-center min-h-11 md:min-h-7 py-1 hover:text-accent-ink transition-colors cursor-pointer"
+                        >
+                            Preferenze Cookie
+                        </button>
                     </div>
                 </div>
             </div>

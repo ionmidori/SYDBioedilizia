@@ -67,16 +67,16 @@ jest.mock('../ChatHeader', () => ({ ChatHeader: (props: Record<string, unknown>)
 
 // Other Mocks
 jest.mock('../ChatMessages', () => ({ ChatMessages: () => <div /> }));
-const MockChatInput = jest.fn<React.ReactElement, [{ authLoading?: boolean }]>(() => <div />);
-jest.mock('../ChatInput', () => ({ ChatInput: (props: { authLoading?: boolean }) => MockChatInput(props) }));
+const MockChatInput = jest.fn<React.ReactElement, [{ authLoading?: boolean; onSubmit?: (e?: React.FormEvent) => Promise<void> | void }]>(() => <div />);
+jest.mock('../ChatInput', () => ({ ChatInput: (props: { authLoading?: boolean; onSubmit?: (e?: React.FormEvent) => Promise<void> | void }) => MockChatInput(props) }));
 jest.mock('../ChatToggleButton', () => ({ ChatToggleButton: () => <button>Toggle</button> }));
 jest.mock('@/hooks/useChatHistory', () => ({ useChatHistory: () => ({ historyLoaded: true, historyMessages: [] }) }));
 jest.mock('@/hooks/useChatScroll', () => ({ useChatScroll: () => ({ messagesContainerRef: { current: null }, messagesEndRef: { current: null }, scrollToBottom: jest.fn() }) }));
 jest.mock('@/hooks/useMobileViewport', () => ({ useMobileViewport: () => ({ isMobile: false }) }));
 jest.mock('@/hooks/useTypingIndicator', () => ({ useTypingIndicator: () => null }));
 
-const mockUseUpload = jest.fn((_options: { sessionId?: string }) => ({
-    uploads: [], addFiles: jest.fn(), removeFile: jest.fn(), retryUpload: jest.fn(),
+const mockUseUpload = jest.fn((_options: { sessionId?: string }): Record<string, unknown> => ({
+    uploads: {}, addFiles: jest.fn(), removeFile: jest.fn(), retryUpload: jest.fn(),
     clearAll: jest.fn(), isUploading: false, successfulUploads: [],
 }));
 jest.mock('@/hooks/useUpload', () => ({
@@ -213,5 +213,35 @@ describe('ChatWidget', () => {
 
             expect(isChatWindowOpen()).toBe(false);
         });
+    });
+
+    test('does not clear failed upload notices when submit is triggered with empty input and no successful uploads', async () => {
+        const clearAll = jest.fn();
+        mockUseUpload.mockReturnValue({
+            uploads: {
+                err1: {
+                    id: 'err1',
+                    file: new File(['x'], 'bad.zip', { type: 'application/zip' }),
+                    previewUrl: '',
+                    progress: 0,
+                    status: 'error',
+                    error: 'Formato file non supportato.',
+                    retryable: false,
+                },
+            },
+            addFiles: jest.fn(),
+            removeFile: jest.fn(),
+            retryUpload: jest.fn(),
+            clearAll,
+            isUploading: false,
+            successfulUploads: [],
+        });
+
+        render(<ChatWidget variant="inline" />);
+        const latestProps = MockChatInput.mock.calls.at(-1)?.[0];
+        await latestProps?.onSubmit?.();
+
+        expect(clearAll).not.toHaveBeenCalled();
+        expect(mockDismissChatNotice).not.toHaveBeenCalled();
     });
 });
