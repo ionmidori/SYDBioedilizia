@@ -1,15 +1,16 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
 import { Suspense } from 'react';
-import { FAQItemCard } from '@/components/faq/FAQItem';
+import { ChevronRight, MessageSquare } from 'lucide-react';
+import { CompanyContextStrip } from '@/components/faq/CompanyContextStrip';
+import { FAQExplorer } from '@/components/faq/FAQExplorer';
 import { Navbar } from '@/components/sections/Navbar';
 import { Footer } from '@/components/sections/Footer';
-import { Phone } from 'lucide-react';
 import { OpenChatButton } from '@/components/ui/open-chat-button';
 import ChatWidget from '@/components/chat/ChatWidget';
 import { serializeJsonLd } from '@/lib/blog/seo';
 import { blocksToPlainText } from '@/lib/company-info/blocks';
-import { telHref } from '@/lib/company-info/format';
-import { COMPANY_ICONS } from '@/lib/company-info/icons';
+import { buildFaqSections } from '@/lib/company-info/faq-sections';
 import { getCompanyInfo } from '@/lib/company-info/server';
 import { SITE_URL } from '@/lib/site';
 import { shareMetadata } from '@/lib/site-share';
@@ -29,15 +30,10 @@ export const metadata: Metadata = {
 };
 
 export default async function FAQPage() {
-  // Categories, questions and phone come from the company info edited in the admin console.
-  const { faq, faq_categories, identity } = await getCompanyInfo();
-  const sections = faq_categories
-    .map((category) => ({
-      ...category,
-      sectionId: category.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      items: faq.filter((item) => item.category === category.name),
-    }))
-    .filter((section) => section.items.length > 0);
+  // Categories and questions come from the company info edited in the admin console.
+  const companyInfo = await getCompanyInfo();
+  const { faq, faq_categories } = companyInfo;
+  const sections = buildFaqSections(faq_categories, faq);
 
   // FAQPage + BreadcrumbList JSON-LD (SEO/GEO)
   const jsonLd = {
@@ -77,10 +73,16 @@ export default async function FAQPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-canvas text-ink relative overflow-hidden">
+      <main className="min-h-screen bg-canvas text-ink relative overflow-clip">
         {/* Background orbs */}
-        <div className="absolute top-0 right-0 w-1/3 h-1/3 ambient-glow ambient-glow-teal [--glow-alpha:5%]" />
-        <div className="absolute bottom-1/3 left-0 w-1/4 h-1/4 ambient-glow ambient-glow-gold" />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute top-0 right-0 w-1/3 h-1/3 ambient-glow ambient-glow-teal [--glow-alpha:5%]"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-1/3 left-0 w-1/4 h-1/4 ambient-glow ambient-glow-gold"
+        />
 
         {/* JSON-LD */}
         <script
@@ -89,10 +91,26 @@ export default async function FAQPage() {
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
 
-        <div className="container mx-auto px-4 max-w-4xl relative z-10 pt-32 pb-20">
+        <div className="container mx-auto px-4 max-w-4xl relative z-10 pt-28 pb-20">
+          {/* Semantic Breadcrumb */}
+          <nav
+            aria-label="Breadcrumb"
+            className="mb-8 flex items-center justify-center gap-2 text-sm text-ink-muted"
+          >
+            <Link
+              href="/"
+              className="inline-flex items-center min-h-[44px] px-2 hover:text-primary-ink transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring rounded"
+            >
+              Home
+            </Link>
+            <ChevronRight className="w-4 h-4 text-ink-subtle shrink-0" aria-hidden="true" />
+            <span aria-current="page" className="text-ink font-medium">
+              Domande Frequenti
+            </span>
+          </nav>
 
           {/* Hero Header */}
-          <header className="mb-16 text-center space-y-4">
+          <header className="mb-12 text-center space-y-4">
             <h1 className="text-4xl md:text-5xl font-serif font-bold text-ink">
               Domande Frequenti
             </h1>
@@ -102,63 +120,27 @@ export default async function FAQPage() {
             </p>
           </header>
 
-          {/* Category Navigation */}
-          <nav className="flex flex-wrap justify-center gap-3 mb-12" aria-label="Categorie FAQ">
-            {sections.map(({ name, icon, sectionId }) => {
-              const Icon = COMPANY_ICONS[icon];
-              return (
-                <a
-                  key={name}
-                  href={`#${sectionId}`}
-                  className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-full border border-primary/15 bg-primary-subtle text-ink text-sm font-medium hover:border-primary/40 hover:bg-primary-subtle hover:text-primary-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas transition-all duration-200"
-                >
-                  <Icon className="w-4 h-4" />
-                  {name}
-                </a>
-              );
-            })}
-          </nav>
+          {/* Search, Category Filter & Accordion List */}
+          <FAQExplorer sections={sections} />
 
-          {/* FAQ Sections */}
-          <div className="space-y-14">
-            {sections.map(({ name, icon, sectionId, items }) => {
-              const Icon = COMPANY_ICONS[icon];
-              return (
-                <section key={name} className="scroll-mt-32" id={sectionId}>
-                  <h2 className="text-2xl font-serif font-bold text-ink mb-6 flex items-center gap-3">
-                    <span className="w-10 h-10 rounded-full bg-primary-subtle border border-primary/20 flex items-center justify-center">
-                      <Icon className="w-5 h-5 text-primary-ink" />
-                    </span>
-                    {name}
-                  </h2>
-                  <div className="space-y-4">
-                    {items.map((faqItem) => (
-                      <FAQItemCard key={faqItem.slug} item={faqItem} />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
+          {/* Method, Transparency & Service Area */}
+          <CompanyContextStrip info={companyInfo} />
 
           {/* CTA Section */}
-          <div className="mt-20 surface-inverse p-8 md:p-10 rounded-2xl border border-line text-center">
-            <h3 className="text-2xl font-serif font-bold text-accent-ink mb-3">
+          <div className="mt-16 surface-inverse p-8 md:p-10 rounded-2xl border border-line text-center">
+            <h2 className="text-2xl font-serif font-bold text-accent-ink mb-3">
               Non hai trovato la risposta?
-            </h3>
+            </h2>
             <p className="text-ink leading-relaxed tracking-[0.01em] mb-8 max-w-lg mx-auto">
-              Il nostro team è disponibile per rispondere a ogni tua domanda. Chiamaci o parla con il nostro assistente AI.
+              Il nostro assistente SYD è disponibile per rispondere a ogni domanda sul tuo progetto di ristrutturazione.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a
-                href={telHref(identity.phone)}
-                className="inline-flex items-center justify-center gap-2 min-h-[44px] px-6 py-3 rounded-full border border-transparent bg-accent hover:bg-accent/80 text-on-accent font-bold transition-all duration-200 shadow-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+            <div className="flex justify-center">
+              <OpenChatButton
+                prompt="Ciao SYD, ho letto le FAQ e vorrei chiedere una consulenza sul mio progetto"
+                className="bg-primary hover:bg-primary-hover text-on-primary font-bold border-transparent shadow-lg"
               >
-                <Phone className="w-4 h-4" />
-                Chiama Ora
-              </a>
-              <OpenChatButton>
-                Parla con l&apos;AI
+                <MessageSquare className="w-4 h-4" aria-hidden="true" />
+                Chiedi a SYD
               </OpenChatButton>
             </div>
           </div>

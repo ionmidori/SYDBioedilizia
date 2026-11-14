@@ -13,4 +13,20 @@ describe("FAQAnswer", () => {
     expect(screen.getByText("<img src=x onerror=alert(1)>")).toBeInTheDocument();
     expect(document.querySelector("img")).toBeNull();
   });
+
+  it("renders definition blocks with semantic dl, dt, and dd elements", () => {
+    const { container } = render(
+      <FAQAnswer
+        blocks={[
+          {
+            type: "definitions",
+            items: [{ term: "CILA", description: "Comunicazione Inizio Lavori Asseverata." }],
+          },
+        ]}
+      />
+    );
+    expect(container.querySelector("dl")).not.toBeNull();
+    expect(screen.getByText("CILA").tagName).toBe("DT");
+    expect(screen.getByText("Comunicazione Inizio Lavori Asseverata.").tagName).toBe("DD");
+  });
 });

@@ -10,7 +10,11 @@ jest.mock('@/lib/company-info/server', () => ({ getCompanyInfo: jest.fn() }));
 jest.mock('@/components/sections/Navbar', () => ({ Navbar: () => null }));
 jest.mock('@/components/sections/Footer', () => ({ Footer: () => null }));
 jest.mock('@/components/chat/ChatWidget', () => ({ __esModule: true, default: () => null }));
-jest.mock('@/components/ui/open-chat-button', () => ({ OpenChatButton: () => <button>Parla con l&apos;AI</button> }));
+jest.mock('@/components/ui/open-chat-button', () => ({
+    OpenChatButton: ({ children }: { children?: React.ReactNode }) => (
+        <button type="button">{children ?? "Parla con l'AI"}</button>
+    ),
+}));
 
 const info: CompanyInfo = {
     ...SEED_COMPANY_INFO,
@@ -38,7 +42,7 @@ describe('/faq page', () => {
     it('shows the categories of the company info that have questions, in their order', async () => {
         await renderPage();
         const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
-        expect(headings).toEqual(['Costi & Tempi']);
+        expect(headings).toContain('Costi & Tempi');
         expect(screen.getByText('Quanto costa?')).toBeInTheDocument();
         expect(screen.getByText('Quanto dura?')).toBeInTheDocument();
         expect(screen.queryByText('Categoria vuota')).not.toBeInTheDocument();
@@ -53,9 +57,10 @@ describe('/faq page', () => {
         expect(crumbs.itemListElement.map((c: { item: string }) => c.item)).toEqual([SITE_URL, `${SITE_URL}/faq`]);
     });
 
-    it('calls the phone of the company info', async () => {
+    it('shows only the Chiedi a SYD button in the bottom CTA without a phone link', async () => {
         await renderPage();
-        expect(screen.getByRole('link', { name: /Chiama Ora/ })).toHaveAttribute('href', 'tel:+39061234567');
+        expect(screen.getByRole('button', { name: /Chiedi a SYD/i })).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: /Chiama Ora/i })).not.toBeInTheDocument();
     });
 
     it('does not offer a site visit before the quote (the visit is asked for after it)', async () => {
@@ -77,5 +82,49 @@ describe('/faq page', () => {
         const faq = JSON.parse(script.textContent!)['@graph'][0];
         expect(faq.mainEntity[0].name).toBe(hostile);
         expect(faq.mainEntity[0].acceptedAnswer.text).toBe(hostile);
+    });
+
+    it('renders visible breadcrumb nav, promotes CTA heading to h2, and configures overflow-clip + aria-hidden glows', async () => {
+        const container = await renderPage();
+        const breadcrumb = screen.getByRole('navigation', { name: /Breadcrumb/i });
+        expect(breadcrumb).toBeInTheDocument();
+        expect(breadcrumb.querySelector('a[href="/"]')).toHaveTextContent(/Home/i);
+        expect(breadcrumb).toHaveTextContent(/Domande Frequenti/i);
+
+        expect(screen.getByRole('heading', { level: 2, name: /Non hai trovato la risposta\?/i })).toBeInTheDocument();
+
+        const main = container.querySelector('main');
+        expect(main).toHaveClass('overflow-clip');
+        expect(main).not.toHaveClass('overflow-hidden');
+
+        const glows = container.querySelectorAll('.ambient-glow');
+        expect(glows.length).toBeGreaterThanOrEqual(2);
+        glows.forEach((glow) => {
+            expect(glow).toHaveAttribute('aria-hidden', 'true');
+        });
+    });
+
+    it('renders quote_terms validity/payments and transparent sections from company info without extra site-visit wording', async () => {
+        const container = await renderPage();
+        expect(container.textContent).toMatch(/30\s*giorni/i);
+        expect(container.textContent).toContain('30% a inizio lavori');
+        expect(container.textContent).toContain('50% a metà lavori');
+        expect(container.textContent).toContain('20% a fine lavori');
+        expect(container.textContent).toContain('bonus fiscali');
+        expect(container.textContent).toContain('Classe A1');
+    });
+
+    it('renders the SYD agent explanation and the file upload checklist without pre-quote sopralluogo', async () => {
+        await renderPage();
+        expect(
+            screen.getByRole('heading', { level: 2, name: /Cos'è SYD: il nostro assistente AI agentico/i })
+        ).toBeInTheDocument();
+        expect(
+            screen.getByRole('heading', { level: 2, name: /Cosa inviare a SYD per un preventivo preciso/i })
+        ).toBeInTheDocument();
+        expect(screen.getByText(/3-4 foto dagli angoli/i)).toBeInTheDocument();
+        expect(screen.getByText(/Planimetria o schizzo quotato/i)).toBeInTheDocument();
+        expect(screen.getByText(/Video panoramico/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Invia i tuoi file a SYD/i })).toBeInTheDocument();
     });
 });
