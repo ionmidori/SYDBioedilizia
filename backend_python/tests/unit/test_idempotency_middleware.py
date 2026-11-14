@@ -187,3 +187,28 @@ async def test_idempotency_middleware_does_not_cache_4xx_responses() -> None:
     assert r2.status_code == 200
     assert r2.json() == {"ok": True, "attempt": 2}
     assert "x-idempotency-replayed" not in r2.headers
+
+
+@pytest.mark.asyncio
+async def test_idempotency_middleware_strips_control_chars_and_isolates_ips() -> None:
+    app = _test_app()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r1 = await client.post(
+            "/feedback",
+            headers={"Idempotency-Key": "ctrl\x00key\x7f-1", "X-Forwarded-For": "203.0.113.10"},
+        )
+        r2 = await client.post(
+            "/feedback",
+            headers={"Idempotency-Key": "ctrlkey-1", "X-Forwarded-For": "203.0.113.10"},
+        )
+        r3 = await client.post(
+            "/feedback",
+            headers={"Idempotency-Key": "ctrlkey-1", "X-Forwarded-For": "203.0.113.99"},
+        )
+        only_ctrl_1 = await client.post("/feedback", headers={"Idempotency-Key": "\x00\x01"})
+        only_ctrl_2 = await client.post("/feedback", headers={"Idempotency-Key": "\x00\x01"})
+
+    assert r2.json() == r1.json()
+    assert r2.headers.get("x-idempotency-replayed") == "true"
+    assert r3.json() != r1.json()
+    assert only_ctrl_1.json() != only_ctrl_2.json()

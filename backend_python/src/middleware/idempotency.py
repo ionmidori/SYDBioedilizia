@@ -54,7 +54,7 @@ def _identity_prefix(headers: list[tuple[bytes, bytes]]) -> str:
         return "tok:" + hashlib.sha256(auth).hexdigest()[:16]
     if xff:
         client_ip = xff.split(b",")[0].strip().decode("utf-8", "replace")
-        return f"ip:{client_ip}"
+        return "ip:" + hashlib.sha256(client_ip.encode("utf-8")).hexdigest()[:16]
     return "anon"
 
 _TTL_SECONDS = 60 * 60 * 24  # 24 hours
@@ -145,7 +145,7 @@ class IdempotencyMiddleware:
             return
 
         # Sanitise: keys must be ≤ 255 chars, no control characters
-        idempotency_key = idempotency_key[:255].strip()
+        idempotency_key = re.sub(r"[\x00-\x1f\x7f]", "", idempotency_key[:255]).strip()
         if not idempotency_key:
             await self.app(scope, receive, send)
             return
