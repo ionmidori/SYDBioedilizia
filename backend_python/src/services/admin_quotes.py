@@ -231,7 +231,7 @@ async def approve_tx(
     _check_lock(project_id, quote, admin_uid, now)
     status = transition(quote.get("status", ""), QuoteEvent.APPROVE)
     # Read phase of the learning ledger, before any write of the transaction.
-    entry = await learning_ledger.prepare_entry(transaction, ref, quote, expected_version, admin_uid, now)
+    entry = await learning_ledger.prepare_entry(transaction, ref, quote, expected_version, now)
     updates = {
         "status": status.value,
         "updated_at": now,
