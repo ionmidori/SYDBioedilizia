@@ -116,13 +116,13 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
     useEffect(() => {
         if (isInline || !isOpen) return;
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return;
+            if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing || selectedImage) return;
             setIsOpen(false);
             requestAnimationFrame(() => toggleButtonRef.current?.focus());
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isInline, isOpen]);
+    }, [isInline, isOpen, selectedImage]);
 
     // 4. Status Queue (Visuals)
     const { currentStatus, addStatus, clearQueue } = useStatusQueue();
