@@ -130,7 +130,7 @@ test('a guest confirms, sees one login card, and the quote starts again in its c
 
   // 3. Sign in from the card to the existing account.
   await cardButton.click();
-  const dialog = page.getByRole('dialog');
+  const dialog = page.getByRole('dialog', { name: 'Benvenuto in SYD' });
   await dialog.getByRole('button', { name: 'Usa Email e Password' }).click();
   await page.locator('#email').fill(TEST_USER.email);
   await page.locator('#password').fill(TEST_USER.password);

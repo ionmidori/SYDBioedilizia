@@ -10,7 +10,7 @@ export function caller(route: Route): { provider?: string; uid?: string } {
 
 /** Opens the login dialog the way the navbar does. */
 export async function openLoginDialog(page: Page) {
-  const dialog = page.getByRole('dialog');
+  const dialog = page.getByRole('dialog', { name: 'Benvenuto in SYD' });
   // Retried: an event fired before GlobalAuthListener hydrates is lost (see auth.setup.ts).
   await expect(async () => {
     await page.evaluate(() =>
