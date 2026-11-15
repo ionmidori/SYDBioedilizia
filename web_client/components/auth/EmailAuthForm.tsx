@@ -131,8 +131,8 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
     }
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+            <div className="space-y-1.5">
                 <Label htmlFor="email" className="text-ink-muted">Email</Label>
                 <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-subtle" />
@@ -153,7 +153,7 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
             </div>
 
             {mode !== 'reset' && (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                     <Label htmlFor="password" className="text-ink-muted">Password</Label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-subtle" />
@@ -196,7 +196,7 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
                     : (mode === 'reset' ? 'Invia Email di Reset' : mode === 'signin' ? 'Accedi' : 'Registrati')}
             </Button>
 
-            <div className="space-y-2 text-center text-sm">
+            <div className="space-y-1 text-center text-sm">
                 {mode === 'signin' && (
                     <>
                         <button

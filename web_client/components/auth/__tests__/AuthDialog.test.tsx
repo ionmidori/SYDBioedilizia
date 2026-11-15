@@ -47,4 +47,15 @@ describe('AuthDialog heading', () => {
     fireEvent.keyDown(email, { key: 'ArrowRight' });
     expect(social).toHaveFocus();
   });
+
+  it('caps height and width below viewport edges with an internal scroll container on desktop', () => {
+    render(<AuthDialog open onOpenChange={jest.fn()} />);
+    const dialog = screen.getByRole('dialog', { name: 'Benvenuto in SYD' });
+    expect(dialog).toHaveClass('flex', 'flex-col', 'max-h-[calc(100dvh-5rem)]', 'w-[calc(100%-2rem)]', 'overflow-hidden');
+    const scrollRegion = dialog.querySelector('.overflow-y-auto');
+    expect(scrollRegion).not.toBeNull();
+    expect(scrollRegion).toHaveClass('flex-1', 'min-h-0');
+    const tabpanel = screen.getByRole('tabpanel');
+    expect(tabpanel).not.toHaveClass('min-h-[300px]');
+  });
 });

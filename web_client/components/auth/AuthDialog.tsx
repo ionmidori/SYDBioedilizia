@@ -95,19 +95,19 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
 
     // Shared inner content — identical on both mobile and desktop
     const content = (
-        <div className="relative z-10 p-6 pt-10">
-            <div className="text-center mb-8">
+        <div className="px-6 pt-2 pb-5">
+            <div className="text-center mb-4 md:mb-5">
                 {/* The mark is decorative: the dialog title (sr-only, below) already names the brand. */}
-                <BrandLogo variant="mark" decorative className="h-10 mx-auto mb-4" />
-                <p className="text-3xl md:text-4xl font-serif font-bold text-ink mb-2">
+                <BrandLogo variant="mark" decorative className="h-8 md:h-9 mx-auto mb-2.5" />
+                <p className="text-2xl md:text-3xl font-serif font-bold text-ink mb-1.5">
                     Benvenuto in SYD
                 </p>
-                <p className="text-ink-muted font-sans text-sm tracking-wide">
+                <p className="text-ink-muted font-sans text-xs md:text-sm tracking-wide">
                     Accedi per salvare preventivi, render e progetti
                 </p>
             </div>
 
-                <div className="space-y-6">
+                <div className="space-y-4">
                     {/* M3 Segmented Control */}
                     <div role="tablist" aria-label="Metodo di accesso" className="bg-surface-muted p-1 rounded-xl flex relative">
                         {tabs.map((tab, index) => (
@@ -123,7 +123,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                                 onClick={() => setActiveTab(tab.id)}
                                 onKeyDown={(e) => onTabKeyDown(e, index)}
                                 className={cn(
-                                    "flex-1 relative py-2.5 text-xs font-medium tracking-wide z-10 transition-colors duration-200",
+                                    "flex-1 relative py-2.5 md:py-2 text-xs font-medium tracking-wide z-10 transition-colors duration-200",
                                     activeTab === tab.id ? "text-ink" : "text-ink-muted hover:text-ink"
                                 )}
                             >
@@ -140,7 +140,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                         ))}
                     </div>
 
-                    <div className="min-h-[300px]" role="tabpanel" id={panelId} aria-labelledby={tabId(activeTab)}>
+                    <div role="tabpanel" id={panelId} aria-labelledby={tabId(activeTab)}>
                         <AnimatePresence mode="wait">
                             <motion.div
                                 key={activeTab}
@@ -150,16 +150,16 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                                 transition={{ type: "spring", stiffness: 120, damping: 12 }}
                             >
                                 {activeTab === 'social' && (
-                                    <div className="space-y-4">
+                                    <div className="space-y-3">
                                         {/* Luxury Biometric Button */}
                                         <div className="relative group">
                                             <div className="absolute -inset-0.5 bg-gradient-to-r from-accent via-accent-subtle to-accent rounded-xl opacity-40 blur-md group-hover:opacity-60 transition duration-1000 group-hover:duration-200" />
                                             <div className="relative">
-                                                <PasskeyButton mode="login" onSuccess={handleLoginSuccess} />
+                                                <PasskeyButton mode="login" onSuccess={handleLoginSuccess} className="h-12" />
                                             </div>
                                         </div>
 
-                                        <div className="relative my-6">
+                                        <div className="relative my-3">
                                             <div className="absolute inset-0 flex items-center">
                                                 <div className="w-full border-t border-line" />
                                             </div>
@@ -174,29 +174,25 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                                                 onClick={handleGoogleSignIn}
                                                 loading={loading === 'google'}
                                                 disabled={loading !== null}
-                                                className="h-14 bg-surface-muted border-line hover:bg-surface text-ink hover:scale-[1.01] transition-transform duration-200"
+                                                className="h-12 bg-surface-muted border-line hover:bg-surface text-ink hover:scale-[1.01] transition-transform duration-200"
                                             />
                                         </div>
 
-                                        <div className="relative my-6">
-                                            <div className="absolute inset-0 flex items-center">
-                                                <div className="w-full border-t border-line" />
-                                            </div>
+                                        <div className="pt-3 border-t border-line">
+                                            <button
+                                                type="button"
+                                                onClick={() => setActiveTab('email')}
+                                                className="w-full min-h-[44px] group relative inline-flex items-center justify-center rounded-lg text-sm text-accent-ink hover:text-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                                            >
+                                                <span>Usa Email e Password</span>
+                                                <span className="absolute -bottom-1 left-0 w-0 h-px bg-accent transition-all group-hover:w-full" />
+                                            </button>
                                         </div>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => setActiveTab('email')}
-                                            className="w-full min-h-[44px] group relative inline-flex items-center justify-center rounded-lg text-sm text-accent-ink hover:text-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring transition-colors"
-                                        >
-                                            <span>Usa Email e Password</span>
-                                            <span className="absolute -bottom-1 left-0 w-0 h-px bg-accent transition-all group-hover:w-full" />
-                                        </button>
                                     </div>
                                 )}
 
                                 {activeTab === 'email' && (
-                                    <div className="bg-surface p-4 rounded-2xl border border-line">
+                                    <div className="bg-surface p-3.5 rounded-2xl border border-line">
                                         <EmailAuthForm onSuccess={handleLoginSuccess} />
                                     </div>
                                 )}
@@ -205,7 +201,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                     </div>
                 </div>
 
-            <div className="mt-6 pt-6 border-t border-line text-center">
+            <div className="mt-4 pt-4 border-t border-line text-center">
                 <p className="text-xs text-ink-subtle leading-relaxed">
                     Proseguendo, accetti i{" "}
                     <Link href="/terms" className="text-ink-muted hover:text-accent-ink transition-colors underline decoration-line underline-offset-2">Termini di Servizio</Link>
@@ -216,36 +212,39 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
         </div>
     );
 
-    // Shared shell decorations (notch + bg glow) — same on both surfaces
-    const shellDecorations = (
-        <>
-            <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-primary/5 pointer-events-none" />
-            <div className="absolute top-0 left-0 w-full flex justify-center pt-1 z-50">
-                <button
-                    type="button"
-                    onClick={() => onOpenChange(false)}
-                    className="min-w-11 min-h-7 px-3 flex items-center justify-center rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring cursor-pointer active:scale-95 group"
-                    aria-label="Chiudi"
-                >
-                    <span className="w-12 h-1.5 bg-line-strong rounded-full group-hover:bg-ink-subtle transition-colors" />
-                </button>
-            </div>
-        </>
+    const bgGlow = (
+        <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-primary/5 pointer-events-none" />
+    );
+
+    const closeBar = (
+        <div className="relative z-20 flex w-full shrink-0 justify-center pt-1.5">
+            <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="min-w-11 min-h-7 px-3 flex items-center justify-center rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring cursor-pointer active:scale-95 group"
+                aria-label="Chiudi"
+            >
+                <span className="w-12 h-1.5 bg-line-strong rounded-full group-hover:bg-ink-subtle transition-colors" />
+            </button>
+        </div>
     );
 
     if (isDesktop) {
         return (
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent className={cn(
-                    "sm:max-w-md p-0 overflow-hidden border-line bg-surface backdrop-blur-xl",
+                    "flex flex-col gap-0 w-[calc(100%-2rem)] sm:max-w-md max-h-[calc(100dvh-5rem)] p-0 overflow-hidden border-line bg-surface backdrop-blur-xl",
                     "rounded-tl-[32px] rounded-tr-[12px] rounded-bl-[12px] rounded-br-[32px]",
                     "shadow-2xl shadow-shade/50",
                     "[&>button]:hidden"
                 )}>
-                    {shellDecorations}
+                    {bgGlow}
                     <DialogTitle className="sr-only">Benvenuto in SYD</DialogTitle>
                     <DialogDescription className="sr-only">Effettua l&apos;accesso per salvare i tuoi progetti</DialogDescription>
-                    {content}
+                    {closeBar}
+                    <div className="relative z-10 overflow-y-auto flex-1 min-h-0">
+                        {content}
+                    </div>
                 </DialogContent>
             </Dialog>
         );
@@ -259,10 +258,11 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                 "shadow-2xl shadow-shade/50",
                 "[&>div:first-child]:hidden" // Hide Vaul's default drag indicator — we render our own notch
             )}>
-                {shellDecorations}
+                {bgGlow}
                 <DrawerTitle className="sr-only">Benvenuto in SYD</DrawerTitle>
                 <DrawerDescription className="sr-only">Effettua l&apos;accesso per salvare i tuoi progetti</DrawerDescription>
-                <div className="overflow-y-auto max-h-[90svh] pb-safe">
+                {closeBar}
+                <div className="relative z-10 overflow-y-auto max-h-[calc(90svh-2.5rem)] pb-safe">
                     {content}
                 </div>
             </DrawerContent>
