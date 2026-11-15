@@ -68,4 +68,12 @@ describe('Hero', () => {
         expect(screen.queryAllByRole('heading', { level: 2 })).toHaveLength(0);
         expect(screen.queryAllByRole('heading', { level: 3 })).toHaveLength(0);
     });
+
+    it('presents the updated hero subtitle without "in maniera tradizionale o in bioedilizia"', async () => {
+        render(<Hero />);
+
+        expect(screen.getByText(/Ristruttura il tuo appartamento\. Dall'idea alla realtà/)).toBeInTheDocument();
+        expect(screen.queryByText(/in maniera tradizionale o in bioedilizia/i)).not.toBeInTheDocument();
+        await screen.findByRole('link', { name: 'Visualizza tutti i progetti' });
+    });
 });
