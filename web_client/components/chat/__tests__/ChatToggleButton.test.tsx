@@ -93,4 +93,15 @@ describe('ChatToggleButton closed-state position', () => {
         expect(wrapper).toHaveClass('translate-y-0');
         expect(wrapper).not.toHaveClass('translate-y-[var(--syd-closed-drop-mobile)]');
     });
+
+    it('keeps non-interactive outer containers pointer-events-none so WelcomeBadge flex space never blocks page clicks', () => {
+        const { container } = render(<ChatToggleButton isOpen={false} onClick={jest.fn()} />);
+
+        const root = container.firstElementChild as HTMLElement;
+        const wrapper = root.firstElementChild as HTMLElement;
+        const button = screen.getByRole('button');
+        expect(root).toHaveClass('pointer-events-none');
+        expect(wrapper).toHaveClass('pointer-events-none');
+        expect(button).toHaveClass('pointer-events-auto');
+    });
 });
