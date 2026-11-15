@@ -7,9 +7,12 @@ import { cn } from '@/lib/utils';
 import { WelcomeBadge } from './WelcomeBadge';
 import { triggerHaptic } from '@/lib/haptics';
 
-interface ChatToggleButtonProps {
+export interface ChatToggleButtonProps {
     isOpen: boolean;
     onClick: () => void;
+    showWelcomeBadge?: boolean;
+    controlsId?: string;
+    buttonRef?: React.Ref<HTMLButtonElement>;
 }
 
 // ── Closed-state shift: single source of truth ──────────────────────────────
@@ -70,7 +73,13 @@ export const CLOSED_SHIFT_PX = {
  * Uses an inner wrapper to translate the avatar closer to the edge
  * without breaking the position of the "X" close button when open.
  */
-export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
+export function ChatToggleButton({
+    isOpen,
+    onClick,
+    showWelcomeBadge = true,
+    controlsId,
+    buttonRef,
+}: ChatToggleButtonProps) {
     // Track if we are dragging to prevent click
     const isDraggingRef = React.useRef(false);
     const [constraints, setConstraints] = React.useState({ top: 0, left: 0, right: 0, bottom: 0 });
@@ -189,14 +198,20 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                     ? "translate-x-0 translate-y-0"
                     : "translate-x-[var(--syd-closed-shift-mobile)] translate-y-[var(--syd-closed-drop-mobile)] md:translate-x-[var(--syd-closed-shift-desktop)] md:translate-y-[var(--syd-closed-drop-desktop)]"
             )}>
-                <div className="pointer-events-auto -mr-16 md:-mr-24 -translate-y-20 md:-translate-y-24 z-10">
-                    <WelcomeBadge isOpen={isOpen} onOpenChat={onClick} />
-                </div>
-                
+                {showWelcomeBadge && (
+                    <div className="pointer-events-auto -mr-16 md:-mr-24 -translate-y-20 md:-translate-y-24 z-10">
+                        <WelcomeBadge isOpen={isOpen} onOpenChat={onClick} />
+                    </div>
+                )}
+
                 <Button
+                    ref={buttonRef}
                     onClick={handleClick}
                     size="icon"
                     aria-label={isOpen ? "Chiudi chat" : "Apri chat"}
+                    aria-expanded={isOpen}
+                    aria-controls={controlsId}
+                    data-welcome-badge={showWelcomeBadge ? 'on' : 'off'}
                     className={cn(
                         "pointer-events-auto rounded-full transition-all duration-300 relative flex items-center justify-center !overflow-visible",
                         isOpen

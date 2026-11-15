@@ -1,4 +1,5 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import React from 'react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { ChatToggleButton, CLOSED_SHIFT_PX } from '../ChatToggleButton';
 
 describe('ChatToggleButton', () => {
@@ -103,5 +104,70 @@ describe('ChatToggleButton closed-state position', () => {
         expect(root).toHaveClass('pointer-events-none');
         expect(wrapper).toHaveClass('pointer-events-none');
         expect(button).toHaveClass('pointer-events-auto');
+    });
+});
+
+describe('ChatToggleButton WelcomeBadge opt-out and disclosure ARIA', () => {
+    beforeEach(() => {
+        jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
+    it('mounts WelcomeBadge wrapper and sets data-welcome-badge="on" by default', () => {
+        const { container } = render(<ChatToggleButton isOpen={false} onClick={jest.fn()} />);
+
+        const button = screen.getByRole('button');
+        expect(button).toHaveAttribute('data-welcome-badge', 'on');
+
+        const root = container.firstElementChild as HTMLElement;
+        const wrapper = root.firstElementChild as HTMLElement;
+        expect(wrapper.children).toHaveLength(2);
+
+        act(() => {
+            jest.advanceTimersByTime(2600);
+        });
+        expect(screen.getByText('Architetto SYD')).toBeInTheDocument();
+    });
+
+    it('omits WelcomeBadge and sets data-welcome-badge="off" when showWelcomeBadge is false', () => {
+        const { container } = render(
+            <ChatToggleButton isOpen={false} onClick={jest.fn()} showWelcomeBadge={false} />
+        );
+
+        const button = screen.getByRole('button');
+        expect(button).toHaveAttribute('data-welcome-badge', 'off');
+
+        const root = container.firstElementChild as HTMLElement;
+        const wrapper = root.firstElementChild as HTMLElement;
+        expect(wrapper.children).toHaveLength(1);
+
+        act(() => {
+            jest.advanceTimersByTime(2600);
+        });
+        expect(screen.queryByText('Architetto SYD')).not.toBeInTheDocument();
+    });
+
+    it('exposes aria-expanded reflecting isOpen and aria-controls matching controlsId', () => {
+        const { rerender } = render(
+            <ChatToggleButton isOpen={false} onClick={jest.fn()} controlsId="syd-chat-window" />
+        );
+
+        const button = screen.getByRole('button');
+        expect(button).toHaveAttribute('aria-expanded', 'false');
+        expect(button).toHaveAttribute('aria-controls', 'syd-chat-window');
+
+        rerender(<ChatToggleButton isOpen={true} onClick={jest.fn()} controlsId="syd-chat-window" />);
+        expect(button).toHaveAttribute('aria-expanded', 'true');
+        expect(button).toHaveAttribute('aria-controls', 'syd-chat-window');
+    });
+
+    it('forwards buttonRef to the underlying button element', () => {
+        const buttonRef = React.createRef<HTMLButtonElement>();
+        render(<ChatToggleButton isOpen={false} onClick={jest.fn()} buttonRef={buttonRef} />);
+
+        expect(buttonRef.current).toBe(screen.getByRole('button'));
     });
 });
