@@ -29,6 +29,8 @@ async function waitUntilStill(locator: Locator) {
 
 const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1440) < 1280;
 const onHome = (template: string) => template === '/';
+const onHomeOrDashboard = (template: string) =>
+  template === '/' || template === '/dashboard' || template.startsWith('/dashboard/');
 
 export const STATES: ThemeState[] = [
   {
@@ -77,8 +79,22 @@ export const STATES: ThemeState[] = [
   },
   {
     id: 'chat-open',
-    appliesTo: onHome,
+    appliesTo: onHomeOrDashboard,
     open: async (page) => {
+      // On /dashboard*, prevent OnboardingTour's 1500ms modal from colliding with the open chat on mobile first visits.
+      if (new URL(page.url()).pathname.startsWith('/dashboard')) {
+        const needsTourDismissed = await page.evaluate(() => {
+          const seen = localStorage.getItem('syd_house_tour_completed') === 'true';
+          if (!seen) localStorage.setItem('syd_house_tour_completed', 'true');
+          return !seen;
+        });
+        if (needsTourDismissed) {
+          await page.reload({ waitUntil: 'load' });
+          await settle(page);
+        }
+      }
+      // Wait for ChatWidget hydration (after Firebase auth initializes on /dashboard*) before dispatching the open event.
+      await expect(page.getByRole('button', { name: 'Apri chat' })).toBeVisible();
       await page.evaluate((name) => window.dispatchEvent(new Event(name)), CHAT_EVENTS.open);
       await waitUntilStill(page.getByTestId('chat-window').first());
       return true;
