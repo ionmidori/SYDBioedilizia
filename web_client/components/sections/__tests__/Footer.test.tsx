@@ -89,4 +89,13 @@ describe('Footer', () => {
         expect(listener).toHaveBeenCalledTimes(1);
         window.removeEventListener('open_cookie_settings', listener);
     });
+
+    it('reserves bottom mobile and right desktop clearance around floating ChatToggleButton', () => {
+        renderWithCompany(<Footer />);
+        const footer = screen.getByRole('contentinfo');
+        expect(footer.className).toContain('pb-[calc(8.5rem+env(safe-area-inset-bottom))]');
+        expect(footer.className).toContain('md:pb-[max(2.5rem,env(safe-area-inset-bottom))]');
+        const bottomRow = screen.getByRole('button', { name: 'Preferenze Cookie' }).parentElement?.parentElement;
+        expect(bottomRow).toHaveClass('md:pr-48');
+    });
 });

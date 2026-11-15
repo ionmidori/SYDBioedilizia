@@ -147,7 +147,7 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
             animate={{ opacity: 1, scale: 1 }}
 
             // Base position via CSS - pinned to safe area to avoid notch/home indicator overlap
-            className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50"
+            className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 pointer-events-none"
             style={{
                 backfaceVisibility: 'hidden',
                 transform: 'translateZ(0)',
@@ -184,7 +184,7 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
               When open (isOpen), it resets so the 'X' button stays safely inside the screen.
             */}
             <div className={cn(
-                "flex items-center justify-end gap-0 transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] relative",
+                "flex items-center justify-end gap-0 transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] relative pointer-events-none",
                 isOpen
                     ? "translate-x-0 translate-y-0"
                     : "translate-x-[var(--syd-closed-shift-mobile)] translate-y-[var(--syd-closed-drop-mobile)] md:translate-x-[var(--syd-closed-shift-desktop)] md:translate-y-[var(--syd-closed-drop-desktop)]"
@@ -198,7 +198,7 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                     size="icon"
                     aria-label={isOpen ? "Chiudi chat" : "Apri chat"}
                     className={cn(
-                        "rounded-full transition-all duration-300 relative flex items-center justify-center !overflow-visible",
+                        "pointer-events-auto rounded-full transition-all duration-300 relative flex items-center justify-center !overflow-visible",
                         isOpen
                             ? "bg-canvas text-ink shadow-2xl border border-line w-14 h-14 md:w-16 md:h-16"
                             : "bg-transparent shadow-none border-none hover:scale-105 w-[158px] h-[158px] md:w-52 md:h-48"

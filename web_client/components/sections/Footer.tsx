@@ -26,7 +26,8 @@ export function Footer() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '0px 0px -10% 0px' }}
             transition={{ duration: 0.6, ease: M3EasingFM.decelerate }}
-            className="surface-inverse border-t border-line pt-20 pb-[max(2.5rem,env(safe-area-inset-bottom))] relative overflow-clip"
+            // Keep legal links above mobile Syd toggle and clear of desktop bottom-right toggle
+            className="surface-inverse border-t border-line pt-20 pb-[calc(8.5rem+env(safe-area-inset-bottom))] md:pb-[max(2.5rem,env(safe-area-inset-bottom))] relative overflow-clip"
         >
 
             {/* Decorative Glow */}
@@ -125,11 +126,11 @@ export function Footer() {
                     )}
                 </div>
 
-                <div className="border-t border-line pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="border-t border-line pt-8 flex flex-col md:flex-row justify-between items-center gap-4 md:pr-48">
                     <p className="text-ink-subtle text-sm tracking-[0.01em]">
                         © {currentYear} SYD BIOEDILIZIA. Tutti i diritti riservati.
                     </p>
-                    <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-sm text-ink-subtle">
+                    <div className="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-1 text-sm text-ink-subtle">
                         <Link href="/privacy" className="inline-flex items-center min-h-11 md:min-h-7 py-1 hover:text-accent-ink transition-colors">Informativa sulla Privacy</Link>
                         <Link href="/terms" className="inline-flex items-center min-h-11 md:min-h-7 py-1 hover:text-accent-ink transition-colors">Termini di Servizio</Link>
                         <Link href="/cookie-policy" className="inline-flex items-center min-h-11 md:min-h-7 py-1 hover:text-accent-ink transition-colors">Cookie Policy</Link>
