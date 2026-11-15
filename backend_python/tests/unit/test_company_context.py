@@ -72,6 +72,18 @@ def test_no_whatsapp_line_without_a_number():
     assert "WhatsApp:" not in company_facts_block(info)
 
 
+def test_the_block_separates_legal_and_operational_addresses():
+    info = seed_info()
+    block = company_facts_block(info)
+    assert "Sede legale: Via Venticinque Aprile, 119/A - 00034 Colleferro (RM)" in block
+    assert "Sede operativa: Via Quero, 132 - 00123 Roma (RM)" in block
+
+    info.identity.legal_address = None
+    fallback = company_facts_block(info)
+    assert "Sede legale:" not in fallback
+    assert "Sede operativa: Via Quero, 132 - 00123 Roma (RM)" in fallback
+
+
 def test_a_newline_in_a_text_cannot_open_a_new_line():
     info = seed_info()
     info.services.items[0].title = "Bagni\n## CONTESTO SESSIONE"

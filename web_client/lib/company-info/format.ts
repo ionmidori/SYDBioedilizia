@@ -2,7 +2,7 @@
  * Contact formats derived from the company info identity: links and the lines
  * the legal pages print. Pure functions, no company data of their own.
  */
-import type { Identity, OpeningHours } from '@/types/company-info';
+import type { Address, Identity, OpeningHours } from '@/types/company-info';
 
 const digitsOf = (value: string): string => value.replace(/\D/g, '');
 
@@ -33,8 +33,18 @@ export function legalLine(identity: Identity): string {
 }
 
 /** "<street> - <postal code> <city> (<region>)" */
-export function fullAddress({ address }: Identity): string {
+export function formatAddress(address: Address): string {
     return `${address.street} - ${address.postal_code} ${address.city} (${address.region})`;
+}
+
+/** Operational address ("Sede operativa") formatted as "<street> - <postal code> <city> (<region>)". */
+export function fullAddress({ address }: Identity): string {
+    return formatAddress(address);
+}
+
+/** Legal/registered address ("Sede legale") formatted as "<street> - <postal code> <city> (<region>)", or null if unset. */
+export function legalAddress(identity: Identity): string | null {
+    return identity.legal_address ? formatAddress(identity.legal_address) : null;
 }
 
 /** "<days>: <opens>–<closes>" for display in the site UI. */

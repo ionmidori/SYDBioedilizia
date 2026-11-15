@@ -24,6 +24,10 @@ class CompanyAddress:
     country: str
 
 
+def _format_address(address: CompanyAddress) -> str:
+    return f"{address.street} - {address.postal_code} {address.city} ({address.region})"
+
+
 @dataclass(frozen=True)
 class Company:
     name: str
@@ -33,6 +37,7 @@ class Company:
     phone: str
     email: str
     url: str
+    legal_address: CompanyAddress | None = None
 
     @property
     def legal_line(self) -> str:
@@ -42,8 +47,19 @@ class Company:
     @property
     def full_address(self) -> str:
         """"Via Quero, 132 - 00123 Roma (RM)"."""
-        a = self.address
-        return f"{a.street} - {a.postal_code} {a.city} ({a.region})"
+        return _format_address(self.address)
+
+    @property
+    def full_legal_address(self) -> str | None:
+        """"Via Venticinque Aprile, 119/A - 00034 Colleferro (RM)" if set."""
+        return _format_address(self.legal_address) if self.legal_address else None
+
+    @property
+    def addresses_line(self) -> str:
+        """Human-readable summary carrying both legal (registered) and operational addresses."""
+        if self.full_legal_address:
+            return f"Sede legale: {self.full_legal_address} · Sede operativa: {self.full_address}"
+        return f"Sede operativa: {self.full_address}"
 
 
 @dataclass(frozen=True)
@@ -56,17 +72,25 @@ class QuoteTerms:
     signature_label: str
 
 
+def _to_company_address(address) -> CompanyAddress:
+    return CompanyAddress(
+        street=address.street,
+        postal_code=address.postal_code,
+        city=address.city,
+        region=address.region,
+        country=address.country,
+    )
+
+
 def company() -> Company:
     """The company identity being served now (the seed until Firestore is read)."""
     identity = CompanyInfoService.snapshot().identity
-    a = identity.address
     return Company(
         name=identity.name,
         legal_name=identity.legal_name,
         vat_id=identity.vat_id,
-        address=CompanyAddress(
-            street=a.street, postal_code=a.postal_code, city=a.city, region=a.region, country=a.country
-        ),
+        address=_to_company_address(identity.address),
+        legal_address=_to_company_address(identity.legal_address) if identity.legal_address else None,
         phone=identity.phone,
         email=identity.email,
         url=SITE_URL,

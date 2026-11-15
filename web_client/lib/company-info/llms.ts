@@ -1,6 +1,6 @@
 import type { BlogPost } from '@/lib/blog';
 import { blocksToPlainText } from '@/lib/company-info/blocks';
-import { fullAddress } from '@/lib/company-info/format';
+import { fullAddress, legalAddress } from '@/lib/company-info/format';
 import { VCARD_PATH } from '@/lib/company-info/vcard';
 import type { PortfolioItem } from '@/lib/portfolio';
 import { SITE_URL } from '@/lib/site';
@@ -49,7 +49,8 @@ export function buildLlmsTxt(
     '',
     '## Contatti e Sede',
     `- Ragione sociale: ${identity.legal_name} (P.IVA ${identity.vat_id})`,
-    `- Sede: ${fullAddress(identity)}`,
+    ...(legalAddress(identity) ? [`- Sede legale: ${legalAddress(identity)}`] : []),
+    `- Sede operativa: ${fullAddress(identity)}`,
     `- Telefono: ${identity.phone}`,
     ...(identity.whatsapp ? [`- WhatsApp: ${identity.whatsapp}`] : []),
     `- Email: ${identity.email}`,

@@ -231,3 +231,28 @@ def test_too_large_info_is_rejected():
     for n in range(sections_needed):
         data["sections"].append({"slug": f"extra-{n}", "title": "X", "blocks": [paragraph] * per_section})
     _invalid(data, "too large")
+
+
+def test_legal_address_is_optional_and_validated():
+    data = _valid()
+    assert CompanyInfo.model_validate(data).identity.legal_address is None
+
+    data["identity"]["legal_address"] = {
+        "street": "Via Venticinque Aprile, 119/A",
+        "postal_code": "00034",
+        "city": "Colleferro",
+        "region": "RM",
+        "country": "IT",
+    }
+    parsed = CompanyInfo.model_validate(data)
+    assert parsed.identity.legal_address is not None
+    assert parsed.identity.legal_address.city == "Colleferro"
+
+    data["identity"]["legal_address"] = {
+        "street": "",
+        "postal_code": "00034",
+        "city": "Colleferro",
+        "region": "RM",
+        "country": "IT",
+    }
+    _invalid(data, "street")

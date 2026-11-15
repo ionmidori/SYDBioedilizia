@@ -76,8 +76,19 @@ export function Footer() {
                         <ul className="space-y-1 md:space-y-1.5 text-sm leading-relaxed tracking-[0.01em] text-ink-muted">
                             <li className="flex items-start gap-2 md:gap-3 py-1">
                                 <MapPin className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
-                                <address className="not-italic min-w-0">
-                                    {identity.address.street},<br />{identity.address.postal_code} {identity.address.city}
+                                <address className="not-italic min-w-0 space-y-1.5">
+                                    {identity.legal_address && (
+                                        <span className="block">
+                                            <span className="font-medium text-ink">Sede legale:</span>{' '}
+                                            {identity.legal_address.street},<br />
+                                            {identity.legal_address.postal_code} {identity.legal_address.city} ({identity.legal_address.region})
+                                        </span>
+                                    )}
+                                    <span className="block">
+                                        <span className="font-medium text-ink">Sede operativa:</span>{' '}
+                                        {identity.address.street},<br />
+                                        {identity.address.postal_code} {identity.address.city} ({identity.address.region})
+                                    </span>
                                     <span className="text-accent-ink text-xs block mt-0.5 tabular-nums">P.IVA: {identity.vat_id}</span>
                                 </address>
                             </li>

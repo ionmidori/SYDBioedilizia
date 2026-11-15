@@ -42,8 +42,14 @@ def test_the_user_rules_are_word_for_word():
 def test_no_company_fact_is_hardcoded_in_a_prompt(agent):
     info = seed_info()
     prompt = str(agent.static_instruction).lower()
-    for value in (info.identity.phone, info.identity.email, info.identity.vat_id,
-                  info.identity.address.street, info.service_area.summary):
+    for value in (
+        info.identity.phone,
+        info.identity.email,
+        info.identity.vat_id,
+        info.identity.address.street,
+        *( [info.identity.legal_address.street] if info.identity.legal_address else [] ),
+        info.service_area.summary,
+    ):
         assert value.lower() not in prompt, value
 
 

@@ -1,4 +1,4 @@
-import { formatHoursRow, fullAddress, legalLine, mailtoHref, telHref, whatsappHref } from '@/lib/company-info/format';
+import { formatHoursRow, fullAddress, legalAddress, legalLine, mailtoHref, telHref, whatsappHref } from '@/lib/company-info/format';
 import { SEED_COMPANY_INFO } from '@/lib/company-info/seed';
 
 describe('telHref', () => {
@@ -29,6 +29,8 @@ describe('legal lines', () => {
         const { identity } = SEED_COMPANY_INFO;
         expect(legalLine(identity)).toBe('SYD Bioedilizia S.r.l. - P.IVA 15714991005');
         expect(fullAddress(identity)).toBe('Via Quero, 132 - 00123 Roma (RM)');
+        expect(legalAddress(identity)).toBe('Via Venticinque Aprile, 119/A - 00034 Colleferro (RM)');
+        expect(legalAddress({ ...identity, legal_address: null })).toBeNull();
     });
 });
 

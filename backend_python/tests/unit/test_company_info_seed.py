@@ -101,3 +101,17 @@ def test_faq_sections_are_linked():
     assert links["pagamenti-sal"] == "pagamenti"
     assert links["differenza-cila-scia"] == "pratiche-permessi"
     assert links["tempi-ristrutturazione"] == "tempi-lavori"
+
+
+def test_seed_carries_operational_and_legal_addresses():
+    from src.services.company_info import seed_info
+
+    info = seed_info()
+    assert info.identity.address.street == "Via Quero, 132"
+    assert info.identity.address.postal_code == "00123"
+    assert info.identity.address.city == "Roma"
+    assert info.identity.legal_address is not None
+    assert info.identity.legal_address.street == "Via Venticinque Aprile, 119/A"
+    assert info.identity.legal_address.postal_code == "00034"
+    assert info.identity.legal_address.city == "Colleferro"
+    assert info.identity.legal_address.region == "RM"
