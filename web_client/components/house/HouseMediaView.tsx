@@ -141,7 +141,7 @@ export function HouseMediaView({ chatId }: HouseMediaViewProps) {
             )}
 
             {uploading && (
-                <div className="fixed inset-0 bg-scrim backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-scrim backdrop-blur-sm z-[90] flex items-center justify-center p-4">
                     <div className="glass border-line rounded-2xl max-w-lg w-full p-6 relative">
                         <button
                             type="button"

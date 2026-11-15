@@ -11,6 +11,7 @@ import { useEffect, useMemo } from "react"
 import { MobileSwipeLayout } from "@/components/mobile/MobileSwipeLayout"
 import { OnboardingTour } from "@/components/dashboard/OnboardingTour"
 import { ScallopedPageTransition } from "@/components/ui/ScallopedPageTransition"
+import ChatWidget from "@/components/chat/ChatWidget"
 
 export function DashboardClientLayout({
     children,
@@ -89,12 +90,11 @@ function DashboardContent({
                 {/* Main Content Area */}
                 <div className="flex-1 flex flex-col min-w-0 relative w-full">
                     <DashboardHeader />
-                    <div className="flex-1 min-h-0 pb-[env(safe-area-inset-bottom)]">
+                    <div className="flex-1 min-h-0 pb-[calc(8.5rem+env(safe-area-inset-bottom))] md:pb-40">
                         {children}
                     </div>
 
-                    {/* GLOBAL FLOATING CHAT REMOVED per user request */}
-                    {/* <ChatWidget variant="floating" /> */}
+                    <ChatWidget variant="floating" showWelcomeBadge={false} />
                 </div>
             </div>
 

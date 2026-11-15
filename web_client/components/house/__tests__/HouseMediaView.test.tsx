@@ -114,4 +114,15 @@ describe('HouseMediaView (the media of the house, by room)', () => {
 
         expect(screen.getByRole('alert')).toHaveTextContent('Non hai i permessi');
     });
+
+    it('renders the upload modal backdrop at z-[90] above mobile notch (z-[85]) and closed chat toggle (z-50)', async () => {
+        render(<HouseMediaView chatId="chat-1" />);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Carica file' }));
+
+        const overlay = screen.getByRole('heading', { level: 2, name: 'Carica file' }).parentElement?.parentElement;
+        expect(overlay).toBeInTheDocument();
+        expect(overlay).toHaveClass('fixed', 'inset-0', 'z-[90]');
+        expect(overlay).not.toHaveClass('z-[60]');
+    });
 });
