@@ -99,13 +99,22 @@ describe('proxy.ts anonymous /dashboard guard & unified security headers', () =>
 });
 
 describe('next.config.ts unified security headers & rewrites', () => {
+  type HeaderRule = { source: string; headers: { key: string; value: string }[] };
+
+  /** The headers Next would send for `path`: every rule whose source matches, later rules winning. */
+  async function headersFor(path: string): Promise<Map<string, string>> {
+    const { match } = await import('next/dist/compiled/path-to-regexp');
+    const rules = (await nextConfig.headers!()) as HeaderRule[];
+    const merged = new Map<string, string>();
+    for (const rule of rules) {
+      if (!match(rule.source)(path)) continue;
+      for (const { key, value } of rule.headers) merged.set(key, value);
+    }
+    return merged;
+  }
+
   it('matches proxy security headers on all routes', async () => {
-    const rules = await nextConfig.headers!();
-    const globalRule = rules.find((r: { source: string }) => r.source === '/:path*');
-    expect(globalRule).toBeDefined();
-    const headerMap = new Map(
-      globalRule!.headers.map((h: { key: string; value: string }) => [h.key, h.value]),
-    );
+    const headerMap = await headersFor('/faq');
 
     expect(headerMap.get('Strict-Transport-Security')).toBe(
       'max-age=63072000; includeSubDomains; preload',
@@ -115,6 +124,19 @@ describe('next.config.ts unified security headers & rewrites', () => {
     expect(headerMap.get('Permissions-Policy')).toBe(
       'camera=(self), microphone=(), geolocation=(), browsing-topics=()',
     );
+  });
+
+  it.each(['/', '/progetti', '/admin/company'])('keeps X-Frame-Options DENY on %s', async (path) => {
+    expect((await headersFor(path)).get('X-Frame-Options')).toBe('DENY');
+  });
+
+  // Firebase Auth embeds `/__/auth/iframe` in our own page to receive the popup /
+  // redirect result. DENY blocks even a same-origin frame: the login then waits
+  // forever (the button spins after Google has accepted the user).
+  it.each(['/__/auth/iframe', '/__/auth/handler'])('lets the page frame the Firebase Auth handler %s', async (path) => {
+    const headerMap = await headersFor(path);
+    expect(headerMap.get('X-Frame-Options')).toBe('SAMEORIGIN');
+    expect(headerMap.get('X-Content-Type-Options')).toBe('nosniff');
   });
 
   it('removes legacy /chat/stream rewrite while keeping /api/py/:path* and /__/auth/:path*', async () => {
