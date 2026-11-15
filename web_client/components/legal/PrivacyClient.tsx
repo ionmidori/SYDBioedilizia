@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import { useCompanyIdentity } from '@/components/providers/CompanyIdentityProvider';
-import { fullAddress, legalLine, mailtoHref } from '@/lib/company-info/format';
+import { fullAddress, legalAddress, legalLine, mailtoHref } from '@/lib/company-info/format';
 import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 
 const H3 = "font-bold text-ink uppercase tracking-widest text-sm border-l-2 border-accent pl-4";
@@ -64,7 +64,10 @@ export function PrivacyClient() {
                             <h2 className="text-2xl font-serif text-accent-ink italic">Il Titolare del trattamento</h2>
                             {identity && (
                                 <p>
-                                    Titolare del trattamento è <strong>{identity.legal_name}</strong>, P.IVA {identity.vat_id}, con sede in {fullAddress(identity)}.
+                                    Titolare del trattamento &egrave; <strong>{identity.legal_name}</strong>, P.IVA {identity.vat_id},{' '}
+                                    {legalAddress(identity)
+                                        ? `con sede legale in ${legalAddress(identity)} e sede operativa in ${fullAddress(identity)}`
+                                        : `con sede operativa in ${fullAddress(identity)}`}.
                                     Per qualsiasi richiesta relativa ai dati personali puoi scrivere a{' '}
                                     <a href={mailtoHref(identity.email)} className={MAIL_LINK}>{identity.email}</a>{' '}
                                     o telefonare al {identity.phone}.

@@ -60,6 +60,8 @@ export const addressSchema = z
   })
   .strict();
 
+export type Address = z.infer<typeof addressSchema>;
+
 /** A phone the chat can turn into a link: 6 to 15 digits without Italy's country code. */
 export const PHONE_MIN_DIGITS = 6;
 export const PHONE_MAX_DIGITS = 15;
@@ -88,6 +90,7 @@ export const identitySchema = z
     legal_name: title,
     vat_id: z.string().trim().regex(/^\d{11}$/),
     address: addressSchema,
+    legal_address: addressSchema.nullable().optional(),
     phone: phoneSchema,
     whatsapp: phoneSchema.nullable().optional(),
     email: z.string().trim().max(120).regex(EMAIL_PATTERN),

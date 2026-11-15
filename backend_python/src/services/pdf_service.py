@@ -269,7 +269,15 @@ class PdfService:
             Image(str(logo.path), width=_LOGO_W, height=_LOGO_W / logo.aspect, hAlign="LEFT"),
             Spacer(1, 3 * mm),
             Paragraph(
-                f"{_txt(firm.legal_name)}<br/>{_txt(firm.full_address)}<br/>P.IVA {_txt(firm.vat_id)}",
+                (
+                    f"{_txt(firm.legal_name)}<br/>"
+                    + (
+                        f"Sede legale: {_txt(firm.full_legal_address)}<br/>Sede operativa: {_txt(firm.full_address)}"
+                        if firm.full_legal_address
+                        else f"Sede operativa: {_txt(firm.full_address)}"
+                    )
+                    + f"<br/>P.IVA {_txt(firm.vat_id)}"
+                ),
                 small,
             ),
         ]

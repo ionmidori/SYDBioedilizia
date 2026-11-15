@@ -202,7 +202,7 @@ def _document(inner: str, *, title: str, preheader: str) -> str:
     footer = (
         f'<tr><td class="syd-gutter" style="padding:20px {_GUTTER}px 28px;border-top:1px solid {line};'
         f'font-family:{_SANS};font-size:13px;line-height:1.6;color:{muted};">'
-        f"{_t(firm.legal_line)} · {_t(firm.full_address)}<br>"
+        f"{_t(firm.legal_line)} · {_t(firm.addresses_line)}<br>"
         f"{_link(_phone_href(), firm.phone, muted)} · {_link(f'mailto:{firm.email}', firm.email, muted)}"
         "</td></tr>"
     )

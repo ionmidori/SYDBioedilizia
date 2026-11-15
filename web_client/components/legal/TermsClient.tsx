@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { useCompanyIdentity } from '@/components/providers/CompanyIdentityProvider';
-import { fullAddress, legalLine, mailtoHref } from '@/lib/company-info/format';
+import { fullAddress, legalAddress, legalLine, mailtoHref } from '@/lib/company-info/format';
 import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 
 const MAIL_LINK = "text-accent-ink hover:underline decoration-accent-ink";
@@ -59,7 +59,11 @@ export function TermsClient() {
                                 Accedendo o utilizzando il presente sito web, l&apos;utente accetta i presenti Termini di Servizio.
                                 {identity ? (
                                     <>
-                                        {' '}Il sito e i servizi digitali connessi sono gestiti da <strong>{identity.legal_name}</strong>, P.IVA {identity.vat_id}, con sede in {fullAddress(identity)} (contatto e-mail:{' '}
+                                        {' '}Il sito e i servizi digitali connessi sono gestiti da <strong>{identity.legal_name}</strong>, P.IVA {identity.vat_id},{' '}
+                                        {legalAddress(identity)
+                                            ? `con sede legale in ${legalAddress(identity)} e sede operativa in ${fullAddress(identity)}`
+                                            : `con sede operativa in ${fullAddress(identity)}`}{' '}
+                                        (contatto e-mail:{' '}
                                         <a href={mailtoHref(identity.email)} className={MAIL_LINK}>{identity.email}</a>).
                                     </>
                                 ) : (

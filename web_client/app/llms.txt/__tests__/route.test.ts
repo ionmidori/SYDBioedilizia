@@ -55,6 +55,8 @@ describe('dynamic /llms.txt route and generator', () => {
     expect(text).toContain(SEED_COMPANY_INFO.identity.name);
     expect(text).toContain(SEED_COMPANY_INFO.identity.phone);
     expect(text).toContain(SEED_COMPANY_INFO.identity.email);
+    expect(text).toContain('- Sede legale: Via Venticinque Aprile, 119/A - 00034 Colleferro (RM)');
+    expect(text).toContain('- Sede operativa: Via Quero, 132 - 00123 Roma (RM)');
     expect(text).toContain(SEED_COMPANY_INFO.service_area.summary);
     expect(text).toContain(`${SITE_URL}/progetti`);
     expect(text).toContain(`${SITE_URL}/chi-siamo`);

@@ -118,6 +118,7 @@ class Identity(_Model):
     legal_name: Title
     vat_id: Annotated[str, Field(pattern=r"^[0-9]{11}$")]
     address: Address
+    legal_address: Address | None = None
     phone: Phone
     whatsapp: Phone | None = None
     email: Annotated[str, Field(pattern=EMAIL_PATTERN, max_length=120)]

@@ -21,6 +21,25 @@ def test_without_firestore_the_seed_identity_is_used():
     assert current.legal_name == "SYD Bioedilizia S.r.l."
     assert current.legal_line == "SYD Bioedilizia S.r.l. - P.IVA 15714991005"
     assert current.full_address == "Via Quero, 132 - 00123 Roma (RM)"
+    assert current.full_legal_address == "Via Venticinque Aprile, 119/A - 00034 Colleferro (RM)"
+    assert current.addresses_line == (
+        "Sede legale: Via Venticinque Aprile, 119/A - 00034 Colleferro (RM) · "
+        "Sede operativa: Via Quero, 132 - 00123 Roma (RM)"
+    )
+
+    from src.core.company import Company
+
+    without_legal = Company(
+        name=current.name,
+        legal_name=current.legal_name,
+        vat_id=current.vat_id,
+        address=current.address,
+        phone=current.phone,
+        email=current.email,
+        url=current.url,
+    )
+    assert without_legal.full_legal_address is None
+    assert without_legal.addresses_line == "Sede operativa: Via Quero, 132 - 00123 Roma (RM)"
     assert current.url == SITE_URL == "https://sydbioedilizia.vercel.app"
 
 

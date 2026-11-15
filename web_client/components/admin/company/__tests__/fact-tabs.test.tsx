@@ -1,8 +1,9 @@
 import React, { useState, type ComponentType } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import { AreaTab } from '../tabs/AreaTab';
 import { HoursTab } from '../tabs/HoursTab';
+import { IdentityTab } from '../tabs/IdentityTab';
 import { QuoteTermsTab } from '../tabs/QuoteTermsTab';
 import { ServicesTab } from '../tabs/ServicesTab';
 import { SiteVisitTab } from '../tabs/SiteVisitTab';
@@ -173,5 +174,33 @@ describe('QuoteTermsTab', () => {
         fireEvent.change(screen.getByLabelText('Titolo dell’avvertenza'), { target: { value: 'Natura' } });
         fireEvent.change(screen.getByLabelText('Etichetta della firma'), { target: { value: 'Firma' } });
         expect(seen.current.quote_terms).toMatchObject({ disclaimer_title: 'Natura', signature_label: 'Firma' });
+    });
+});
+
+describe('IdentityTab', () => {
+    it('shows both Sede legale and Sede operativa and lets legal address be removed, re-added, and edited', () => {
+        const seen = mount(IdentityTab);
+        const legalSection = screen.getByRole('region', { name: 'Sede legale' });
+        const operationalSection = screen.getByRole('region', { name: 'Sede operativa' });
+
+        expect(within(legalSection).getByLabelText('Via e numero civico')).toHaveValue('Via Venticinque Aprile, 119/A');
+        expect(within(operationalSection).getByLabelText('Via e numero civico')).toHaveValue('Via Quero, 132');
+
+        fireEvent.click(within(legalSection).getByRole('button', { name: /Rimuovi sede legale/ }));
+        expect(seen.current.identity.legal_address).toBeNull();
+        expect(within(legalSection).getByText(/Nessuna sede legale separata impostata/)).toBeInTheDocument();
+
+        fireEvent.click(within(legalSection).getByRole('button', { name: /Aggiungi sede legale/ }));
+        expect(seen.current.identity.legal_address).toEqual({
+            street: '',
+            postal_code: '',
+            city: '',
+            region: '',
+            country: 'IT',
+        });
+        expect(within(legalSection).getAllByText('Campo obbligatorio').length).toBeGreaterThanOrEqual(4);
+
+        fireEvent.change(within(legalSection).getByLabelText('Via e numero civico'), { target: { value: 'Via Nuova, 1' } });
+        expect(seen.current.identity.legal_address?.street).toBe('Via Nuova, 1');
     });
 });

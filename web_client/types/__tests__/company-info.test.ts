@@ -112,6 +112,19 @@ describe('phone and WhatsApp (Golden Sync with Phone in company_info.py)', () =>
     expect(withPhone('whatsapp', null).success).toBe(true);
   });
 
+  it('lets legal_address be null, omitted, or a valid address and rejects invalid ones', () => {
+    const base = seed();
+    const withoutLegal = { ...base, identity: { ...base.identity } };
+    delete withoutLegal.identity.legal_address;
+    expect(companyInfoSchema.safeParse(withoutLegal).success).toBe(true);
+
+    withoutLegal.identity.legal_address = null;
+    expect(companyInfoSchema.safeParse(withoutLegal).success).toBe(true);
+
+    withoutLegal.identity.legal_address = { ...base.identity.address, street: '' };
+    expect(companyInfoSchema.safeParse(withoutLegal).success).toBe(false);
+  });
+
   it('counts the national digits like the chat does', () => {
     expect(PHONE_MIN_DIGITS).toBe(6);
     expect(nationalPhoneDigits('+39 375 5463599')).toBe('3755463599');

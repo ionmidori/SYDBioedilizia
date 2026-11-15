@@ -45,6 +45,7 @@ def test_client_email_content():
     assert _web_links(mail.html) == [dashboard_quotes_url()]
     assert dashboard_quotes_url() == f"{SITE_URL}/dashboard/quotes"
     assert company().phone in mail.text and company().legal_line in mail.html
+    assert company().addresses_line in mail.html
 
 
 def test_next_steps_say_the_visit_is_asked_after_the_quote():

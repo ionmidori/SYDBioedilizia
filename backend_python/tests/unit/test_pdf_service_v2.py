@@ -66,6 +66,8 @@ def test_pdf_has_the_identity_the_admin_and_client_need():
     assert "Rifacimento cucina" in text and "Secondo piano senza ascensore" in text
     assert "Sopralluogo concordato martedì." in text
     assert company().legal_name in text and f"P.IVA {company().vat_id}" in text and company().full_address in text
+    assert f"Sede legale: {company().full_legal_address}" in text
+    assert f"Sede operativa: {company().full_address}" in text
     assert "Pagina 1 di 1" in text
 
 
