@@ -297,7 +297,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                     dragConstraints={{ top: -500, bottom: 150 }}
                     onClick={() => setOpenMobile(true)}
                     data-no-swipe
-                    className="fixed right-0 top-1/2 z-[115] notch-draggable flex items-center justify-center w-6 h-12 bg-accent-subtle backdrop-blur-xl text-accent-ink shadow-2xl rounded-l-xl border-y border-l border-accent cursor-grab active:cursor-grabbing overflow-hidden group pointer-events-auto will-change-transform"
+                    className="fixed right-0 top-1/2 z-[85] notch-draggable flex items-center justify-center w-6 h-12 bg-accent-subtle backdrop-blur-xl text-accent-ink shadow-2xl rounded-l-xl border-y border-l border-accent cursor-grab active:cursor-grabbing overflow-hidden group pointer-events-auto will-change-transform"
                     style={{ marginTop: '-1.5rem' }}
                     aria-label="Toggle sidebar"
                     tabIndex={0}
@@ -315,7 +315,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
             {/* ============================================================ */}
             {isMobile && openMobile && (
                 <div
-                    className="fixed inset-0 z-[99] bg-surface-muted"
+                    className="fixed inset-0 z-[115] bg-surface-muted"
                     onClick={() => setOpenMobile(false)}
                     aria-hidden="true"
                 />

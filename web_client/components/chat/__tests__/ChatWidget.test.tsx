@@ -1,7 +1,8 @@
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MotionGlobalConfig } from 'framer-motion';
 import ChatWidget from '../ChatWidget';
 import {
     isChatWindowOpen,
@@ -66,10 +67,34 @@ const MockChatHeader = jest.fn(() => <div data-testid="chat-header">Header</div>
 jest.mock('../ChatHeader', () => ({ ChatHeader: (props: Record<string, unknown>) => MockChatHeader(props) }));
 
 // Other Mocks
-jest.mock('../ChatMessages', () => ({ ChatMessages: () => <div /> }));
+const MockChatMessages = jest.fn<React.ReactElement, [{ onImageClick?: (url: string) => void }]>(() => <div />);
+jest.mock('../ChatMessages', () => ({ ChatMessages: (props: { onImageClick?: (url: string) => void }) => MockChatMessages(props) }));
 const MockChatInput = jest.fn<React.ReactElement, [{ authLoading?: boolean; onSubmit?: (e?: React.FormEvent) => Promise<void> | void }]>(() => <div />);
 jest.mock('../ChatInput', () => ({ ChatInput: (props: { authLoading?: boolean; onSubmit?: (e?: React.FormEvent) => Promise<void> | void }) => MockChatInput(props) }));
-jest.mock('../ChatToggleButton', () => ({ ChatToggleButton: () => <button>Toggle</button> }));
+interface MockChatToggleButtonProps {
+    isOpen: boolean;
+    onClick: () => void;
+    showWelcomeBadge?: boolean;
+    controlsId?: string;
+    buttonRef?: React.Ref<HTMLButtonElement>;
+}
+const MockChatToggleButton = jest.fn<React.ReactElement, [MockChatToggleButtonProps]>(
+    ({ isOpen, onClick, showWelcomeBadge = true, controlsId, buttonRef }) => (
+        <button
+            ref={buttonRef}
+            onClick={onClick}
+            aria-label={isOpen ? 'Chiudi chat' : 'Apri chat'}
+            aria-expanded={isOpen}
+            aria-controls={controlsId}
+            data-welcome-badge={showWelcomeBadge ? 'on' : 'off'}
+        >
+            Toggle
+        </button>
+    )
+);
+jest.mock('../ChatToggleButton', () => ({
+    ChatToggleButton: (props: MockChatToggleButtonProps) => MockChatToggleButton(props),
+}));
 jest.mock('@/hooks/useChatHistory', () => ({ useChatHistory: () => ({ historyLoaded: true, historyMessages: [] }) }));
 jest.mock('@/hooks/useChatScroll', () => ({ useChatScroll: () => ({ messagesContainerRef: { current: null }, messagesEndRef: { current: null }, scrollToBottom: jest.fn() }) }));
 jest.mock('@/hooks/useMobileViewport', () => ({ useMobileViewport: () => ({ isMobile: false }) }));
@@ -243,5 +268,132 @@ describe('ChatWidget', () => {
 
         expect(clearAll).not.toHaveBeenCalled();
         expect(mockDismissChatNotice).not.toHaveBeenCalled();
+    });
+
+    test('passes showWelcomeBadge={false} and controlsId to ChatToggleButton in floating mode', () => {
+        render(<ChatWidget showWelcomeBadge={false} />);
+
+        const toggleProps = MockChatToggleButton.mock.calls.at(-1)?.[0];
+        expect(toggleProps?.showWelcomeBadge).toBe(false);
+        expect(toggleProps?.controlsId).toBe('syd-chat-window');
+
+        const toggleButton = screen.getByRole('button', { name: 'Apri chat' });
+        expect(toggleButton).toHaveAttribute('data-welcome-badge', 'off');
+        expect(toggleButton).toHaveAttribute('aria-controls', 'syd-chat-window');
+        expect(toggleButton).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    test('pressing Escape while floating ChatWidget is open closes chat-window and returns focus to Apri chat button', async () => {
+        MotionGlobalConfig.skipAnimations = true;
+        const user = userEvent.setup();
+        try {
+            render(<ChatWidget />);
+
+            const openButton = screen.getByRole('button', { name: 'Apri chat' });
+            await user.click(openButton);
+
+            const dialog = await screen.findByRole('dialog', { name: "Chat con l'architetto SYD" });
+            expect(dialog).toHaveAttribute('id', 'syd-chat-window');
+            expect(screen.getByRole('button', { name: 'Chiudi chat' })).toHaveAttribute('aria-expanded', 'true');
+
+            openButton.blur();
+            expect(document.activeElement).not.toBe(openButton);
+
+            await user.keyboard('{Escape}');
+
+            await waitFor(() => {
+                expect(screen.queryByTestId('chat-window')).not.toBeInTheDocument();
+                expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Apri chat' }));
+            });
+        } finally {
+            MotionGlobalConfig.skipAnimations = false;
+        }
+    });
+
+    test('pressing Escape does not close inline ChatWidget', async () => {
+        const user = userEvent.setup();
+        render(<ChatWidget variant="inline" />);
+
+        expect(screen.getByTestId('chat-window')).toBeInTheDocument();
+        await user.keyboard('{Escape}');
+        expect(screen.getByTestId('chat-window')).toBeInTheDocument();
+    });
+
+    test('pressing Escape does not close floating ChatWidget while ImageLightbox is open', async () => {
+        MotionGlobalConfig.skipAnimations = true;
+        const user = userEvent.setup();
+        try {
+            render(<ChatWidget />);
+
+            const toggleButton = screen.getByRole('button', { name: 'Apri chat' });
+            await user.click(toggleButton);
+            expect(await screen.findByTestId('chat-window')).toBeInTheDocument();
+
+            act(() => {
+                MockChatMessages.mock.calls.at(-1)?.[0].onImageClick?.('https://example.com/render.png');
+            });
+            expect(await screen.findByRole('dialog', { name: 'Anteprima immagine' })).toBeInTheDocument();
+
+            toggleButton.blur();
+            await user.keyboard('{Escape}');
+            await act(async () => {
+                await new Promise((resolve) => setTimeout(resolve, 30));
+            });
+
+            expect(screen.getByTestId('chat-window')).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Chiudi chat' })).toHaveAttribute('aria-expanded', 'true');
+            expect(screen.getByRole('dialog', { name: 'Anteprima immagine' })).toBeInTheDocument();
+            expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Chiudi chat' }));
+        } finally {
+            MotionGlobalConfig.skipAnimations = false;
+        }
+    });
+
+    test('pressing Escape during IME composition (isComposing) does not close floating ChatWidget', async () => {
+        MotionGlobalConfig.skipAnimations = true;
+        const user = userEvent.setup();
+        try {
+            render(<ChatWidget />);
+
+            await user.click(screen.getByRole('button', { name: 'Apri chat' }));
+            expect(await screen.findByTestId('chat-window')).toBeInTheDocument();
+
+            await act(async () => {
+                window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', isComposing: true, bubbles: true }));
+                await new Promise((resolve) => setTimeout(resolve, 30));
+            });
+
+            expect(screen.getByTestId('chat-window')).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Chiudi chat' })).toHaveAttribute('aria-expanded', 'true');
+        } finally {
+            MotionGlobalConfig.skipAnimations = false;
+        }
+    });
+
+    test('pressing Escape after defaultPrevented does not close floating ChatWidget', async () => {
+        MotionGlobalConfig.skipAnimations = true;
+        const user = userEvent.setup();
+        try {
+            render(<ChatWidget />);
+
+            await user.click(screen.getByRole('button', { name: 'Apri chat' }));
+            const chatWindow = await screen.findByTestId('chat-window');
+
+            const preventChildEscape = (e: KeyboardEvent) => {
+                if (e.key === 'Escape') e.preventDefault();
+            };
+            chatWindow.addEventListener('keydown', preventChildEscape);
+
+            await act(async () => {
+                chatWindow.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true }));
+                await new Promise((resolve) => setTimeout(resolve, 30));
+            });
+
+            expect(screen.getByTestId('chat-window')).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Chiudi chat' })).toHaveAttribute('aria-expanded', 'true');
+            chatWindow.removeEventListener('keydown', preventChildEscape);
+        } finally {
+            MotionGlobalConfig.skipAnimations = false;
+        }
     });
 });

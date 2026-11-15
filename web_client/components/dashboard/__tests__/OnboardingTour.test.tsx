@@ -29,7 +29,9 @@ describe('OnboardingTour — the house (Phase 139)', () => {
 
         expect(screen.getByRole('dialog')).toHaveTextContent('una sola chat per tutte le stanze');
         await user.click(screen.getByRole('button', { name: /Avanti/ }));
-        expect(screen.getByRole('dialog')).toHaveTextContent('Chat, Media, Preventivo e Casa');
+        expect(screen.getByRole('dialog')).toHaveTextContent('Media, Preventivo e Casa');
+        expect(screen.getByRole('dialog')).toHaveTextContent(/SYD.*in basso a destra/i);
+        expect(screen.getByRole('dialog')).not.toHaveTextContent('Chat, Media, Preventivo e Casa');
         await user.click(screen.getByRole('button', { name: /Inizia/ }));
 
         await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());

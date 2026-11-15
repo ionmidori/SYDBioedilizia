@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { Page, Route } from '@playwright/test';
+import { consentCookie } from '../theme/pages';
 import { test, expect, jsonRoute } from './fixtures/authed-test';
 import { SEEDED_MESSAGES, UID_FILE, USER_CHAT_ID } from './fixtures/constants';
 import { clearHouse, seedHouse, type SeedFile, type SeedRoom } from './fixtures/emulator';
@@ -87,12 +88,16 @@ test.describe('the house', () => {
     await clearHouse(ROOMS, FILES);
   });
 
-  test('on a desktop: the chat beside the media of the house, by room', async ({ page, uid }) => {
+  test('on a desktop: floating chat opens beside the tabs of the house', async ({ page, uid }) => {
     await stubHouseBackend(page, uid);
     await page.goto('/dashboard', { waitUntil: 'load' });
 
-    await expect(page.getByTestId('chat-window')).toHaveCount(1);
-    await expect(page.getByTestId('chat-window')).toContainText(SEEDED_MESSAGES[1].content);
+    const toggle = page.getByRole('button', { name: 'Apri chat' });
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveAttribute('data-welcome-badge', 'off');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toHaveAttribute('aria-controls', 'syd-chat-window');
+    await expect(page.getByTestId('chat-window')).toHaveCount(0);
     await expect(page.getByRole('tab', { name: 'Media' })).toHaveAttribute('aria-selected', 'true');
 
     const media = page.getByRole('tabpanel', { name: 'Media' });
@@ -104,6 +109,46 @@ test.describe('the house', () => {
 
     await media.getByRole('button', { name: /^Senza stanza/ }).click();
     await expect(media.getByRole('button', { name: 'Apri pianta.pdf' })).toBeVisible();
+
+    await toggle.click();
+    const chatDialog = page.getByTestId('chat-window');
+    await expect(chatDialog).toHaveCount(1);
+    await expect(chatDialog).toBeVisible();
+    await expect(chatDialog).toHaveAttribute('role', 'dialog');
+    await expect(chatDialog).toHaveAttribute('id', 'syd-chat-window');
+    await expect(chatDialog).toContainText(SEEDED_MESSAGES[1].content);
+    await expect(page.getByRole('button', { name: 'Chiudi chat' })).toHaveAttribute('aria-expanded', 'true');
+
+    await page.keyboard.press('Escape');
+    await expect(chatDialog).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Apri chat' })).toBeFocused();
+
+    // Header CTA opens the same floating chat and the header minimize control closes it cleanly.
+    await page.getByRole('button', { name: 'Chiedi a SYD' }).click();
+    await expect(chatDialog).toBeVisible();
+    await page.getByRole('button', { name: 'Riduci la chat' }).click();
+    await expect(chatDialog).toHaveCount(0);
+  });
+
+  test('on a desktop: legacy ?view=chat lands on Media tab and opens the floating chat', async ({ page, uid }) => {
+    await stubHouseBackend(page, uid);
+    await page.goto('/dashboard?view=chat', { waitUntil: 'load' });
+
+    await expect(page.getByRole('tab', { name: 'Media' })).toHaveAttribute('aria-selected', 'true');
+    const media = page.getByRole('tabpanel', { name: 'Media' });
+    await expect(media).toBeVisible();
+    await expect(media.getByRole('button', { name: /^Apri / })).toHaveCount(3);
+
+    const chatDialog = page.getByTestId('chat-window');
+    await expect(chatDialog).toHaveCount(1);
+    await expect(chatDialog).toBeVisible();
+    await expect(chatDialog).toHaveAttribute('role', 'dialog');
+    await expect(chatDialog).toHaveAttribute('id', 'syd-chat-window');
+    await expect(chatDialog).toContainText(SEEDED_MESSAGES[1].content);
+
+    await page.keyboard.press('Escape');
+    await expect(chatDialog).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Apri chat' })).toBeFocused();
   });
 
   test('on a desktop: the draft goes to the team from the quote tab', async ({ page, uid }) => {
@@ -178,29 +223,94 @@ test.describe('the house', () => {
     await expect(quote.getByTestId('quote-card')).toHaveAttribute('data-quote-status', 'sent');
   });
 
-  test('on a phone: the four tabs of the house, one at a time', async ({ page, uid }) => {
+  test('on a phone: tabs switch cleanly and floating chat opens across client routes without blocking bottom CTAs', async ({ page, context, baseURL, uid }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    // Dismiss GDPR CookieConsent banner (`z-[80]`) so bottom CTAs remain unobscured during scroll-bottom clicks.
+    await context.addCookies([consentCookie(baseURL!)]);
     // The first visit on a phone shows the tour of the house: seen already.
     await page.addInitScript(() => localStorage.setItem('syd_house_tour_completed', 'true'));
     await stubHouseBackend(page, uid);
+    await page.route('**/api/py/passkey/check', jsonRoute({ has_passkeys: false }));
     await page.goto('/dashboard', { waitUntil: 'load' });
 
-    const chat = page.getByTestId('chat-window');
-    await expect(chat).toBeVisible();
-
-    await page.getByRole('button', { name: 'Vai a Media' }).click();
-    await expect(page).toHaveURL(/\/dashboard\?view=media$/);
-    await expect(chat).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Vai a Chat' })).toHaveCount(0);
+    const toggle = page.getByRole('button', { name: 'Apri chat' });
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveAttribute('data-welcome-badge', 'off');
+    await expect(page.getByTestId('chat-window')).toHaveCount(0);
     await expect(page.getByRole('tabpanel', { name: 'Media' }).getByRole('button', { name: /^Apri / })).toHaveCount(3);
 
     await page.getByRole('button', { name: 'Vai a Preventivo' }).click();
+    await expect(page).toHaveURL(/\/dashboard\?view=quote$/);
     await expect(page.getByRole('tabpanel', { name: 'Preventivo' })).toContainText('Rimozione piastrelle');
+
+    await page.getByRole('button', { name: 'Vai a Media' }).click();
+    await expect(page).toHaveURL(/\/dashboard\?view=media$/);
+    await expect(page.getByRole('tabpanel', { name: 'Media' }).getByRole('button', { name: /^Apri / })).toHaveCount(3);
 
     // "Casa" names both the section (first row) and the tab of its details (second row).
     await page.getByRole('button', { name: 'Vai a Casa' }).nth(1).click();
+    await expect(page).toHaveURL(/\/dashboard\?view=house$/);
     await expect(page.getByRole('tabpanel', { name: 'Casa' }).getByRole('heading', { name: /Dettagli della Casa/ })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Vai a Chat' }).click();
+    const noHouseOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+    expect(noHouseOverflow).toBe(true);
+
+    // Open floating chat from Casa without losing the current URL/tab, then close cleanly.
+    await toggle.click();
+    const chat = page.getByTestId('chat-window');
     await expect(chat).toBeVisible();
+    await expect(chat).toHaveAttribute('role', 'dialog');
+    await expect(chat).toHaveAttribute('id', 'syd-chat-window');
+    await expect(chat).toContainText(SEEDED_MESSAGES[1].content);
+    await expect(page).toHaveURL(/\/dashboard\?view=house$/);
+
+    await page.getByRole('button', { name: 'Riduci la chat' }).click();
+    await expect(chat).toHaveCount(0);
+    await expect(page).toHaveURL(/\/dashboard\?view=house$/);
+
+    // Scroll to bottom and verify bottom CTA clickability is unblocked by the closed ChatToggleButton.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const saveHouseBtn = page.getByRole('button', { name: 'Salva Configurazione' });
+    await expect(saveHouseBtn).toBeVisible();
+    const saveHouseBox = await saveHouseBtn.boundingBox();
+    const toggleHouseBox = await toggle.boundingBox();
+    expect(saveHouseBox).not.toBeNull();
+    expect(toggleHouseBox).not.toBeNull();
+    expect(saveHouseBox!.y + saveHouseBox!.height).toBeLessThanOrEqual(toggleHouseBox!.y);
+    await saveHouseBtn.click();
+    await expect(page.getByText('Inserisci la metratura')).toBeVisible();
+
+    // Verify floating chat & bottom clearance on /dashboard/quotes.
+    await page.goto('/dashboard/quotes', { waitUntil: 'load' });
+    await expect(page.getByTestId('quotes-page')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await expect(toggle).toHaveAttribute('data-welcome-badge', 'off');
+    await toggle.click();
+    await expect(chat).toBeVisible();
+    await expect(page).toHaveURL(/\/dashboard\/quotes$/);
+    await page.getByRole('button', { name: 'Riduci la chat' }).click();
+    await expect(chat).toHaveCount(0);
+
+    // Verify floating chat, zero overflow, and bottom CTA clickability on /dashboard/profile.
+    await page.goto('/dashboard/profile', { waitUntil: 'load' });
+    const saveProfileBtn = page.getByRole('button', { name: 'Salva Modifiche' });
+    await expect(saveProfileBtn).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    await expect(toggle).toHaveAttribute('data-welcome-badge', 'off');
+    await toggle.click();
+    await expect(chat).toBeVisible();
+    await expect(page).toHaveURL(/\/dashboard\/profile$/);
+    await page.getByRole('button', { name: 'Riduci la chat' }).click();
+    await expect(chat).toHaveCount(0);
+
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const saveProfileBox = await saveProfileBtn.boundingBox();
+    const toggleProfileBox = await toggle.boundingBox();
+    expect(saveProfileBox).not.toBeNull();
+    expect(toggleProfileBox).not.toBeNull();
+    expect(saveProfileBox!.y + saveProfileBox!.height).toBeLessThanOrEqual(toggleProfileBox!.y);
+    await saveProfileBtn.click({ trial: true });
   });
 });

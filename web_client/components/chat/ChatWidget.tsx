@@ -42,19 +42,22 @@ import { setChatWindowOpen } from '@/lib/chat/chat-window-state';
  * - Always shows the chat of the provider: the user's one chat, or the guest's
  *   (Phase 139); there is no chat to pick.
  */
-interface ChatWidgetProps {
+const CHAT_DIALOG_ID = 'syd-chat-window';
+
+export interface ChatWidgetProps {
     variant?: 'floating' | 'inline';
+    showWelcomeBadge?: boolean;
 }
 
-export default function ChatWidget({ variant = 'floating' }: ChatWidgetProps) {
+export default function ChatWidget({ variant = 'floating', showWelcomeBadge = true }: ChatWidgetProps) {
     return (
         <ChatErrorBoundary>
-            <ChatWidgetContent variant={variant} />
+            <ChatWidgetContent variant={variant} showWelcomeBadge={showWelcomeBadge} />
         </ChatErrorBoundary>
     );
 }
 
-function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
+function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: ChatWidgetProps) {
     const isInline = variant === 'inline';
 
     // 1. Consume Global Context
@@ -93,6 +96,7 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
 
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const toggleButtonRef = useRef<HTMLButtonElement>(null);
 
     // Opening the chat is the strongest signal a message is coming: start a
     // backend instance now so the first reply does not pay the cold start.
@@ -107,6 +111,18 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
         setChatWindowOpen(isOpen);
         return () => setChatWindowOpen(false);
     }, [isInline, isOpen]);
+
+    // Dismiss floating chat dialog on Escape and restore focus to the toggle button.
+    useEffect(() => {
+        if (isInline || !isOpen) return;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing || selectedImage) return;
+            setIsOpen(false);
+            requestAnimationFrame(() => toggleButtonRef.current?.focus());
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isInline, isOpen, selectedImage]);
 
     // 4. Status Queue (Visuals)
     const { currentStatus, addStatus, clearQueue } = useStatusQueue();
@@ -323,6 +339,9 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
                 <ChatToggleButton
                     isOpen={isOpen}
                     onClick={() => setIsOpen(!isOpen)}
+                    showWelcomeBadge={showWelcomeBadge}
+                    controlsId={CHAT_DIALOG_ID}
+                    buttonRef={toggleButtonRef}
                 />
             )}
 
@@ -363,6 +382,9 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
                         ) : (
                             <motion.div
                                 key="chat-window"
+                                id={CHAT_DIALOG_ID}
+                                role="dialog"
+                                aria-label="Chat con l'architetto SYD"
                                 data-testid="chat-window"
                                 drag="y"
                                 dragControls={dragControls}

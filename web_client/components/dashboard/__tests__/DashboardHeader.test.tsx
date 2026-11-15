@@ -24,13 +24,14 @@ beforeEach(() => {
 });
 
 describe('DashboardHeader (mobile) — the house, its gallery, its quotes (Phase 139)', () => {
-    it('has the sections Casa, Galleria, Preventivi and, in the house, its four tabs', () => {
+    it('has the sections Casa, Galleria, Preventivi and, in the house, its three tabs', () => {
         render(<DashboardHeader />);
 
         expect(tabNames()).toEqual([
             'Vai a Casa', 'Vai a Galleria', 'Vai a Preventivi',
-            'Vai a Chat', 'Vai a Media', 'Vai a Preventivo', 'Vai a Casa',
+            'Vai a Media', 'Vai a Preventivo', 'Vai a Casa',
         ]);
+        expect(screen.queryByRole('button', { name: 'Vai a Chat' })).not.toBeInTheDocument();
         expect(screen.queryByText(/Progetti/)).not.toBeInTheDocument();
     });
 
@@ -46,12 +47,15 @@ describe('DashboardHeader (mobile) — the house, its gallery, its quotes (Phase
     });
 
     it('goes to the quotes, with no house tabs there', async () => {
-        render(<DashboardHeader />);
+        const { unmount } = render(<DashboardHeader />);
         await userEvent.click(screen.getByRole('button', { name: 'Vai a Preventivi' }));
         expect(mockPush).toHaveBeenCalledWith('/dashboard/quotes');
 
+        unmount();
         mockPathname = '/dashboard/quotes';
         render(<DashboardHeader />);
-        expect(screen.getAllByRole('button', { name: 'Vai a Chat' })).toHaveLength(1);
+        expect(tabNames()).toEqual(['Vai a Casa', 'Vai a Galleria', 'Vai a Preventivi']);
+        expect(screen.queryByRole('button', { name: 'Vai a Chat' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Vai a Media' })).not.toBeInTheDocument();
     });
 });

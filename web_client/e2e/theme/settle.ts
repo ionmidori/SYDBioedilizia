@@ -20,8 +20,8 @@ export async function settle(page: Page) {
     window.scrollTo({ top: 0, behavior: 'instant' });
     await frame();
   });
-  // Only wait for the WelcomeBadge typewriter text on pages that actually mount the closed floating chat trigger.
-  if ((await page.getByRole('button', { name: 'Apri chat' }).count()) > 0) {
+  // Only wait for the WelcomeBadge typewriter text when the toggle actually mounts the badge (`data-welcome-badge="on"`).
+  if ((await page.locator('[data-welcome-badge="on"]').count()) > 0) {
     for (const { text, timeoutMs } of SETTLE_TEXTS) {
       await page.getByText(text, { exact: true }).waitFor({ timeout: timeoutMs }).catch(() => undefined);
     }

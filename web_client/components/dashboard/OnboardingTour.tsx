@@ -16,7 +16,7 @@ const STEPS = [
     {
         icon: LayoutGrid,
         title: 'Le schede della casa',
-        text: 'In alto trovi Chat, Media, Preventivo e Casa: foto e render per stanza, il preventivo da inviare al team e i dettagli della casa.',
+        text: 'In alto trovi Media, Preventivo e Casa: foto e render per stanza, il preventivo e i dettagli. Il pulsante SYD in basso a destra apre la chat in qualsiasi momento.',
     },
 ] as const;
 
