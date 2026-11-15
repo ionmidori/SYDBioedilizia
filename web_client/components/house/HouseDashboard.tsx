@@ -32,12 +32,23 @@ export function HouseDashboard() {
     const tabButtonsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
     useEffect(() => {
-        if (view === 'chat' && !rescuedChatViewRef.current) {
-            rescuedChatViewRef.current = true;
-            openChat();
-        } else if (view !== 'chat') {
+        if (view !== 'chat') {
             rescuedChatViewRef.current = false;
+            return;
         }
+        if (rescuedChatViewRef.current) return;
+        rescuedChatViewRef.current = true;
+        let cancelled = false;
+        // Defer past React's passive-effect commit pass so later siblings
+        // (e.g. ChatWidget's useOpenChatEvents in DashboardClientLayout) register
+        // their window OPEN_CHAT listener before openChat() dispatches.
+        queueMicrotask(() => {
+            if (!cancelled) openChat();
+        });
+        return () => {
+            cancelled = true;
+            rescuedChatViewRef.current = false;
+        };
     }, [view]);
 
     const selectTab = (tab: HouseTab) => {

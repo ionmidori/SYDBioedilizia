@@ -1,8 +1,9 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { HouseDashboard } from '../HouseDashboard';
+import { useOpenChatEvents } from '@/hooks/useOpenChatEvents';
 import { openChat } from '@/lib/chat-events';
 
 const mockReplace = jest.fn();
@@ -12,7 +13,13 @@ jest.mock('next/navigation', () => ({
     useRouter: () => ({ replace: mockReplace, push: mockPush }),
     useSearchParams: () => ({ get: (key: string) => (key === 'view' ? mockView : null) }),
 }));
-jest.mock('@/lib/chat-events', () => ({ openChat: jest.fn() }));
+jest.mock('@/lib/chat-events', () => {
+    const actual = jest.requireActual<typeof import('@/lib/chat-events')>('@/lib/chat-events');
+    return {
+        ...actual,
+        openChat: jest.fn((...args: Parameters<typeof actual.openChat>) => actual.openChat(...args)),
+    };
+});
 
 let mockUserChatId: string | null = 'chat-1';
 let mockError: Error | undefined;
@@ -98,27 +105,94 @@ describe('HouseDashboard — the dashboard is the house (Phase 139)', () => {
         expect(openChat).toHaveBeenCalledWith();
     });
 
-    it('rescues legacy ?view=chat by falling back to Media and calling openChat() once per ?view=chat entry', () => {
+    it('rescues legacy ?view=chat by falling back to Media and calling openChat() once per ?view=chat entry', async () => {
         mockView = 'chat';
         const { rerender } = render(<HouseDashboard />);
 
         expect(screen.queryByTestId('chat')).not.toBeInTheDocument();
         expect(screen.getByRole('tab', { name: 'Media' })).toHaveAttribute('aria-selected', 'true');
         expect(screen.getByRole('tabpanel', { name: 'Media' })).toHaveTextContent('media of chat-1');
-        expect(openChat).toHaveBeenCalledTimes(1);
+        await waitFor(() => expect(openChat).toHaveBeenCalledTimes(1));
 
         // Unrelated rerenders while staying on ?view=chat must not spam openChat().
         rerender(<HouseDashboard />);
+        await Promise.resolve();
         expect(openChat).toHaveBeenCalledTimes(1);
 
         // Switching to another view resets the guard so returning to ?view=chat rescues again once.
         mockView = 'quote';
         rerender(<HouseDashboard />);
+        await Promise.resolve();
         expect(openChat).toHaveBeenCalledTimes(1);
 
         mockView = 'chat';
         rerender(<HouseDashboard />);
-        expect(openChat).toHaveBeenCalledTimes(2);
+        await waitFor(() => expect(openChat).toHaveBeenCalledTimes(2));
+    });
+
+    it('delivers ?view=chat OPEN_CHAT to a later-sibling listener (ChatWidget) on cold load', async () => {
+        mockView = 'chat';
+        const onOpen = jest.fn();
+        const setIsOpen = (open: boolean) => {
+            if (open) onOpen();
+        };
+        const setInput = jest.fn();
+        function LateChatListener() {
+            useOpenChatEvents({ setIsOpen, setInput });
+            return null;
+        }
+
+        const { rerender } = render(
+            <>
+                <HouseDashboard />
+                <LateChatListener />
+            </>,
+        );
+
+        await waitFor(() => expect(onOpen).toHaveBeenCalledTimes(1));
+        expect(openChat).toHaveBeenCalledTimes(1);
+
+        // Unrelated rerender must not emit a duplicate OPEN_CHAT event.
+        rerender(
+            <>
+                <HouseDashboard />
+                <LateChatListener />
+            </>,
+        );
+        await Promise.resolve();
+        expect(onOpen).toHaveBeenCalledTimes(1);
+    });
+
+    it('delivers ?view=chat OPEN_CHAT exactly once under React.StrictMode with a later-sibling listener', async () => {
+        mockView = 'chat';
+        const onOpen = jest.fn();
+        const setIsOpen = (open: boolean) => {
+            if (open) onOpen();
+        };
+        const setInput = jest.fn();
+        function LateChatListener() {
+            useOpenChatEvents({ setIsOpen, setInput });
+            return null;
+        }
+
+        render(
+            <React.StrictMode>
+                <HouseDashboard />
+                <LateChatListener />
+            </React.StrictMode>,
+        );
+
+        await waitFor(() => expect(onOpen).toHaveBeenCalledTimes(1));
+        expect(openChat).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels the pending ?view=chat openChat() microtask if unmounted before it fires', async () => {
+        mockView = 'chat';
+        const { unmount } = render(<HouseDashboard />);
+        unmount();
+        await Promise.resolve();
+
+        expect(openChat).not.toHaveBeenCalled();
     });
 
     it('waits for the user’s chat', () => {
