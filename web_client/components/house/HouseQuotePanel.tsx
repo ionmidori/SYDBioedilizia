@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { CheckCircle2, Download, Loader2, MessageSquare, Send, XCircle } from 'lucide-react';
 import { SubmitQuoteDialog } from '@/components/dashboard/SubmitQuoteDialog';
 import { QuoteCard, formatDate, formatEuro } from '@/components/quotes/QuoteListClient';
@@ -9,7 +8,7 @@ import { SydLoader } from '@/components/ui/SydLoader';
 import { useHouseQuote, useQuoteHistory } from '@/hooks/use-house-quote';
 import { useQuotes } from '@/hooks/use-quotes';
 import { describeApiError } from '@/lib/api-client';
-import { houseTabHref } from '@/lib/house-tabs';
+import { openChat } from '@/lib/chat-events';
 import { logger } from '@/lib/logger';
 import { quotesApi } from '@/lib/quotes-api';
 import type { Quote, QuoteHistoryItem, QuoteItem, QuoteListItem, QuoteRoom, RevisionInProgress } from '@/types/quote';
@@ -174,7 +173,6 @@ function OlderRevision({ chatId, entry }: { chatId: string; entry: QuoteHistoryI
  * goes through the chat.
  */
 export function HouseQuotePanel({ chatId }: { chatId: string }) {
-    const router = useRouter();
     const { data: quote, isLoading, error } = useHouseQuote(chatId);
     const { data: quotes = [] } = useQuotes();
     // Only a quote that was sent has revisions to show; a failed read hides them, not the quote.
@@ -203,11 +201,10 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
                 <p className="text-sm text-ink-muted max-w-xs">
                     Ancora nessun preventivo. Racconta in chat i lavori che vuoi fare: SYD lo prepara stanza per stanza.
                 </p>
-                {/* On desktop the chat is already beside the panel. */}
                 <button
                     type="button"
-                    onClick={() => router.replace(houseTabHref('chat'), { scroll: false })}
-                    className="md:hidden flex items-center gap-2 min-h-11 px-5 rounded-xl border border-transparent bg-accent text-on-accent text-sm font-bold hover:bg-accent/90 touch-manipulation"
+                    onClick={() => openChat('Vorrei preparare il preventivo della mia casa.')}
+                    className="flex items-center gap-2 min-h-11 px-5 rounded-xl border border-transparent bg-accent text-on-accent text-sm font-bold hover:bg-accent/90 touch-manipulation cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-canvas"
                 >
                     <MessageSquare aria-hidden="true" className="w-4 h-4" />
                     Chiedilo in chat

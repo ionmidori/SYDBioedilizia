@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { HouseDashboard } from '../HouseDashboard';
+import { openChat } from '@/lib/chat-events';
 
 const mockReplace = jest.fn();
 const mockPush = jest.fn();
@@ -11,6 +12,7 @@ jest.mock('next/navigation', () => ({
     useRouter: () => ({ replace: mockReplace, push: mockPush }),
     useSearchParams: () => ({ get: (key: string) => (key === 'view' ? mockView : null) }),
 }));
+jest.mock('@/lib/chat-events', () => ({ openChat: jest.fn() }));
 
 let mockUserChatId: string | null = 'chat-1';
 let mockError: Error | undefined;
@@ -32,19 +34,26 @@ beforeEach(() => {
 });
 
 describe('HouseDashboard — the dashboard is the house (Phase 139)', () => {
-    it('shows the chat of the house once, beside the panel of its media', () => {
+    it('renders the uniform workspace without inline chat, shows Media by default, and keeps other panels mounted with hidden', () => {
         render(<HouseDashboard />);
 
-        expect(screen.getAllByTestId('chat')).toHaveLength(1);
+        expect(screen.queryByTestId('chat')).not.toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 1, name: 'La tua casa' })).toBeInTheDocument();
         expect(screen.getByRole('tab', { name: 'Media' })).toHaveAttribute('aria-selected', 'true');
         expect(screen.getByRole('tabpanel', { name: 'Media' })).toHaveTextContent('media of chat-1');
+        expect(screen.getByText('quote of chat-1').closest('[role="tabpanel"]')).toHaveAttribute('hidden');
+        expect(screen.getByText('quote of chat-1').closest('[role="tabpanel"]')).toHaveAttribute('aria-labelledby', 'house-tab-quote');
+        expect(screen.getByText('details of chat-1').closest('[role="tabpanel"]')).toHaveAttribute('hidden');
+        expect(screen.getByText('details of chat-1').closest('[role="tabpanel"]')).toHaveAttribute('aria-labelledby', 'house-tab-house');
         expect(screen.getByText('quote of chat-1')).not.toBeVisible();
+        expect(screen.getByText('details of chat-1')).not.toBeVisible();
     });
 
     it('opens the tab ?view= names, and keeps the others mounted', () => {
         mockView = 'quote';
         render(<HouseDashboard />);
 
+        expect(screen.getByRole('tab', { name: 'Preventivo' })).toHaveAttribute('aria-selected', 'true');
         expect(screen.getByRole('tabpanel', { name: 'Preventivo' })).toHaveTextContent('quote of chat-1');
         expect(screen.getByText('media of chat-1')).not.toBeVisible();
         expect(screen.getByText('details of chat-1')).not.toBeVisible();
@@ -58,16 +67,58 @@ describe('HouseDashboard — the dashboard is the house (Phase 139)', () => {
         expect(mockReplace).toHaveBeenCalledWith('/dashboard?view=house', { scroll: false });
     });
 
-    it('on a phone, shows either the chat or the tab ?view= names', () => {
+    it('supports keyboard ArrowRight/ArrowLeft/Home/End navigation across house tabs', async () => {
+        render(<HouseDashboard />);
+
+        const mediaTab = screen.getByRole('tab', { name: 'Media' });
+        mediaTab.focus();
+        await userEvent.keyboard('{ArrowRight}');
+        expect(mockReplace).toHaveBeenLastCalledWith('/dashboard?view=quote', { scroll: false });
+        expect(screen.getByRole('tab', { name: 'Preventivo' })).toHaveFocus();
+
+        await userEvent.keyboard('{ArrowLeft}');
+        expect(mockReplace).toHaveBeenLastCalledWith('/dashboard?view=media', { scroll: false });
+        expect(mediaTab).toHaveFocus();
+
+        await userEvent.keyboard('{End}');
+        expect(mockReplace).toHaveBeenLastCalledWith('/dashboard?view=house', { scroll: false });
+        expect(screen.getByRole('tab', { name: 'Casa' })).toHaveFocus();
+
+        await userEvent.keyboard('{Home}');
+        expect(mockReplace).toHaveBeenLastCalledWith('/dashboard?view=media', { scroll: false });
+        expect(mediaTab).toHaveFocus();
+    });
+
+    it('opens the floating chat when clicking Chiedi a SYD', async () => {
+        render(<HouseDashboard />);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Chiedi a SYD' }));
+
+        expect(openChat).toHaveBeenCalledTimes(1);
+        expect(openChat).toHaveBeenCalledWith();
+    });
+
+    it('rescues legacy ?view=chat by falling back to Media and calling openChat() once per ?view=chat entry', () => {
         mockView = 'chat';
         const { rerender } = render(<HouseDashboard />);
-        expect(screen.getByTestId('chat-column')).not.toHaveClass('hidden');
-        expect(screen.getByTestId('panel-column')).toHaveClass('hidden');
 
-        mockView = 'media';
+        expect(screen.queryByTestId('chat')).not.toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'Media' })).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByRole('tabpanel', { name: 'Media' })).toHaveTextContent('media of chat-1');
+        expect(openChat).toHaveBeenCalledTimes(1);
+
+        // Unrelated rerenders while staying on ?view=chat must not spam openChat().
         rerender(<HouseDashboard />);
-        expect(screen.getByTestId('chat-column')).toHaveClass('hidden');
-        expect(screen.getByTestId('panel-column')).not.toHaveClass('hidden');
+        expect(openChat).toHaveBeenCalledTimes(1);
+
+        // Switching to another view resets the guard so returning to ?view=chat rescues again once.
+        mockView = 'quote';
+        rerender(<HouseDashboard />);
+        expect(openChat).toHaveBeenCalledTimes(1);
+
+        mockView = 'chat';
+        rerender(<HouseDashboard />);
+        expect(openChat).toHaveBeenCalledTimes(2);
     });
 
     it('waits for the user’s chat', () => {

@@ -3,7 +3,10 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import '@testing-library/jest-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HouseQuotePanel } from '../HouseQuotePanel';
+import { openChat } from '@/lib/chat-events';
 import { quotesApi } from '@/lib/quotes-api';
+
+jest.mock('@/lib/chat-events', () => ({ openChat: jest.fn() }));
 
 jest.mock('@/lib/quotes-api', () => ({
     quotesApi: {
@@ -54,13 +57,17 @@ beforeEach(() => {
 });
 
 describe('HouseQuotePanel — the quote of the house', () => {
-    it('without a quote, sends the user to the chat to ask for one', async () => {
+    it('without a quote, opens the chat to ask for one', async () => {
         getQuote.mockResolvedValue(null);
         renderPanel();
 
-        fireEvent.click(await screen.findByRole('button', { name: 'Chiedilo in chat' }));
+        const askButton = await screen.findByRole('button', { name: 'Chiedilo in chat' });
+        expect(askButton).not.toHaveClass('md:hidden');
+        fireEvent.click(askButton);
 
-        expect(replace).toHaveBeenCalledWith('/dashboard?view=chat', { scroll: false });
+        expect(openChat).toHaveBeenCalledTimes(1);
+        expect(openChat).toHaveBeenCalledWith('Vorrei preparare il preventivo della mia casa.');
+        expect(replace).not.toHaveBeenCalled();
         expect(screen.queryByRole('button', { name: 'Invia al team' })).not.toBeInTheDocument();
     });
 
