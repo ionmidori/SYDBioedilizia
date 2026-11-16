@@ -13,8 +13,9 @@ from fastapi.responses import Response
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import ErasureIncompleteError
 from src.db import users as users_db
-from src.models.user import UserPreferences, UserPreferencesUpdate
+from src.models.user import RevokeSessionsResponse, UserPreferences, UserPreferencesUpdate
 from src.schemas.internal import UserSession
+from src.services.auth_gateway import FirebaseAuthGateway
 from src.services.erasure.models import ErasureMode, ErasureStatus
 from src.services.erasure.service import get_user_erasure_service
 
@@ -85,3 +86,34 @@ async def erase_my_account(
     if report.status is not ErasureStatus.COMPLETED:
         raise ErasureIncompleteError()
     return Response(status_code=204)
+
+
+@router.post("/me/sessions/revoke", response_model=RevokeSessionsResponse)
+async def revoke_my_sessions(
+    user_session: UserSession = Depends(verify_token),
+) -> RevokeSessionsResponse:
+    """Revoke all refresh tokens across every device for the authenticated user.
+
+    Also invalidates the backend verified-token cache entry if needed? Note:
+    ID tokens live up to 1 hour unless `check_revoked=True` catches revocation on
+    the next uncached check (AUTH_TOKEN_CACHE_SECONDS). The client signs out
+    locally right after calling this endpoint.
+    """
+    if user_session.is_anonymous:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operazione disponibile solo per account registrati.",
+        )
+
+    revoked = await FirebaseAuthGateway().revoke_refresh_tokens(user_session.uid)
+    if not revoked:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account non trovato.",
+        )
+
+    logger.info(f"[Auth] Revoked all refresh tokens for uid={user_session.uid}")
+    return RevokeSessionsResponse(
+        revoked=True,
+        message="Tutte le sessioni attive sono state disconnesse.",
+    )
