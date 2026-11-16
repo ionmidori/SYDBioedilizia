@@ -3,15 +3,22 @@
  * Converts Firebase error codes to user-friendly Italian messages
  */
 
+const INVALID_CREDENTIAL_MESSAGE = 'Email o password non corretti. Riprova o reimposta la password.';
+const WEAK_PASSWORD_MESSAGE =
+    'La password non è abbastanza sicura: usa almeno 10 caratteri con lettere maiuscole e minuscole, numeri e simboli.';
+
 export function mapAuthError(firebaseErrorCode: string): string {
     const errorMap: Record<string, string> = {
         // Email/Password Errors
-        'auth/wrong-password': 'Password non corretta. Riprova o usa "Password dimenticata?".',
-        'auth/user-not-found': 'Nessun account trovato con questa email. Controlla l\'indirizzo o registrati.',
+        // Same text for wrong password / unknown user: never reveal whether an
+        // email is registered (anti-enumeration).
+        'auth/wrong-password': INVALID_CREDENTIAL_MESSAGE,
+        'auth/user-not-found': INVALID_CREDENTIAL_MESSAGE,
         'auth/invalid-email': 'Inserisci un indirizzo email valido (es. nome@dominio.it).',
         'auth/email-already-in-use': 'Questa email è già registrata. Accedi o reimposta la password.',
-        'auth/weak-password': 'La password deve contenere almeno 6 caratteri.',
-        'auth/invalid-credential': 'Email o password non corretti. Riprova o reimposta la password.',
+        'auth/weak-password': WEAK_PASSWORD_MESSAGE,
+        'auth/password-does-not-meet-requirements': WEAK_PASSWORD_MESSAGE,
+        'auth/invalid-credential': INVALID_CREDENTIAL_MESSAGE,
 
         // Social Login Errors
         'auth/popup-closed-by-user': 'Login annullato.',
@@ -34,6 +41,8 @@ export function mapAuthError(firebaseErrorCode: string): string {
         'auth/expired-action-code': 'Link scaduto. Richiedi un nuovo link.',
         'auth/invalid-action-code': 'Link non valido o già usato.',
         'auth/user-disabled': 'Account disabilitato. Contatta il supporto.',
+        'auth/requires-recent-login': 'Per motivi di sicurezza, esci e accedi nuovamente prima di completare questa operazione.',
+        'auth/provider-already-linked': 'Hai già una password associata a questo account.',
 
         // Guest chats (lib/auth/guest-claim.ts)
         'syd/guest-claim-unavailable':
