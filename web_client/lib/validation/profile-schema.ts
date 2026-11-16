@@ -7,9 +7,10 @@ import { z } from "zod";
 export const profileUpdateSchema = z.object({
     displayName: z
         .string()
+        .trim()
         .min(2, "Il nome deve contenere almeno 2 caratteri")
         .max(50, "Il nome non può superare i 50 caratteri")
-        .regex(/^[a-zA-ZÀ-ÿ\s'-]+$/, "Il nome può contenere solo lettere, spazi, apostrofi e trattini")
+        .regex(/^[\p{L}\p{M}\s'.’\-]+$/u, "Il nome può contenere solo lettere, spazi, apostrofi e trattini")
         .optional(),
 
     photoURL: z

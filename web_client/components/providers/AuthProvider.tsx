@@ -108,20 +108,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Whether the user last published was anonymous: Firebase upgrades a linked
     // user in place, so the user object itself no longer tells.
     const publishedAnonymousRef = useRef<boolean | null>(null);
+    const lastSyncedTokenRef = useRef<string | null>(null);
 
-    // A guest who creates an account is linked to it (lib/auth/guest-claim.ts):
-    // same uid, so onAuthStateChanged stays silent. The new token tells: publish
-    // the registered user and its token (context + server cookie).
+    // Sync ID token rotations (anonymous -> registered upgrades, token refreshes,
+    // and password changes/links) to context and the server cookie.
     useEffect(() => onIdTokenChanged(auth, async (current) => {
-        if (!current || current.isAnonymous || publishedAnonymousRef.current !== true) return;
-        publishedAnonymousRef.current = false;
-        setUser(cloneUser(current));
+        if (!current || current.isAnonymous) return;
+        const wasAnonymousUpgrade = publishedAnonymousRef.current === true;
+        if (!wasAnonymousUpgrade && publishedAnonymousRef.current !== false) return;
+
+        if (wasAnonymousUpgrade) {
+            publishedAnonymousRef.current = false;
+            setUser(cloneUser(current));
+        }
+
         try {
             const token = await current.getIdToken();
-            setIdToken(token);
-            await setAuthCookie(token);
+            if (token !== lastSyncedTokenRef.current) {
+                lastSyncedTokenRef.current = token;
+                setIdToken(token);
+                await setAuthCookie(token);
+            }
         } catch (err) {
-            console.error('[AuthProvider] Failed to get ID token after account link:', err);
+            console.error('[AuthProvider] Failed to sync ID token:', err);
             setError(err as Error);
         }
     }), []);
@@ -162,8 +171,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                             // Sync cookie with server (registered users only; anonymous sessions stay cookie-less)
                             if (currentUser.isAnonymous) {
+                                lastSyncedTokenRef.current = null;
                                 await removeAuthCookie();
                             } else {
+                                lastSyncedTokenRef.current = token;
                                 await setAuthCookie(token);
                             }
 
@@ -175,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         }
                     } else {
                         // No user - clear state but DON'T auto sign-in
+                        lastSyncedTokenRef.current = null;
                         setUser(null);
                         setIdToken(null);
                         tokenManager.stopMonitoring();
@@ -219,7 +231,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 logger.debug('[AuthProvider] Token refreshed');
                 setIdToken(newToken);
                 // Sync refreshed token for registered users only
-                if (publishedAnonymousRef.current === false) {
+                if (publishedAnonymousRef.current === false && newToken !== lastSyncedTokenRef.current) {
+                    lastSyncedTokenRef.current = newToken;
                     await setAuthCookie(newToken);
                 }
             }
@@ -315,6 +328,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             // 1. CLEAR LOCAL STATE IMMEDIATELY (Prevent UI from thinking it's logged in)
             publishedAnonymousRef.current = null;
+            lastSyncedTokenRef.current = null;
             setUser(null);
             setIdToken(null);
             tokenManager.stopMonitoring();
@@ -371,7 +385,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             const token = await currentUser.getIdToken(force);
             setIdToken(token);
-            if (!currentUser.isAnonymous) {
+            if (!currentUser.isAnonymous && token !== lastSyncedTokenRef.current) {
+                lastSyncedTokenRef.current = token;
                 await setAuthCookie(token);
             }
             return token;

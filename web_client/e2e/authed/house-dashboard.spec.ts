@@ -311,6 +311,15 @@ test.describe('the house', () => {
     expect(saveProfileBox).not.toBeNull();
     expect(toggleProfileBox).not.toBeNull();
     expect(saveProfileBox!.y + saveProfileBox!.height).toBeLessThanOrEqual(toggleProfileBox!.y);
-    await saveProfileBtn.click({ trial: true });
+
+    // Update displayName, save via Firebase Auth Client SDK, verify inline feedback and persistence on reload.
+    const nameInput = page.getByLabel('Nome Visualizzato');
+    await nameInput.fill('Mario Rossi');
+    await saveProfileBtn.click();
+    const saveSection = page.getByTestId('profile-save-section');
+    await expect(saveSection.getByRole('status')).toContainText('Profilo aggiornato con successo!');
+
+    await page.reload({ waitUntil: 'load' });
+    await expect(page.getByLabel('Nome Visualizzato')).toHaveValue('Mario Rossi');
   });
 });

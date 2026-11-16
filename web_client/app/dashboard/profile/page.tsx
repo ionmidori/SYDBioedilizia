@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { User, Lock, Bell, Camera, Save, AlertTriangle, CheckCircle2 } from "lucide-react";
 import NextImage from "next/image";
-import { updateUserProfile, uploadUserAvatar } from "@/app/actions/profile";
+import { updateProfileDisplayName, uploadProfileAvatar } from "@/lib/auth/profile-client";
 import { compressImage } from "@/lib/media-utils";
 import { PasskeyButton } from "@/components/auth/PasskeyButton";
 import { AccountSecurityCard } from "@/components/profile/AccountSecurityCard";
@@ -31,6 +31,38 @@ function isObjectUrl(url: string): boolean {
     return url.startsWith('blob:');
 }
 
+function ProfileFeedbackBanner({
+    errorMessage,
+    successMessage,
+    compact = false,
+}: {
+    errorMessage: string | null;
+    successMessage: string | null;
+    compact?: boolean;
+}) {
+    if (!errorMessage && !successMessage) return null;
+
+    return (
+        <div
+            role={errorMessage ? "alert" : "status"}
+            className={cn(
+                "flex items-center gap-3 rounded-2xl border text-sm font-medium",
+                compact ? "px-4 py-3" : "p-4",
+                errorMessage
+                    ? "bg-danger-subtle border-danger/20 text-danger-ink"
+                    : "bg-success-subtle border-success/20 text-success-ink"
+            )}
+        >
+            {errorMessage ? (
+                <AlertTriangle className="w-5 h-5 shrink-0" aria-hidden="true" />
+            ) : (
+                <CheckCircle2 className="w-5 h-5 shrink-0" aria-hidden="true" />
+            )}
+            <p>{errorMessage || successMessage}</p>
+        </div>
+    );
+}
+
 export default function ProfilePage() {
     const { user, refreshUser } = useAuth();
     const { preferences, updatePreferences, error: preferencesError } = useUserPreferences();
@@ -41,18 +73,27 @@ export default function ProfilePage() {
     const [nameError, setNameError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [feedbackPlacement, setFeedbackPlacement] = useState<'top' | 'save'>('top');
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const nameInputRef = useRef<HTMLInputElement>(null);
     const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
     const avatarPreviewRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (user) {
             checkHasPasskeys();
-            // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: seed the editable field from the loaded/refreshed user, not on every keystroke
-            setDisplayName(user.displayName ?? '');
         }
     }, [user, checkHasPasskeys]);
+
+    const userUid = user?.uid;
+    const userDisplayName = user?.displayName;
+    useEffect(() => {
+        if (userUid) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: seed the editable field when the user or server displayName changes, not on passkey checks
+            setDisplayName(userDisplayName ?? '');
+        }
+    }, [userUid, userDisplayName]);
 
     // Clear any pending success-message timers on unmount.
     useEffect(() => {
@@ -78,6 +119,7 @@ export default function ProfilePage() {
     useEffect(() => {
         if (preferencesError) {
             // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: surface a hook-internal failure in the page's shared banner
+            setFeedbackPlacement('top');
             setErrorMessage(preferencesError);
         }
     }, [preferencesError]);
@@ -86,7 +128,8 @@ export default function ProfilePage() {
         ? user.displayName.split(' ').map(n => n[0]).join('').toUpperCase()
         : user?.email?.charAt(0).toUpperCase() || 'U';
 
-    const showSuccess = useCallback((message: string) => {
+    const showSuccess = useCallback((message: string, placement: 'top' | 'save' = 'top') => {
+        setFeedbackPlacement(placement);
         setErrorMessage(null);
         setSuccessMessage(message);
         const timer = setTimeout(() => setSuccessMessage(null), 3000);
@@ -97,6 +140,7 @@ export default function ProfilePage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        setFeedbackPlacement('top');
         setSuccessMessage(null);
         setErrorMessage(null);
         setIsUploadingAvatar(true);
@@ -114,9 +158,7 @@ export default function ProfilePage() {
             }
             setAvatarPreview(URL.createObjectURL(compressed));
 
-            const formData = new FormData();
-            formData.append('avatar', compressed, 'avatar.webp');
-            const result = await uploadUserAvatar(formData);
+            const result = await uploadProfileAvatar(compressed);
 
             if (result.success) {
                 await refreshUser();
@@ -126,7 +168,7 @@ export default function ProfilePage() {
                     URL.revokeObjectURL(avatarPreviewRef.current);
                 }
                 setAvatarPreview(null);
-                showSuccess(result.message || "Foto profilo aggiornata!");
+                showSuccess(result.message || "Foto profilo aggiornata!", 'top');
             } else {
                 setErrorMessage(result.message || "Errore durante il caricamento della foto.");
             }
@@ -142,21 +184,24 @@ export default function ProfilePage() {
 
     const handleSaveProfile = async () => {
         setIsSavingProfile(true);
+        setFeedbackPlacement('save');
         setSuccessMessage(null);
         setErrorMessage(null);
         setNameError(null);
 
         try {
-            const formData = new FormData();
-            formData.append('displayName', displayName);
-            const result = await updateUserProfile(formData);
+            const result = await updateProfileDisplayName(displayName);
 
             if (result.success) {
                 await refreshUser();
-                showSuccess(result.message || "Profilo salvato correttamente.");
+                showSuccess(result.message || "Profilo salvato correttamente.", 'save');
             } else {
-                setNameError(result.errors?.displayName?.[0] ?? null);
+                const nextNameError = result.errors?.displayName?.[0] ?? null;
+                setNameError(nextNameError);
                 setErrorMessage(result.message || "Errore durante il salvataggio.");
+                if (nextNameError) {
+                    nameInputRef.current?.focus();
+                }
             }
         } catch (error) {
             console.error('[ProfilePage] Save profile failed:', error);
@@ -189,23 +234,8 @@ export default function ProfilePage() {
             </div>
 
             {/* Feedback banner */}
-            {(errorMessage || successMessage) && (
-                <div
-                    role={errorMessage ? "alert" : "status"}
-                    className={cn(
-                        "flex items-center gap-3 p-4 rounded-2xl border text-sm font-medium",
-                        errorMessage
-                            ? "bg-danger-subtle border-danger/20 text-danger-ink"
-                            : "bg-success-subtle border-success/20 text-success-ink"
-                    )}
-                >
-                    {errorMessage ? (
-                        <AlertTriangle className="w-5 h-5 shrink-0" />
-                    ) : (
-                        <CheckCircle2 className="w-5 h-5 shrink-0" />
-                    )}
-                    <p>{errorMessage || successMessage}</p>
-                </div>
+            {feedbackPlacement === 'top' && (
+                <ProfileFeedbackBanner errorMessage={errorMessage} successMessage={successMessage} />
             )}
 
             {/* Profile Section */}
@@ -273,14 +303,20 @@ export default function ProfilePage() {
                         <div className="space-y-1">
                             <label htmlFor="displayName" className="text-[10px] uppercase font-bold text-ink-muted">Nome Visualizzato</label>
                             <input
+                                ref={nameInputRef}
                                 id="displayName"
                                 type="text"
                                 value={displayName}
-                                onChange={(e) => setDisplayName(e.target.value)}
+                                onChange={(e) => {
+                                    setDisplayName(e.target.value);
+                                    if (nameError) setNameError(null);
+                                }}
+                                aria-invalid={Boolean(nameError)}
+                                aria-describedby={nameError ? "displayName-error" : undefined}
                                 placeholder="Il tuo nome"
                                 className="w-full bg-transparent border-b border-line focus:border-accent outline-hidden text-ink font-medium py-1 transition-colors"
                             />
-                            {nameError && <p className="text-xs text-danger-ink">{nameError}</p>}
+                            {nameError && <p id="displayName-error" className="text-xs text-danger-ink">{nameError}</p>}
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] uppercase font-bold text-ink-muted">Email</label>
@@ -364,12 +400,19 @@ export default function ProfilePage() {
             </div>
 
             {/* Save Button */}
-            <div className="flex justify-end">
+            <div data-testid="profile-save-section" className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
+                {feedbackPlacement === 'save' && (
+                    <ProfileFeedbackBanner
+                        errorMessage={errorMessage}
+                        successMessage={successMessage}
+                        compact
+                    />
+                )}
                 <button
                     type="button"
                     onClick={handleSaveProfile}
                     disabled={isSavingProfile}
-                    className="px-8 py-4 bg-accent text-on-accent border border-transparent font-bold rounded-xl hover:bg-accent/90 transition-all shadow-lg flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-8 py-4 bg-accent text-on-accent border border-transparent font-bold rounded-xl hover:bg-accent/90 transition-all shadow-lg flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                 >
                     {isSavingProfile ? (
                         <SydLoader size="sm" />
