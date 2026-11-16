@@ -41,9 +41,13 @@ describe('EmailAuthForm — signup', () => {
         mockSendReset.mockReset().mockResolvedValue(undefined);
     });
 
-    it('asks for the password a second time (confirmation field)', () => {
+    it('asks for the password a second time (confirmation field) and keeps stable E2E field ids', () => {
         goToSignup();
-        expect(field('Conferma password')).toBeInTheDocument();
+        expect(field('Email').id).toBe('email');
+        expect(field('Password').id).toBe('password');
+        const confirm = field('Conferma password');
+        expect(confirm).toBeInTheDocument();
+        expect(confirm.id).toBe('confirmPassword');
     });
 
     it('blocks submit and explains when the two passwords differ', async () => {

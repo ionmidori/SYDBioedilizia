@@ -257,6 +257,7 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
             {mode !== 'reset' && (
                 <PasswordField
                     {...register('password')}
+                    id="password"
                     label="Password"
                     placeholder="••••••••"
                     className={invalidClass(!!errors.password)}
@@ -270,6 +271,7 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
                     <PasswordChecklist password={passwordValue} />
                     <PasswordField
                         {...register('confirmPassword')}
+                        id="confirmPassword"
                         label="Conferma password"
                         placeholder="••••••••"
                         className={invalidClass(!!errors.confirmPassword)}
