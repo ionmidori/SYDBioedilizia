@@ -8,6 +8,7 @@ import NextImage from "next/image";
 import { updateUserProfile, uploadUserAvatar } from "@/app/actions/profile";
 import { compressImage } from "@/lib/media-utils";
 import { PasskeyButton } from "@/components/auth/PasskeyButton";
+import { AccountSecurityCard } from "@/components/profile/AccountSecurityCard";
 import { SydLoader } from "@/components/ui/SydLoader";
 import { usePasskey } from "@/hooks/usePasskey";
 import { cn } from "@/lib/utils";
@@ -315,6 +316,9 @@ export default function ProfilePage() {
                     </div>
                 </div>
             </div>
+
+            {/* Password & Sessions */}
+            <AccountSecurityCard />
 
             {/* Notifications */}
             <div className="p-8 glass border border-line rounded-3xl space-y-6">

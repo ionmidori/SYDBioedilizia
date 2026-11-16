@@ -68,3 +68,14 @@ async def test_other_errors_propagate():
     with patch.object(auth_gateway.auth, "delete_user", side_effect=RuntimeError("network")), \
          pytest.raises(RuntimeError):
         await FirebaseAuthGateway().delete_user("u1")
+
+
+async def test_revoke_refresh_tokens():
+    with patch.object(auth_gateway.auth, "revoke_refresh_tokens") as revoke:
+        assert await FirebaseAuthGateway().revoke_refresh_tokens("u1") is True
+    revoke.assert_called_once_with("u1")
+
+
+async def test_revoke_refresh_tokens_missing_account_is_false():
+    with patch.object(auth_gateway.auth, "revoke_refresh_tokens", side_effect=_missing):
+        assert await FirebaseAuthGateway().revoke_refresh_tokens("u1") is False

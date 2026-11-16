@@ -22,3 +22,9 @@ class UserPreferencesUpdate(BaseModel):
     model_config = {"extra": "forbid"}
     notifications: NotificationPreferences | None = None
     ui: UIPreferences | None = None
+
+
+class RevokeSessionsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    revoked: bool
+    message: str

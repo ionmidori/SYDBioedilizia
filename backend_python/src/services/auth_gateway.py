@@ -23,6 +23,7 @@ class AuthContact:
 
 class AuthGateway(Protocol):
     async def disable_and_revoke(self, uid: str) -> bool: ...
+    async def revoke_refresh_tokens(self, uid: str) -> bool: ...
     async def delete_user(self, uid: str) -> bool: ...
     async def get_contact(self, uid: str) -> AuthContact | None: ...
     async def is_disabled(self, uid: str) -> bool | None: ...
@@ -41,6 +42,16 @@ class FirebaseAuthGateway:
 
         try:
             await asyncio.to_thread(_run)
+        except auth.UserNotFoundError:
+            return False
+        return True
+
+    async def revoke_refresh_tokens(self, uid: str) -> bool:
+        """Revoke all active refresh tokens for the user without disabling the account.
+        False if the account does not exist."""
+        init_firebase()
+        try:
+            await asyncio.to_thread(auth.revoke_refresh_tokens, uid)
         except auth.UserNotFoundError:
             return False
         return True
