@@ -211,6 +211,23 @@ describe('a guest linked to a new account', () => {
         expect((ctx().user as User).uid).toBe('anon-1');
         expect(setAuthCookie).toHaveBeenLastCalledWith('registered-token');
     });
+
+    it('syncs auth-token cookie when a registered user ID token rotates via onIdTokenChanged', async () => {
+        const regUser = { uid: 'u-1', isAnonymous: false, getIdToken: jest.fn(async () => 'token-1') };
+        let authChanged: (u: unknown) => Promise<void> = async () => {};
+        let tokenChanged: (u: unknown) => Promise<void> = async () => {};
+        (onAuthStateChanged as jest.Mock).mockImplementation((_auth, cb) => { authChanged = cb; return jest.fn(); });
+        (onIdTokenChanged as jest.Mock).mockImplementation((_auth, cb) => { tokenChanged = cb; return jest.fn(); });
+        const ctx = await renderAuthReady();
+        await act(async () => { await authChanged(regUser); });
+        expect(setAuthCookie).toHaveBeenLastCalledWith('token-1');
+
+        regUser.getIdToken.mockResolvedValue('token-2');
+        await act(async () => { await tokenChanged(regUser); });
+
+        expect(ctx().idToken).toBe('token-2');
+        expect(setAuthCookie).toHaveBeenLastCalledWith('token-2');
+    });
 });
 
 describe('completeRedirectLogin', () => {

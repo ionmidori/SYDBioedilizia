@@ -1,6 +1,6 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import ProfilePage from '../page';
-import { updateUserProfile, uploadUserAvatar } from '@/app/actions/profile';
+import { updateProfileDisplayName, uploadProfileAvatar } from '@/lib/auth/profile-client';
 import { compressImage } from '@/lib/media-utils';
 
 const mockRefreshUser = jest.fn().mockResolvedValue(undefined);
@@ -35,17 +35,17 @@ jest.mock('@/components/auth/PasskeyButton', () => ({
     PasskeyButton: () => <div data-testid="passkey-button-stub" />,
 }));
 
-jest.mock('@/app/actions/profile', () => ({
-    updateUserProfile: jest.fn(),
-    uploadUserAvatar: jest.fn(),
+jest.mock('@/lib/auth/profile-client', () => ({
+    updateProfileDisplayName: jest.fn(),
+    uploadProfileAvatar: jest.fn(),
 }));
 
 jest.mock('@/lib/media-utils', () => ({
     compressImage: jest.fn(),
 }));
 
-const mockUpdateUserProfile = updateUserProfile as jest.Mock;
-const mockUploadUserAvatar = uploadUserAvatar as jest.Mock;
+const mockUpdateProfileDisplayName = updateProfileDisplayName as jest.Mock;
+const mockUploadProfileAvatar = uploadProfileAvatar as jest.Mock;
 const mockCompressImage = compressImage as jest.Mock;
 
 function makeFile(name: string, type: string, size: number): File {
@@ -70,7 +70,7 @@ describe('ProfilePage', () => {
     });
 
     it('shows an error banner when the avatar upload fails, without crashing', async () => {
-        mockUploadUserAvatar.mockResolvedValue({ success: false, message: 'Il file non può superare i 5MB.' });
+        mockUploadProfileAvatar.mockResolvedValue({ success: false, message: 'Il file non può superare i 5MB.' });
         render(<ProfilePage />);
 
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -84,7 +84,7 @@ describe('ProfilePage', () => {
     });
 
     it('shows a success banner and refreshes the user when the avatar upload succeeds', async () => {
-        mockUploadUserAvatar.mockResolvedValue({
+        mockUploadProfileAvatar.mockResolvedValue({
             success: true,
             message: 'Foto profilo aggiornata!',
             photoURL: 'https://storage.googleapis.com/bucket/users/user-1/avatar.webp',
@@ -101,7 +101,7 @@ describe('ProfilePage', () => {
         expect(mockRefreshUser).toHaveBeenCalledTimes(1);
     });
 
-    it('blocks a file that is still over 5MB after compression, without calling the Server Action', async () => {
+    it('blocks a file that is still over 5MB after compression, without calling the upload helper', async () => {
         const oversizedAfterCompression = makeFile('photo.webp', 'image/webp', 5 * 1024 * 1024 + 1);
         mockCompressImage.mockResolvedValue(oversizedAfterCompression);
         render(<ProfilePage />);
@@ -113,39 +113,39 @@ describe('ProfilePage', () => {
         await waitFor(() => {
             expect(screen.getByRole('alert')).toHaveTextContent(/non può superare i 5MB, anche dopo la compressione/);
         });
-        expect(mockUploadUserAvatar).not.toHaveBeenCalled();
+        expect(mockUploadProfileAvatar).not.toHaveBeenCalled();
     });
 
     it('resets the file input value after processing, so re-selecting the same file re-fires onChange', async () => {
-        mockUploadUserAvatar.mockResolvedValue({ success: true, message: 'ok' });
+        mockUploadProfileAvatar.mockResolvedValue({ success: true, message: 'ok' });
         render(<ProfilePage />);
 
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         const file = makeFile('photo.jpg', 'image/jpeg', 1024);
         fireEvent.change(input, { target: { files: [file] } });
 
-        await waitFor(() => expect(mockUploadUserAvatar).toHaveBeenCalledTimes(1));
+        await waitFor(() => expect(mockUploadProfileAvatar).toHaveBeenCalledTimes(1));
         expect(input.value).toBe('');
     });
 
-    it('calls updateUserProfile with the edited displayName when Save is clicked', async () => {
-        mockUpdateUserProfile.mockResolvedValue({ success: true, message: 'Profilo salvato correttamente.' });
+    it('calls updateProfileDisplayName with the edited displayName and shows status beside Save', async () => {
+        mockUpdateProfileDisplayName.mockResolvedValue({ success: true, message: 'Profilo salvato correttamente.' });
         render(<ProfilePage />);
 
         const nameInput = screen.getByLabelText('Nome Visualizzato') as HTMLInputElement;
         fireEvent.change(nameInput, { target: { value: 'Luca Bianchi' } });
         fireEvent.click(screen.getByRole('button', { name: /Salva Modifiche/i }));
 
+        const saveSection = await screen.findByTestId('profile-save-section');
         await waitFor(() => {
-            expect(screen.getByRole('status')).toHaveTextContent('Profilo salvato correttamente.');
+            expect(within(saveSection).getByRole('status')).toHaveTextContent('Profilo salvato correttamente.');
         });
-        const sentFormData = mockUpdateUserProfile.mock.calls[0][0] as FormData;
-        expect(sentFormData.get('displayName')).toBe('Luca Bianchi');
+        expect(mockUpdateProfileDisplayName).toHaveBeenCalledWith('Luca Bianchi');
         expect(mockRefreshUser).toHaveBeenCalledTimes(1);
     });
 
-    it('shows the field-level error returned by updateUserProfile', async () => {
-        mockUpdateUserProfile.mockResolvedValue({
+    it('shows the field-level error, focuses the name input, and surfaces the error beside Save', async () => {
+        mockUpdateProfileDisplayName.mockResolvedValue({
             success: false,
             message: 'Validazione fallita. Controlla i campi inseriti.',
             errors: { displayName: ['Il nome deve contenere almeno 2 caratteri'] },
@@ -154,10 +154,12 @@ describe('ProfilePage', () => {
 
         fireEvent.click(screen.getByRole('button', { name: /Salva Modifiche/i }));
 
+        const saveSection = await screen.findByTestId('profile-save-section');
         await waitFor(() => {
             expect(screen.getByText('Il nome deve contenere almeno 2 caratteri')).toBeInTheDocument();
         });
-        expect(screen.getByRole('alert')).toHaveTextContent('Validazione fallita. Controlla i campi inseriti.');
+        expect(within(saveSection).getByRole('alert')).toHaveTextContent('Validazione fallita. Controlla i campi inseriti.');
+        expect(screen.getByLabelText('Nome Visualizzato')).toHaveFocus();
     });
 
     it('never renders an avatar preview that is not a browser object URL', async () => {
@@ -165,18 +167,18 @@ describe('ProfilePage', () => {
         // server-provided string funnelled into the preview state must not reach
         // the <img src> sink (CodeQL js/xss-through-dom, alert #20).
         (URL.createObjectURL as jest.Mock).mockReturnValue('javascript:alert(1)');
-        mockUploadUserAvatar.mockResolvedValue({ success: false, message: 'Upload non riuscito.' });
+        mockUploadProfileAvatar.mockResolvedValue({ success: false, message: 'Upload non riuscito.' });
         render(<ProfilePage />);
 
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         fireEvent.change(input, { target: { files: [makeFile('photo.jpg', 'image/jpeg', 1024)] } });
 
-        await waitFor(() => expect(mockUploadUserAvatar).toHaveBeenCalled());
+        await waitFor(() => expect(mockUploadProfileAvatar).toHaveBeenCalled());
         expect(document.querySelector('img[src^="javascript:"]')).toBeNull();
     });
 
     it('renders the avatar preview when it is a blob: object URL', async () => {
-        mockUploadUserAvatar.mockResolvedValue({ success: false, message: 'Upload non riuscito.' });
+        mockUploadProfileAvatar.mockResolvedValue({ success: false, message: 'Upload non riuscito.' });
         render(<ProfilePage />);
 
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;

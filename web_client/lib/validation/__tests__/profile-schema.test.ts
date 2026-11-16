@@ -5,12 +5,21 @@ describe('profileUpdateSchema', () => {
         expect(profileUpdateSchema.safeParse({ displayName: 'Niccolò D\'Angelo' }).success).toBe(true);
     });
 
+    it('accepts international Latin diacritics and trims surrounding whitespace', () => {
+        const result = profileUpdateSchema.safeParse({ displayName: '  Ion Ștefan  ' });
+        expect(result.success).toBe(true);
+        if (result.success) {
+            expect(result.data.displayName).toBe('Ion Ștefan');
+        }
+    });
+
     it('accepts an empty object — both fields are optional', () => {
         expect(profileUpdateSchema.safeParse({}).success).toBe(true);
     });
 
     it.each([
         ['a single character', 'A'],
+        ['whitespace only', '   '],
         ['more than 50 characters', 'a'.repeat(51)],
         ['digits', 'Mario 2'],
         ['HTML tags', '<b>Mario</b>'],
