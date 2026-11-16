@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import { PASSKEY_DEVICE_COOKIE } from '@/lib/auth/passkey-device';
 
 export const maxDuration = 60; // Standard duration for auth requests
 export const dynamic = 'force-dynamic';
@@ -108,7 +109,21 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
         }
 
         const data = await response.json();
-        return NextResponse.json(data, { status: response.status });
+        const nextResponse = NextResponse.json(data, { status: response.status });
+
+        // Server-set device marker: survives Safari/iOS ITP, which evicts
+        // script-writable storage after 7 days of inactivity. Only set after the
+        // backend verified a registration or an authentication.
+        if (path === 'register/verify' || path === 'authenticate/verify') {
+            nextResponse.cookies.set(PASSKEY_DEVICE_COOKIE, '1', {
+                httpOnly: false, // read by the login button to enable itself
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                path: '/',
+                maxAge: 60 * 60 * 24 * 400,
+            });
+        }
+        return nextResponse;
 
     } catch (error: unknown) {
         console.error('[Passkey Proxy] Internal Error:', error);

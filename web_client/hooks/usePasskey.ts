@@ -1,6 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { signInKeepingGuestChats } from '@/lib/auth/guest-claim';
+import {
+    clearDevicePasskey,
+    hasDevicePasskey,
+    markDevicePasskey,
+    PASSKEY_NOT_ENROLLED_MESSAGE,
+} from '@/lib/auth/passkey-device';
 
 /**
  * WebAuthn Passkeys Hook
@@ -155,7 +161,11 @@ export function usePasskey() {
             }
 
             const result = await verifyRes.json();
-            
+
+            // Remember on THIS device that biometric login is enrolled: this is
+            // what enables the login button (see PasskeyButton).
+            markDevicePasskey();
+
             // Re-check passkeys status after successful registration
             await checkHasPasskeys();
             
@@ -168,6 +178,15 @@ export function usePasskey() {
             // User cancelled
             if (error.name === 'NotAllowedError') {
                 throw new Error('Registrazione annullata');
+            }
+
+            // excludeCredentials matched: the authenticator (e.g. iCloud Keychain on
+            // iPhone) already holds a passkey for this account. Treat the device as
+            // enrolled so users registered before the device marker existed (or whose
+            // Safari storage was evicted) can recover from the profile page.
+            if (error.name === 'InvalidStateError') {
+                markDevicePasskey();
+                throw new Error('Biometria già attiva su questo dispositivo');
             }
 
             throw error;
@@ -188,6 +207,14 @@ export function usePasskey() {
      * @param userId - Optional. If omitted, browser will discover credentials automatically (Resident Keys)
      */
     const authenticateWithPasskey = useCallback(async (userId?: string) => {
+        // Hard gate (defence in depth, also enforced by the disabled button):
+        // biometric login is only allowed on a device where it was activated
+        // from the user profile. Checked synchronously, before any await, so the
+        // user-activation required by iOS Safari is untouched.
+        if (!hasDevicePasskey()) {
+            throw new Error(PASSKEY_NOT_ENROLLED_MESSAGE);
+        }
+
         setIsAuthenticating(true);
 
         try {
@@ -257,10 +284,16 @@ export function usePasskey() {
             });
 
             if (!verifyRes.ok) {
+                // 404 = backend does not know this credential (removed/revoked):
+                // the device marker is stale, so disable the login button again.
+                if (verifyRes.status === 404) {
+                    clearDevicePasskey();
+                }
                 throw new Error('Authentication failed');
             }
 
             const result = await verifyRes.json();
+            markDevicePasskey();
 
             // Sign in with the custom token returned by backend
             if (result.token) {

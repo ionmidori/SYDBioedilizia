@@ -1,5 +1,11 @@
 import { renderHook, act } from '@testing-library/react';
 import { usePasskey } from '../usePasskey';
+import {
+    clearDevicePasskey,
+    hasDevicePasskey,
+    markDevicePasskey,
+    PASSKEY_NOT_ENROLLED_MESSAGE,
+} from '@/lib/auth/passkey-device';
 
 /**
  * Regression test for the response-shape bug: python-fido2 wraps registration
@@ -171,6 +177,7 @@ describe('usePasskey — response shape regression', () => {
     });
 
     it('unwraps publicKey and converts challenge/allowCredentials on authenticate', async () => {
+        markDevicePasskey(); // device enrolled from the profile
         const wireOptions = {
             publicKey: {
                 challenge: b64url('auth-challenge'),
@@ -208,5 +215,123 @@ describe('usePasskey — response shape regression', () => {
         expect(passedPublicKey.challenge).toBeInstanceOf(ArrayBuffer);
         expect(Buffer.from(passedPublicKey.challenge).toString()).toBe('auth-challenge');
         expect(passedPublicKey.allowCredentials[0].id).toBeInstanceOf(ArrayBuffer);
+    });
+});
+
+/**
+ * Runs `fn` inside act() and returns what it rejected with. Used instead of
+ * `expect(act(...)).rejects` because that form resolves before the async callback
+ * has finished, so assertions placed after it would race the hook's side effects.
+ */
+async function rejectionOf(fn: () => Promise<unknown>): Promise<Error | undefined> {
+    try {
+        await act(async () => {
+            await fn();
+        });
+    } catch (e) {
+        return e as Error;
+    }
+    return undefined;
+}
+
+describe('usePasskey — per-device enrolment gate', () => {
+    beforeEach(() => {
+        mockUser = { uid: 'user-1' };
+        mockIdToken = 'token-1';
+        mockFetchWithAuth.mockReset().mockResolvedValue(jsonResponse({ has_passkeys: true }));
+        clearDevicePasskey();
+    });
+
+    it('refuses biometric login on a device where it was never activated, without any network/WebAuthn call', async () => {
+        const getSpy = jest.fn();
+        Object.defineProperty(global.navigator, 'credentials', {
+            value: { create: jest.fn(), get: getSpy },
+            configurable: true,
+        });
+        const { result } = renderHook(() => usePasskey());
+
+        const err = await rejectionOf(() => result.current.authenticateWithPasskey());
+        expect(err?.message).toBe(PASSKEY_NOT_ENROLLED_MESSAGE);
+
+        expect(mockFetchWithAuth).not.toHaveBeenCalled();
+        expect(getSpy).not.toHaveBeenCalled();
+    });
+
+    it('marks the device as enrolled after a successful registration from the profile', async () => {
+        mockFetchWithAuth
+            .mockResolvedValueOnce(jsonResponse({ publicKey: {
+                challenge: b64url('c'),
+                user: { id: b64url('user-1'), name: 'u', displayName: 'U' },
+            } }))
+            .mockResolvedValueOnce(jsonResponse({ success: true }));
+        Object.defineProperty(global.navigator, 'credentials', {
+            value: {
+                create: jest.fn().mockResolvedValue({
+                    id: 'cred-id',
+                    rawId: new Uint8Array([1]).buffer,
+                    type: 'public-key',
+                    response: {
+                        attestationObject: new Uint8Array([1]).buffer,
+                        clientDataJSON: new Uint8Array([1]).buffer,
+                    },
+                }),
+                get: jest.fn(),
+            },
+            configurable: true,
+        });
+        const { result } = renderHook(() => usePasskey());
+        expect(hasDevicePasskey()).toBe(false);
+
+        await act(async () => {
+            await result.current.registerPasskey();
+        });
+
+        expect(hasDevicePasskey()).toBe(true);
+    });
+
+    it('treats InvalidStateError (iCloud Keychain already holds the passkey) as enrolled', async () => {
+        mockFetchWithAuth.mockResolvedValueOnce(jsonResponse({ publicKey: {
+            challenge: b64url('c'),
+            user: { id: b64url('user-1'), name: 'u', displayName: 'U' },
+        } }));
+        const invalidState = Object.assign(new Error('exists'), { name: 'InvalidStateError' });
+        Object.defineProperty(global.navigator, 'credentials', {
+            value: { create: jest.fn().mockRejectedValue(invalidState), get: jest.fn() },
+            configurable: true,
+        });
+        const { result } = renderHook(() => usePasskey());
+
+        const err = await rejectionOf(() => result.current.registerPasskey());
+        expect(err?.message).toMatch(/già attiva/);
+        expect(hasDevicePasskey()).toBe(true);
+    });
+
+    it('clears the device marker when the backend no longer recognises the credential (404)', async () => {
+        markDevicePasskey();
+        mockFetchWithAuth
+            .mockResolvedValueOnce(jsonResponse({ publicKey: { challenge: b64url('c') } }))
+            .mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) } as Response);
+        Object.defineProperty(global.navigator, 'credentials', {
+            value: {
+                create: jest.fn(),
+                get: jest.fn().mockResolvedValue({
+                    id: 'x',
+                    rawId: new Uint8Array([1]).buffer,
+                    type: 'public-key',
+                    response: {
+                        authenticatorData: new Uint8Array([1]).buffer,
+                        clientDataJSON: new Uint8Array([1]).buffer,
+                        signature: new Uint8Array([1]).buffer,
+                        userHandle: null,
+                    },
+                }),
+            },
+            configurable: true,
+        });
+        const { result } = renderHook(() => usePasskey());
+
+        const err = await rejectionOf(() => result.current.authenticateWithPasskey());
+        expect(err?.message).toBe('Authentication failed');
+        expect(hasDevicePasskey()).toBe(false);
     });
 });

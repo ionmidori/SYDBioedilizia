@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import { Fingerprint, Loader2 } from 'lucide-react';
 import { usePasskey } from '@/hooks/usePasskey';
 import { useAuth } from '@/hooks/useAuth';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
+import { hasDevicePasskey, subscribeDevicePasskey } from '@/lib/auth/passkey-device';
 
 interface PasskeyButtonProps {
     mode: 'register' | 'login';
@@ -61,6 +62,11 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
     const [isSupported, setIsSupported] = useState(false);
     const [error, setError] = useState('');
     const [showGuidanceDialog, setShowGuidanceDialog] = useState(false);
+    // Per-device marker set only after a passkey was activated from the profile.
+    // Server snapshot is alse, so the login button never starts active.
+    const isEnrolledOnDevice = useSyncExternalStore(subscribeDevicePasskey, hasDevicePasskey, () => false);
+    // Login stays inactive (but still tappable, to explain why) until enrolled.
+    const isLoginLocked = mode === 'login' && !isEnrolledOnDevice;
 
     useEffect(() => {
         checkSupport().then(support => {
@@ -82,6 +88,14 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
     const handleClick = async () => {
         triggerHaptic();
         setError('');
+
+        // Not activated from the profile on this device: do NOT start the WebAuthn
+        // ceremony (on iPhone it would open the passkey sheet), just explain how
+        // to activate biometrics.
+        if (isLoginLocked) {
+            setShowGuidanceDialog(true);
+            return;
+        }
 
         try {
             if (mode === 'register') {
@@ -120,6 +134,8 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
                     type="button"
                     onClick={handleClick}
                     disabled={isLoading}
+                    aria-disabled={isLoginLocked || undefined}
+                    data-locked={isLoginLocked || undefined}
                     className={cn(
                         "relative w-full h-14 flex items-center justify-center gap-3 font-bold rounded-[16px] overflow-hidden group focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
                         "bg-gradient-to-r from-accent via-accent-subtle to-accent bg-[length:200%_auto] text-on-accent",
@@ -127,6 +143,7 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
                         "hover:bg-[100%_center] hover:shadow-[0_4px_20px_-6px_color-mix(in_oklab,var(--color-accent)_50%,transparent)] hover:scale-[1.02]",
                         "transition-all duration-500 ease-out",
                         "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
+                        isLoginLocked && "opacity-60 grayscale hover:scale-100 hover:bg-[length:200%_auto] cursor-help",
                         className
                     )}
                 >
@@ -169,9 +186,9 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
                             Biometria non attiva
                         </DialogTitle>
                         <DialogDescription className="text-ink-muted pt-2">
-                            Non abbiamo trovato credenziali biometriche associate a questo dispositivo.
+                            L&apos;accesso con biometria non è ancora attivo su questo dispositivo.
                             <br /><br />
-                            Per usare FaceID o TouchID, devi prima accedere con <strong>Email</strong> o <strong>Google</strong>, e poi attivare la biometria dal tuo Profilo.
+                            Per usare FaceID o TouchID, accedi prima con la tua <strong>Email</strong> (o con <strong>Google</strong>), poi vai nel tuo <strong>Profilo utente</strong> e premi <strong>Attiva Accesso Biometrico</strong>. Dalla volta successiva potrai accedere con la biometria.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="sm:justify-center mt-4">
