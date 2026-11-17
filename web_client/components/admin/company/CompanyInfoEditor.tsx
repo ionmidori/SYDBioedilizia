@@ -182,7 +182,7 @@ export function CompanyInfoEditor() {
 
             {ignored ? (
                 <p role="status" data-testid="company-ignored" className="rounded-xl border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning-ink">
-                    La scheda salvata non era valida ed è stata ignorata: stai vedendo i dati iniziali. Salvando la sostituisci.
+                    La scheda salvata non era valida ed è stata ignorata: stai vedendo i dati iniziali. Modifica un campo e salva per sostituirla.
                 </p>
             ) : (
                 source === 'seed' && (

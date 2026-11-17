@@ -163,7 +163,8 @@ describe('CompanyInfoEditor', () => {
         unmount();
         infoQuery({ source: 'seed', version: 0, etag: '"v0"', ignored_document: 'invalid_info' });
         render(<CompanyInfoEditor />);
-        expect(screen.getByTestId('company-ignored')).toBeInTheDocument();
+        // Saving needs an edit first: the banner says so instead of promising a save with nothing changed.
+        expect(screen.getByTestId('company-ignored')).toHaveTextContent(/Modifica un campo e salva per sostituirla\./);
     });
 
     it('moves between tabs with the arrow keys, Home and End', () => {
