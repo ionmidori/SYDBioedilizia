@@ -25,6 +25,23 @@ describe('About (/chi-siamo)', () => {
         expect(screen.queryByText('Rifacimento tetti')).not.toBeInTheDocument();
     });
 
+    // PR-3 minor: the schema allows two works or excellences with the same title.
+    it('shows two items with the same title, without a duplicate React key', () => {
+        const errors = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const [first] = about.excellences;
+        render(
+            <About
+                about={{ ...about, excellences: [first, { ...first, text: 'Seconda' }] }}
+                services={[{ title: 'Doppio', description: '' }, { title: 'Doppio', description: 'altro' }]}
+            />,
+        );
+        expect(screen.getAllByText('Doppio')).toHaveLength(2);
+        expect(screen.getAllByText(`${first.title}:`)).toHaveLength(2);
+        const keyWarnings = errors.mock.calls.filter((call) => call.some((arg) => String(arg).includes('same key')));
+        errors.mockRestore();
+        expect(keyWarnings).toEqual([]);
+    });
+
     it('renders the text blocks of the company info, with bold, and no raw markers', () => {
         render(<About about={about} services={services.items} />);
         expect(screen.getByText('oltre 30 anni di esperienza').tagName).toBe('STRONG');

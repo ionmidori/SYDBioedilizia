@@ -90,10 +90,11 @@ export function About({ about, services }: { about: AboutInfo; services: Service
                                 <>
                                     <h3 className="font-serif font-bold text-primary-ink text-lg mb-4">{about.excellences_title}</h3>
                                     <ul className="space-y-3">
-                                        {about.excellences.map((excellence) => {
+                                        {/* The schema allows repeated titles: the index keeps the key unique (fixed list). */}
+                                        {about.excellences.map((excellence, index) => {
                                             const Icon = COMPANY_ICONS[excellence.icon];
                                             return (
-                                                <li key={excellence.title} className="flex items-start gap-3">
+                                                <li key={`${excellence.title}-${index}`} className="flex items-start gap-3">
                                                     <Icon className="w-5 h-5 text-primary-ink mt-1 shrink-0" aria-hidden="true" />
                                                     <span className="text-sm text-ink">
                                                         <strong>{excellence.title}:</strong> {excellence.text}
@@ -126,8 +127,8 @@ export function About({ about, services }: { about: AboutInfo; services: Service
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {services.map((service) => (
-                                    <div key={service.title} className="flex items-center gap-3 p-3 rounded-lg bg-primary-subtle border border-primary/10 hover:border-primary/30 transition-colors">
+                                {services.map((service, index) => (
+                                    <div key={`${service.title}-${index}`} className="flex items-center gap-3 p-3 rounded-lg bg-primary-subtle border border-primary/10 hover:border-primary/30 transition-colors">
                                         <CheckCircle className="w-5 h-5 text-primary-ink shrink-0" aria-hidden="true" />
                                         <span className="text-sm text-ink font-medium">{service.title}</span>
                                     </div>
