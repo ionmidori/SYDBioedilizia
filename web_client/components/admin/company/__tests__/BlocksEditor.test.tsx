@@ -36,6 +36,12 @@ function Harness({
 const last = (fn: jest.Mock) => fn.mock.calls[fn.mock.calls.length - 1][0];
 
 describe('BlocksEditor', () => {
+    it('describes the group with the problem of the whole text', () => {
+        const issues: CompanyIssue[] = [{ tab: 'faq', path: ['faq', 0, 'answer'], fieldId: 'x', message: 'Aggiungi almeno un elemento' }];
+        render(<Harness initial={[]} issues={issues} />);
+        expect(screen.getByRole('group', { name: 'Risposta' })).toHaveAccessibleDescription('Aggiungi almeno un elemento');
+    });
+
     it('adds a paragraph', () => {
         const onValue = jest.fn();
         render(<Harness initial={[]} onValue={onValue} />);
@@ -145,6 +151,10 @@ describe('BlocksEditor', () => {
     it('does not remove the last block when a minimum is required', () => {
         render(<Harness initial={[{ type: 'p', text: 'uno' }]} minBlocks={1} />);
         expect(screen.getByRole('button', { name: 'Elimina il blocco 1' })).toBeDisabled();
+        // the reason is on screen and read with the button, not only in a tooltip
+        expect(screen.getByText('Serve almeno un blocco')).toBeVisible();
+        expect(screen.getByRole('button', { name: 'Elimina il blocco 1' })).toHaveAccessibleDescription('Serve almeno un blocco');
+        expect(screen.getByRole('button', { name: 'Elimina il blocco 1' })).not.toHaveAttribute('title');
     });
 
     it('previews the blocks as the site shows them, with bold text', () => {

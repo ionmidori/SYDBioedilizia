@@ -135,7 +135,7 @@ export function FaqTab({ info, saved, onChange, issues, onPendingEdit }: TabProp
                                         onChange={(icon) => setCategory(index, { icon })}
                                     />
                                 </div>
-                                <div className="mt-6 space-y-1">
+                                <div className="mt-6">
                                     <RowControls
                                         subject={`la categoria ${n}`}
                                         index={index}
@@ -144,7 +144,6 @@ export function FaqTab({ info, saved, onChange, issues, onPendingEdit }: TabProp
                                         onRemove={() => onChange({ faq_categories: categories.filter((_, i) => i !== index) })}
                                         removeDisabledReason={reason}
                                     />
-                                    {reason && <p className="text-xs text-ink-muted">{reason}</p>}
                                 </div>
                             </li>
                         );

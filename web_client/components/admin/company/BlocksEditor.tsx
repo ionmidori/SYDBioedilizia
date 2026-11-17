@@ -34,9 +34,13 @@ export function BlocksEditor({ id, label, value, onChange, minBlocks = 0, issues
     const blockError = issueOf(issues, id);
 
     return (
-        <fieldset id={id} tabIndex={-1} className="space-y-3 focus:outline-hidden">
+        <fieldset id={id} tabIndex={-1} aria-describedby={blockError ? `${id}-error` : undefined} className="space-y-3 focus:outline-hidden">
             <legend className="text-sm font-medium text-ink">{label}</legend>
-            {blockError && <p className="text-xs text-danger-ink">{blockError}</p>}
+            {blockError && (
+                <p id={`${id}-error`} className="text-xs text-danger-ink">
+                    {blockError}
+                </p>
+            )}
 
             <ol className="space-y-3">
                 {value.map((block, index) => {

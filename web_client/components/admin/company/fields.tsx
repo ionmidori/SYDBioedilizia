@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type HTMLInputTypeAttribute, type ReactNode } from 'react';
+import { useId, useState, type HTMLInputTypeAttribute, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 
 import { COMPANY_ICONS } from '@/lib/company-info/icons';
@@ -130,29 +130,37 @@ export function RowControls({
     count: number;
     onMove: (from: number, to: number) => void;
     onRemove: () => void;
-    /** Set when the row cannot be deleted: the button is disabled and says why. */
+    /** Set when the row cannot be deleted: the button is disabled and the reason is shown under it (and read with it). */
     removeDisabledReason?: string;
 }) {
+    const reasonId = useId();
     const button =
         'inline-flex size-11 items-center justify-center rounded-xl border border-line text-ink hover:bg-surface disabled:opacity-40 cursor-pointer focus:outline-hidden focus-visible:ring-2 ring-ring';
     return (
-        <div className="flex shrink-0 items-center gap-1">
-            <button type="button" className={button} disabled={index === 0} onClick={() => onMove(index, index - 1)} aria-label={`Sposta su ${subject}`}>
-                <ArrowUp className="size-4" aria-hidden />
-            </button>
-            <button type="button" className={button} disabled={index >= count - 1} onClick={() => onMove(index, index + 1)} aria-label={`Sposta giù ${subject}`}>
-                <ArrowDown className="size-4" aria-hidden />
-            </button>
-            <button
-                type="button"
-                className={button}
-                disabled={!!removeDisabledReason}
-                title={removeDisabledReason}
-                onClick={onRemove}
-                aria-label={`Elimina ${subject}`}
-            >
-                <Trash2 className="size-4" aria-hidden />
-            </button>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+            <div className="flex items-center gap-1">
+                <button type="button" className={button} disabled={index === 0} onClick={() => onMove(index, index - 1)} aria-label={`Sposta su ${subject}`}>
+                    <ArrowUp className="size-4" aria-hidden />
+                </button>
+                <button type="button" className={button} disabled={index >= count - 1} onClick={() => onMove(index, index + 1)} aria-label={`Sposta giù ${subject}`}>
+                    <ArrowDown className="size-4" aria-hidden />
+                </button>
+                <button
+                    type="button"
+                    className={button}
+                    disabled={!!removeDisabledReason}
+                    onClick={onRemove}
+                    aria-label={`Elimina ${subject}`}
+                    aria-describedby={removeDisabledReason ? reasonId : undefined}
+                >
+                    <Trash2 className="size-4" aria-hidden />
+                </button>
+            </div>
+            {removeDisabledReason && (
+                <p id={reasonId} className="max-w-[16rem] text-right text-xs text-ink-muted">
+                    {removeDisabledReason}
+                </p>
+            )}
         </div>
     );
 }
