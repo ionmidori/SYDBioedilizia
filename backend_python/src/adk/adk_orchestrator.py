@@ -1086,8 +1086,10 @@ class ADKOrchestrator(BaseOrchestrator):
                             schedule_room_brief_refresh(BriefTurn(
                                 project_id=session_id, session_id=session_id, room_id=brief_room, is_guest=is_guest,
                             ))
-                            # "Il bagno è 8 mq" with no chip is the bathroom's talk too.
-                            named = None if room_id else room_named_by(user_message_text, rooms or [])
+                            # "Il bagno è 8 mq" with no chip is the bathroom's talk too (the chip
+                            # the turn was sent with: room_id moves with select_room).
+                            chip = getattr(request, "room_id", None)
+                            named = None if chip else room_named_by(user_message_text, rooms or [])
                             if named is not None and named != brief_room:
                                 schedule_room_brief_refresh(BriefTurn(
                                     project_id=session_id, session_id=session_id, room_id=named, is_guest=is_guest,

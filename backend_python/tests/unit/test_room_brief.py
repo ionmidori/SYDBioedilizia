@@ -267,6 +267,35 @@ async def test_with_two_bathrooms_the_bare_type_stays_in_generale():
     assert "il bagno è 8 metri quadri" in backend.generate.await_args.kwargs["contents"]
 
 
+async def test_a_message_sent_with_the_generale_chip_stays_generale_s():
+    """The client chose Generale: the room it names does not take it."""
+    talk = [{"id": "m1", "role": "user", "content": "voglio rifare il bagno entro giugno", "room_id": DEFAULT_ROOM_ID}]
+    with _Backend(GENERALE, talk, rooms=[GENERALE, BAGNO]) as backend:
+        await _run(_turn(room_id=None))
+    assert "rifare il bagno entro giugno" in backend.generate.await_args.kwargs["contents"]
+    with _Backend(BAGNO, talk, rooms=[GENERALE, BAGNO]) as backend:
+        await _run(_turn(room_id="r_bagno"))
+    backend.generate.assert_not_awaited()
+
+
+async def test_a_watermark_on_a_message_now_named_elsewhere_reads_only_what_follows():
+    """Generale summarized "il bagno è 8 mq" before the bathroom existed; once the room
+    exists that message leaves Generale's talk, and the next refresh must not re-read
+    everything from the start."""
+    talk = [
+        {"id": "m1", "role": "user", "content": "scaldabagno a gas da sostituire"},
+        {"id": "m2", "role": "user", "content": "il bagno è 8 metri quadri"},
+    ]
+    with _Backend(GENERALE, talk, rooms=[GENERALE]) as backend:
+        await _run(_turn(room_id=None))
+    assert room_brief._watermark[("s1", DEFAULT_ROOM_ID)] == "m2"
+    later = [*talk, {"id": "m5", "role": "user", "content": "corridoio: 8 mq di parquet"}]
+    with _Backend(GENERALE, later, rooms=[GENERALE, BAGNO]) as backend:
+        await _run(_turn(room_id=None))
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert "corridoio" in prompt and "scaldabagno" not in prompt
+
+
 async def test_a_room_s_old_tagged_messages_outside_the_recent_window_still_count(monkeypatch):
     monkeypatch.setattr(settings, "ROOM_BRIEF_HISTORY_MESSAGES", 2)
     talk = [

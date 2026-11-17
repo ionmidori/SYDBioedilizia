@@ -173,10 +173,22 @@ def _is_substantial(message: dict[str, Any]) -> bool:
     return bool(text) and not _TRIVIAL.match(text)
 
 
-def _new_messages(history: list[dict[str, Any]], watermark: str | None) -> list[dict[str, Any]]:
-    """Messages after the watermark (all of them when it is not in the window)."""
-    ids = [m.get("id") for m in history]
-    return history[ids.index(watermark) + 1:] if watermark in ids else list(history)
+@dataclass(frozen=True)
+class _Talk:
+    """A room's messages, and the ids of every message read, in chat order: the
+    watermark may be a message read but not the room's (now named elsewhere)."""
+
+    messages: list[dict[str, Any]]
+    order: list[str]
+
+
+def _new_messages(talk: _Talk, watermark: str | None) -> list[dict[str, Any]]:
+    """Messages after the watermark (all of them when it is not among the messages read)."""
+    if watermark not in talk.order:
+        return list(talk.messages)
+    position = {message_id: i for i, message_id in enumerate(talk.order)}
+    after = position[watermark]
+    return [m for m in talk.messages if position.get(str(m.get("id")), -1) > after]
 
 
 def _format_messages(messages: list[dict[str, Any]]) -> str:
@@ -189,32 +201,42 @@ def _format_messages(messages: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-async def _room_history(project_id: str, session_id: str, room_id: str) -> list[dict[str, Any]]:
+async def _no_messages() -> list[dict[str, Any]]:
+    return []
+
+
+def _ids(messages: list[dict[str, Any]]) -> list[str]:
+    return [str(m["id"]) for m in messages if m.get("id")]
+
+
+async def _room_history(project_id: str, session_id: str, room_id: str) -> _Talk:
     """The talk of one room, oldest first.
 
     Project-wide talk is the messages tagged "generale" or with no room at all (an
     absent field cannot be queried), read from the recent window: a turn without a
     room refreshes right away, so its messages are among the newest ones. A user
-    message there that names exactly one room ("il bagno è 8 mq" with no chip) is
-    that room's talk, as for the quote (`room_mentions`), not Generale's."""
+    message with no room at all that names exactly one room ("il bagno è 8 mq" with
+    no chip) is that room's talk, as for the quote (`room_mentions`), not
+    Generale's; one sent with the Generale chip stays Generale's (the client chose)."""
     repo = get_conversation_repository()
     limit = settings.ROOM_BRIEF_HISTORY_MESSAGES
-    window, rooms = await asyncio.gather(
+    general = room_id == DEFAULT_ROOM_ID
+    window, rooms, tagged = await asyncio.gather(
         repo.get_context(session_id, limit=limit * _GENERAL_WINDOW_FACTOR),
         get_room_repository().list_rooms(project_id),
+        _no_messages() if general else repo.get_context(session_id, limit=limit, room_id=room_id),
     )
-    unassigned = [m for m in window if m.get("room_id") in (None, DEFAULT_ROOM_ID)]
-    named = messages_naming_one_room(unassigned, rooms)
-    if room_id == DEFAULT_ROOM_ID:
+    named = messages_naming_one_room([m for m in window if m.get("room_id") is None], rooms)
+    if general:
         elsewhere = {id(m) for messages in named.values() for m in messages}
-        return [m for m in unassigned if id(m) not in elsewhere][-limit:]
-    tagged = await repo.get_context(session_id, limit=limit, room_id=room_id)
+        talk = [m for m in window if m.get("room_id") in (None, DEFAULT_ROOM_ID) and id(m) not in elsewhere]
+        return _Talk(talk[-limit:], _ids(window))
     mine = {id(m) for m in named.get(room_id, [])}
     in_window = {m.get("id") for m in window}
     # Tagged messages older than the window come first; then the window, in its order.
     older = [m for m in tagged if m.get("id") not in in_window]
     recent = [m for m in window if m.get("room_id") == room_id or id(m) in mine]
-    return [*older, *recent][-limit:]
+    return _Talk([*older, *recent][-limit:], _ids([*older, *window]))
 
 
 async def _ask_model(room: RoomSchema, messages: list[dict[str, Any]]) -> _BriefUpdate:
@@ -268,13 +290,13 @@ async def _refresh(project_id: str, session_id: str, room_id: str) -> None:
 
 async def _refresh_room(project_id: str, session_id: str, room_id: str, key: _Key) -> str:
     rooms = get_room_repository()
-    found, history = await asyncio.gather(
+    found, talk = await asyncio.gather(
         rooms.get_room_versioned(project_id, room_id), _room_history(project_id, session_id, room_id)
     )
     if found is None:
         return "no_room"
     room, version = found
-    new = _new_messages(history, _watermark.get(key))
+    new = _new_messages(talk, _watermark.get(key))
     if not any(_is_substantial(m) for m in new):
         return "no_new_facts"
     # The watermark moves to the newest message actually summarized.
