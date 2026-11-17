@@ -52,6 +52,7 @@ describe('SectionsTab', () => {
         expect(screen.getAllByText('Sezione fissa').length).toBe(8);
         expect(screen.getByLabelText(`Identificativo della sezione ${n}`)).toHaveAttribute('readonly');
         expect(screen.getByRole('button', { name: `Elimina la sezione ${n}` })).toBeDisabled();
+        expect(screen.getByRole('button', { name: `Elimina la sezione ${n}` })).toHaveAccessibleDescription('Si può svuotare, non eliminare.');
     });
 
     it('tells that an empty section makes the assistant say the information is missing', () => {
@@ -98,7 +99,8 @@ describe('SectionsTab', () => {
         });
         const n = indexOfSection(seen.current, 'extra') + 1;
         expect(screen.getByRole('button', { name: `Elimina la sezione ${n}` })).toBeDisabled();
-        expect(screen.getByText(/Collegata a 1 domanda/)).toBeInTheDocument();
+        expect(screen.getAllByText(/Collegata a 1 domanda/)).toHaveLength(1);
+        expect(screen.getByRole('button', { name: `Elimina la sezione ${n}` })).toHaveAccessibleDescription(/Collegata a 1 domanda/);
     });
 
     it('edits the content of a section with the block editor', () => {
@@ -193,6 +195,15 @@ describe('FaqTab', () => {
         });
         const used = seen.current.faq_categories.findIndex((c) => seen.current.faq.some((f) => f.category === c.name)) + 1;
         expect(screen.getByRole('button', { name: `Elimina la categoria ${used}` })).toBeDisabled();
+        expect(screen.getByRole('button', { name: `Elimina la categoria ${used}` })).toHaveAccessibleDescription(/^Usata da \d+ domand/);
+        // once on screen in its row, not twice
+        const button = screen.getByRole('button', { name: `Elimina la categoria ${used}` });
+        const row = button.closest('li') as HTMLElement;
+        const shown = within(row).getAllByText(/^Usata da \d+ domand/);
+        expect(shown).toHaveLength(1);
+        // the text on screen is the one read with the button (no tooltip-only reason)
+        expect(button.getAttribute('aria-describedby')).toBe(shown[0].id);
+        expect(button).not.toHaveAttribute('title');
         const unused = seen.current.faq_categories.length;
         fireEvent.click(screen.getByRole('button', { name: `Elimina la categoria ${unused}` }));
         expect(seen.current.faq_categories.map((c) => c.name)).not.toContain('Vuota');
@@ -260,6 +271,29 @@ describe('FaqTab', () => {
         fireEvent.blur(field);
         expect(screen.getByLabelText('Mostra le domande di')).toHaveValue('Costi');
         expect(screen.getAllByLabelText(/^Domanda \d+$/)).toHaveLength(count);
+    });
+
+    it('offers each choice once while a new section has no slug yet and a new category no name', () => {
+        const errors = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        try {
+            mount(FaqTab, undefined, (info) => {
+                info.sections.push({ slug: '', title: '', blocks: [], builtin: false });
+                info.sections.push({ ...info.sections[0], builtin: false });
+                info.faq_categories.push({ name: '', icon: 'CheckCircle' });
+            });
+            const values = (select: HTMLElement) => within(select).getAllByRole('option').map((o) => (o as HTMLOptionElement).value);
+            const linked = values(screen.getByLabelText('Sezione collegata alla domanda 1'));
+            expect(linked.filter((v) => v === '')).toHaveLength(1);
+            expect(new Set(linked).size).toBe(linked.length);
+            const filter = values(screen.getByLabelText('Mostra le domande di'));
+            expect(filter.filter((v) => v === '')).toHaveLength(1);
+            expect(new Set(filter).size).toBe(filter.length);
+            const category = values(screen.getByLabelText('Categoria della domanda 1'));
+            expect(new Set(category).size).toBe(category.length);
+            expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key/);
+        } finally {
+            errors.mockRestore();
+        }
     });
 
     it('adds a category with an icon', () => {

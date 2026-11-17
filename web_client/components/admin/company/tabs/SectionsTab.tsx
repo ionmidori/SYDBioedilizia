@@ -50,7 +50,7 @@ export function SectionsTab({ info, saved, onChange, issues }: TabProps) {
                     const n = index + 1;
                     const linked = faq.filter((item) => item.section_slug === section.slug).length;
                     const reason = section.builtin
-                        ? 'Sezione fissa: si può svuotare, non eliminare.'
+                        ? 'Si può svuotare, non eliminare.'
                         : linked > 0
                           ? `Collegata a ${questions(linked)} delle FAQ: scollegale prima di eliminarla.`
                           : undefined;
@@ -80,9 +80,9 @@ export function SectionsTab({ info, saved, onChange, issues }: TabProps) {
                                         hint={locked ? 'Non si cambia dopo il salvataggio.' : 'Minuscole, numeri e trattini.'}
                                     />
                                 </div>
-                                <div className="mt-6 flex items-center gap-2">
+                                <div className="mt-6 flex items-start gap-2">
                                     {section.builtin && (
-                                        <span className="rounded-full border border-line bg-surface-muted px-2.5 py-1 text-xs text-ink-muted">Sezione fissa</span>
+                                        <span className="mt-2 rounded-full border border-line bg-surface-muted px-2.5 py-1 text-xs text-ink-muted">Sezione fissa</span>
                                     )}
                                     <RowControls
                                         subject={`la sezione ${n}`}
@@ -94,7 +94,6 @@ export function SectionsTab({ info, saved, onChange, issues }: TabProps) {
                                     />
                                 </div>
                             </div>
-                            {reason && !section.builtin && <p className="text-xs text-ink-muted">{reason}</p>}
                             {section.blocks.length === 0 && (
                                 <p className="text-sm text-warning-ink">Vuota: l’assistente dirà che l’informazione manca e proporrà telefono ed email.</p>
                             )}

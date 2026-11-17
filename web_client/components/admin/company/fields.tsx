@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type HTMLInputTypeAttribute, type ReactNode } from 'react';
+import { useId, useState, type HTMLInputTypeAttribute, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 
 import { COMPANY_ICONS } from '@/lib/company-info/icons';
@@ -26,6 +26,20 @@ export function issuesOf(issues: CompanyIssue[], id: string): string[] {
 /** The first problem on this input or on one of its entries (`places` → `places-3`). */
 export function issueUnder(issues: CompanyIssue[], id: string): string | undefined {
     return issues.find((issue) => issue.fieldId === id || issue.fieldId.startsWith(`${id}-`))?.message;
+}
+
+/**
+ * The element to focus for a problem at `id`: the element itself, or the nearest one up its path.
+ * A list edited in one field reports its entries (`places-3`, `items-0`), which have no input of their own.
+ */
+export function closestField(id: string): HTMLElement | null {
+    const segments = id.split('-');
+    // Never the bare "company" prefix: at least one segment of the path.
+    for (let end = segments.length; end > 1; end--) {
+        const element = document.getElementById(segments.slice(0, end).join('-'));
+        if (element) return element;
+    }
+    return null;
 }
 
 const CONTROL =
@@ -116,29 +130,37 @@ export function RowControls({
     count: number;
     onMove: (from: number, to: number) => void;
     onRemove: () => void;
-    /** Set when the row cannot be deleted: the button is disabled and says why. */
+    /** Set when the row cannot be deleted: the button is disabled and the reason is shown under it (and read with it). */
     removeDisabledReason?: string;
 }) {
+    const reasonId = useId();
     const button =
         'inline-flex size-11 items-center justify-center rounded-xl border border-line text-ink hover:bg-surface disabled:opacity-40 cursor-pointer focus:outline-hidden focus-visible:ring-2 ring-ring';
     return (
-        <div className="flex shrink-0 items-center gap-1">
-            <button type="button" className={button} disabled={index === 0} onClick={() => onMove(index, index - 1)} aria-label={`Sposta su ${subject}`}>
-                <ArrowUp className="size-4" aria-hidden />
-            </button>
-            <button type="button" className={button} disabled={index >= count - 1} onClick={() => onMove(index, index + 1)} aria-label={`Sposta giù ${subject}`}>
-                <ArrowDown className="size-4" aria-hidden />
-            </button>
-            <button
-                type="button"
-                className={button}
-                disabled={!!removeDisabledReason}
-                title={removeDisabledReason}
-                onClick={onRemove}
-                aria-label={`Elimina ${subject}`}
-            >
-                <Trash2 className="size-4" aria-hidden />
-            </button>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+            <div className="flex items-center gap-1">
+                <button type="button" className={button} disabled={index === 0} onClick={() => onMove(index, index - 1)} aria-label={`Sposta su ${subject}`}>
+                    <ArrowUp className="size-4" aria-hidden />
+                </button>
+                <button type="button" className={button} disabled={index >= count - 1} onClick={() => onMove(index, index + 1)} aria-label={`Sposta giù ${subject}`}>
+                    <ArrowDown className="size-4" aria-hidden />
+                </button>
+                <button
+                    type="button"
+                    className={button}
+                    disabled={!!removeDisabledReason}
+                    onClick={onRemove}
+                    aria-label={`Elimina ${subject}`}
+                    aria-describedby={removeDisabledReason ? reasonId : undefined}
+                >
+                    <Trash2 className="size-4" aria-hidden />
+                </button>
+            </div>
+            {removeDisabledReason && (
+                <p id={reasonId} className="max-w-[16rem] text-right text-xs text-ink-muted">
+                    {removeDisabledReason}
+                </p>
+            )}
         </div>
     );
 }
@@ -212,6 +234,37 @@ export function LinesField({
             error={error}
             hint={hint}
             rows={Math.max(3, text.split('\n').length)}
+        />
+    );
+}
+
+/**
+ * A whole number. The typed text is kept as typed, so the field can be emptied to type a new value
+ * (an empty field is 0, which the validation flags); it re-reads the value when it changes from outside.
+ */
+export function NumberField({ id, label, value, onChange, error, hint }: Omit<FieldProps, 'value' | 'onChange' | 'maxLength' | 'readOnly' | 'onBlur'> & {
+    value: number;
+    onChange: (value: number) => void;
+}) {
+    const [text, setText] = useState(String(value));
+    const parse = (typed: string) => (typed.trim() === '' ? 0 : Number(typed));
+    const parsed = parse(text);
+    // Equal as numbers (0 and -0 too: String(-0) is "0"), and NaN equal to itself: otherwise this re-renders forever.
+    const same = parsed === value || (Number.isNaN(parsed) && Number.isNaN(value));
+    if (!same) setText(String(value));
+    return (
+        <TextField
+            id={id}
+            label={label}
+            type="number"
+            inputMode="numeric"
+            value={text}
+            onChange={(next) => {
+                setText(next);
+                onChange(parse(next));
+            }}
+            error={error}
+            hint={hint}
         />
     );
 }

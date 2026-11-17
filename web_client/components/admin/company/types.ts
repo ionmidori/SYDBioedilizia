@@ -9,4 +9,6 @@ export interface TabProps {
     onChange: (patch: Partial<CompanyInfo>) => void;
     /** Only the problems to show: empty until the admin has tried to save. */
     issues: CompanyIssue[];
+    /** A value typed but applied only when its field is left (a category name): it still counts as unsaved. */
+    onPendingEdit?: (pending: boolean) => void;
 }

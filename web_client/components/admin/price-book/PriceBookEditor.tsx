@@ -209,7 +209,7 @@ export function PriceBookEditor() {
       {ignored && (
         <p role="status" data-testid="pb-ignored" className="rounded-xl border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning-ink">
           Nel database c&apos;era un listino salvato da un altro strumento, senza versione: non viene usato. Qui vedi il
-          listino di base; salvando lo sostituisci.
+          listino di base; modifica una voce e salva per sostituirlo.
         </p>
       )}
       {book.data.assembly_library_ok === false && (

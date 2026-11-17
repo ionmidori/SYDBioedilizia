@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { BlocksEditor } from '@/components/admin/company/BlocksEditor';
 import { AddButton, fieldId, GroupTitle, IconSelect, issueOf, issuesOf, RowControls, SelectField, TextField } from '@/components/admin/company/fields';
@@ -16,9 +16,32 @@ const MAX_CATEGORIES = 20;
 
 const questions = (count: number) => `${count} ${count === 1 ? 'domanda' : 'domande'}`;
 
+type Option = { value: string; label: string };
+
+/** One choice per value, the first wins: a new section without a slug, or a new category without a name, is not a second "none". */
+const unique = (options: Option[]): Option[] => options.filter((option, i) => options.findIndex((o) => o.value === option.value) === i);
+
 /** The name is applied when the field is left, not on every key: the questions follow the name they use. */
-function CategoryName({ id, label, value, error, onCommit }: { id: string; label: string; value: string; error?: string; onCommit: (name: string) => void }) {
+function CategoryName({
+    id,
+    label,
+    value,
+    error,
+    onCommit,
+    onPending,
+}: {
+    id: string;
+    label: string;
+    value: string;
+    error?: string;
+    onCommit: (name: string) => void;
+    /** The typed name differs from the applied one: an unsaved change the editor must count. */
+    onPending?: (pending: boolean) => void;
+}) {
     const [draft, setDraft] = useState<string | null>(null);
+    // A field removed while typing (the tab changes, the edits are discarded) leaves nothing pending.
+    // (The editor passes its state setter: stable, so this runs on unmount only.)
+    useEffect(() => () => onPending?.(false), [onPending]);
     return (
         <TextField
             id={id}
@@ -26,18 +49,22 @@ function CategoryName({ id, label, value, error, onCommit }: { id: string; label
             value={draft ?? value}
             maxLength={40}
             error={error}
-            onChange={setDraft}
+            onChange={(next) => {
+                setDraft(next);
+                onPending?.(next !== value);
+            }}
             onBlur={() => {
                 // An empty name is not applied: the field goes back to the name it had.
                 if (draft !== null && draft.trim() !== '' && draft !== value) onCommit(draft);
                 setDraft(null);
+                onPending?.(false);
             }}
         />
     );
 }
 
 /** The frequently asked questions, in categories. A question can be linked to a section: the section's text is then part of its answer. */
-export function FaqTab({ info, saved, onChange, issues }: TabProps) {
+export function FaqTab({ info, saved, onChange, issues, onPendingEdit }: TabProps) {
     const { faq, faq_categories: categories, sections } = info;
     const [filter, setFilter] = useState('');
     const savedSlugs = new Set(saved.faq.map((item) => item.slug));
@@ -62,16 +89,17 @@ export function FaqTab({ info, saved, onChange, issues }: TabProps) {
     const setFaq = (index: number, patch: Partial<Faq>) => onChange({ faq: faq.map((item, i) => (i === index ? { ...item, ...patch } : item)) });
 
     const shown = faq.map((item, index) => ({ item, index })).filter(({ item }) => filter === '' || item.category === filter);
+    const names = categories.map((c) => c.name);
+    // An unnamed category is offered only to the question that already uses it (its value must stay selectable).
     const categoryOptions = (current: string) =>
-        (categories.some((c) => c.name === current) ? categories.map((c) => c.name) : [current, ...categories.map((c) => c.name)]).map((name) => ({
-            value: name,
-            label: name,
-        }));
-    const sectionOptions = (current: string) => [
-        { value: '', label: 'Nessuna' },
-        ...(current === '' || sections.some((s) => s.slug === current) ? [] : [{ value: current, label: `${current} (non esiste)` }]),
-        ...sections.map((s) => ({ value: s.slug, label: s.title || s.slug })),
-    ];
+        unique([...(names.includes(current) ? [] : [current]), ...names].filter((name) => name !== '' || name === current).map((name) => ({ value: name, label: name })));
+    const sectionOptions = (current: string) =>
+        unique([
+            { value: '', label: 'Nessuna' },
+            ...(current === '' || sections.some((s) => s.slug === current) ? [] : [{ value: current, label: `${current} (non esiste)` }]),
+            ...sections.filter((s) => s.slug !== '').map((s) => ({ value: s.slug, label: s.title || s.slug })),
+        ]);
+    const filterOptions = unique([{ value: '', label: 'Tutte le categorie' }, ...names.filter((name) => name !== '').map((name) => ({ value: name, label: name }))]);
 
     return (
         <div className="space-y-10">
@@ -98,6 +126,7 @@ export function FaqTab({ info, saved, onChange, issues }: TabProps) {
                                         value={category.name}
                                         error={issueOf(issues, fieldId('faq_categories', index, 'name'))}
                                         onCommit={(name) => renameCategory(index, name)}
+                                        onPending={onPendingEdit}
                                     />
                                     <IconSelect
                                         id={fieldId('faq_categories', index, 'icon')}
@@ -106,7 +135,7 @@ export function FaqTab({ info, saved, onChange, issues }: TabProps) {
                                         onChange={(icon) => setCategory(index, { icon })}
                                     />
                                 </div>
-                                <div className="mt-6 space-y-1">
+                                <div className="mt-6">
                                     <RowControls
                                         subject={`la categoria ${n}`}
                                         index={index}
@@ -115,7 +144,6 @@ export function FaqTab({ info, saved, onChange, issues }: TabProps) {
                                         onRemove={() => onChange({ faq_categories: categories.filter((_, i) => i !== index) })}
                                         removeDisabledReason={reason}
                                     />
-                                    {reason && <p className="text-xs text-ink-muted">{reason}</p>}
                                 </div>
                             </li>
                         );
@@ -144,7 +172,7 @@ export function FaqTab({ info, saved, onChange, issues }: TabProps) {
                         label="Mostra le domande di"
                         value={filter}
                         onChange={setFilter}
-                        options={[{ value: '', label: 'Tutte le categorie' }, ...categories.map((c) => ({ value: c.name, label: c.name }))]}
+                        options={filterOptions}
                     />
                 </div>
                 <ol className="space-y-5">

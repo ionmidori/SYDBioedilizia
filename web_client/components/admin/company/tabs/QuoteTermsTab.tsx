@@ -1,6 +1,6 @@
 'use client';
 
-import { fieldId, GroupTitle, issueOf, issueUnder, LinesField, TextAreaField, TextField } from '@/components/admin/company/fields';
+import { fieldId, GroupTitle, issueOf, issueUnder, LinesField, NumberField, TextAreaField, TextField } from '@/components/admin/company/fields';
 import type { TabProps } from '@/components/admin/company/types';
 import type { CompanyInfo } from '@/types/company-info';
 
@@ -17,13 +17,11 @@ export function QuoteTermsTab({ info, onChange, issues }: TabProps) {
             <section aria-labelledby="company-quote-terms-validity" className="space-y-4">
                 <GroupTitle id="company-quote-terms-validity">Validità e pagamenti</GroupTitle>
                 <div className="max-w-xs">
-                    <TextField
+                    <NumberField
                         id={id('validity_days')}
                         label="Validità del preventivo (giorni)"
-                        type="number"
-                        inputMode="numeric"
-                        value={String(terms.validity_days)}
-                        onChange={(value) => set({ validity_days: value.trim() === '' ? 0 : Number(value) })}
+                        value={terms.validity_days}
+                        onChange={(validity_days) => set({ validity_days })}
                         error={issueOf(issues, id('validity_days'))}
                     />
                 </div>

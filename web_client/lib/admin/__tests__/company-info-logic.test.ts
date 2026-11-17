@@ -79,6 +79,17 @@ describe('validateCompanyInfo', () => {
         );
     });
 
+    it('names the bound of a number out of range', () => {
+        const low = seed();
+        low.quote_terms.validity_days = 0;
+        expect(validateCompanyInfo(low)).toContainEqual(
+            expect.objectContaining({ tab: 'quote_terms', fieldId: 'company-quote_terms-validity_days', message: 'Minimo 1' }),
+        );
+        const high = seed();
+        high.quote_terms.validity_days = 366;
+        expect(validateCompanyInfo(high)).toContainEqual(expect.objectContaining({ message: 'Massimo 365' }));
+    });
+
     it('says "Troppo lungo" for a text over its limit', () => {
         const info = seed();
         info.identity.name = 'x'.repeat(121);

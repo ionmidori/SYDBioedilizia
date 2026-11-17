@@ -166,6 +166,7 @@ describe('PriceBookEditor', () => {
     book({ source: 'seed', version: 0, etag: '"v0"', ignored_document: 'legacy_document' });
     render(<PriceBookEditor />);
     expect(screen.getByTestId('pb-ignored')).toHaveTextContent('senza versione');
+    expect(screen.getByTestId('pb-ignored')).toHaveTextContent(/modifica una voce e salva per sostituirlo\./);
   });
 
   it('warns when SKUs the renovation packages use are missing or re-united', () => {

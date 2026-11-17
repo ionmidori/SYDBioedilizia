@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import { CheckCircle2, History, Loader2, Save } from 'lucide-react';
 
 import { CompanyHistoryPanel } from '@/components/admin/company/CompanyHistoryPanel';
+import { closestField } from '@/components/admin/company/fields';
 import { CompanyTabs, panelId, tabId } from '@/components/admin/company/CompanyTabs';
 import { AboutTab } from '@/components/admin/company/tabs/AboutTab';
 import { AreaTab } from '@/components/admin/company/tabs/AreaTab';
@@ -69,6 +70,10 @@ export function CompanyInfoEditor() {
     const [saveOpen, setSaveOpen] = useState(false);
     const [historyOpen, setHistoryOpen] = useState(false);
     const [notice, setNotice] = useState<string | null>(null);
+    // A value typed but not applied yet (a category name, applied when its field is left).
+    const [pendingEdit, setPendingEdit] = useState(false);
+    // Remounts the tab when the edits are discarded: what is being typed goes too.
+    const [resetCount, setResetCount] = useState(0);
     // Id of the element to focus after the next render (the first bad field…).
     const focusAfterRender = useRef<string | null>(null);
 
@@ -79,15 +84,16 @@ export function CompanyInfoEditor() {
     const info = activeDraft?.info ?? saved;
     const parts = useMemo(() => (saved && activeDraft ? changedParts(saved, activeDraft.info) : []), [saved, activeDraft]);
     const dirty = parts.length > 0;
+    const unsaved = dirty || pendingEdit;
     const issues = useMemo(() => (info ? validateCompanyInfo(info) : []), [info]);
 
     // Closing the tab, reloading or using the console menu asks first while edits are unsaved.
-    useUnsavedGuard('company-info', dirty);
+    useUnsavedGuard('company-info', unsaved);
     useEffect(() => {
         const id = focusAfterRender.current;
         if (!id) return;
         focusAfterRender.current = null;
-        const target = document.getElementById(id) ?? document.getElementById(panelId(tab));
+        const target = closestField(id) ?? document.getElementById(panelId(tab));
         target?.focus();
         target?.scrollIntoView?.({ block: 'center' });
     });
@@ -121,6 +127,8 @@ export function CompanyInfoEditor() {
 
     const reload = () => {
         setDraft(null);
+        setPendingEdit(false);
+        setResetCount((count) => count + 1);
         setShowErrors(false);
         setNotice(null);
         save.reset();
@@ -133,6 +141,8 @@ export function CompanyInfoEditor() {
     };
 
     const startSave = () => {
+        // A typed value is applied when its field is left, before this click: nothing may be left to save.
+        if (!dirty) return;
         if (issues.length > 0) {
             setShowErrors(true);
             jumpTo(issues[0]);
@@ -182,7 +192,7 @@ export function CompanyInfoEditor() {
 
             {ignored ? (
                 <p role="status" data-testid="company-ignored" className="rounded-xl border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning-ink">
-                    La scheda salvata non era valida ed è stata ignorata: stai vedendo i dati iniziali. Salvando la sostituisci.
+                    La scheda salvata non era valida ed è stata ignorata: stai vedendo i dati iniziali. Modifica un campo e salva per sostituirla.
                 </p>
             ) : (
                 source === 'seed' && (
@@ -212,7 +222,7 @@ export function CompanyInfoEditor() {
                     <CompanyTabs active={tab} onSelect={setTab} errorTabs={errorTabs} />
                 </div>
                 <div className="flex items-center gap-2">
-                    {dirty && (
+                    {unsaved && (
                         <button
                             type="button"
                             onClick={reload}
@@ -226,7 +236,7 @@ export function CompanyInfoEditor() {
                     <button
                         type="button"
                         onClick={startSave}
-                        disabled={!dirty || stale || busy}
+                        disabled={!unsaved || stale || busy}
                         data-testid="company-save"
                         className="inline-flex min-h-11 items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-on-primary text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
                     >
@@ -260,7 +270,7 @@ export function CompanyInfoEditor() {
                 className="focus:outline-hidden"
             >
                 <fieldset disabled={busy} className="contents" aria-label={tabLabel(tab)}>
-                    <ActiveTab info={info} saved={saved} onChange={edit} issues={shownIssues} />
+                    <ActiveTab key={`${tab}-${resetCount}`} info={info} saved={saved} onChange={edit} issues={shownIssues} onPendingEdit={setPendingEdit} />
                 </fieldset>
             </div>
 
