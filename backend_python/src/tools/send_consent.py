@@ -18,6 +18,7 @@ from collections.abc import Sequence
 
 from google.adk.events import Event
 from google.genai import types
+from src.adk.video_attachments import is_skipped_video_note
 from src.tools.quote_submit_tools import NOT_SENT_PREFIX
 
 _QUOTE_TOOL = "suggest_quote_items"
@@ -39,6 +40,14 @@ _YES = re.compile(
 _HOLD = re.compile(
     r"\?|\b(no|non|ma|però|prima|aspett\w*|aspe|annull\w*|modific\w*|aggiung\w*|cambi\w*|togli\w*"
     r"|anche|invece|dubbio|scheda|dopo|domani|tardi|ci pens\w*|ferm\w*|stop)\b",
+    re.IGNORECASE,
+)
+# A courtesy that closes the request ("non ho altro da aggiungere", "è tutto"): taken out
+# before the hold check, its "non"/"aggiungere" are no "not yet" and no more work.
+_DONE = re.compile(
+    r"\bnon ho (più )?(altro|nient['’ ]?altro|niente( altro)?)( da (aggiungere|dire|chiedere))?"
+    r"|\bnon (c['’]è|serve|mi serve) (altro|nient['’ ]?altro)"
+    r"|\bnient['’ ]?altro|(?<!\w)(è|e['’]) tutto\b|\btutto qui\b",
     re.IGNORECASE,
 )
 
@@ -96,8 +105,19 @@ def _asked_to_send(reply: str) -> bool:
 
 
 def _plain_yes(message: str) -> bool:
-    text = message.strip().strip("#").strip()
+    text = _DONE.sub(" ", message.strip().strip("#").strip())
     return bool(_YES.search(text)) and not _HOLD.search(text)
+
+
+def _client_words(events: Sequence[Event], invocation_id: str, user_content: types.Content | None) -> str:
+    """What the client wrote in this turn. A turn run again without its videos (the
+    model refused one) carries only a system note: the client's words are in the
+    last user message before it, the failed invocation's (empty: a video alone)."""
+    if not is_skipped_video_note(user_content):
+        return _text(user_content)
+    # A state-only user event (the refused video forgotten) has no parts: not a message.
+    sent = [e for e in events if e.author == "user" and e.invocation_id != invocation_id and e.content and e.content.parts]
+    return _text(sent[-1].content) if sent else ""
 
 
 def consent_refusal(events: Sequence[Event], invocation_id: str, user_content: types.Content | None) -> str | None:
@@ -105,6 +125,8 @@ def consent_refusal(events: Sequence[Event], invocation_id: str, user_content: t
     the "not sent" reply that tells the agent what to do."""
     if any(_QUOTE_TOOL in _calls(e) for e in events if e.invocation_id == invocation_id):
         return _SAME_TURN
-    if _asked_to_send(_last_reply(events, invocation_id)) and _plain_yes(_text(user_content)):
+    if _asked_to_send(_last_reply(events, invocation_id)) and _plain_yes(
+        _client_words(events, invocation_id, user_content)
+    ):
         return None
     return _NO_YES

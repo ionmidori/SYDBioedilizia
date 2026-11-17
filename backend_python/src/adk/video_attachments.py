@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 
 # ADK session-state key listing the gs:// URIs the model refused (VideoGuardPlugin).
 UNREADABLE_VIDEOS_STATE_KEY = "unreadable_video_uris"
+# How the note of a turn run again without its videos starts (`skipped_model_note`).
+SKIPPED_VIDEO_NOTE_PREFIX = "[NOTA DI SISTEMA: "
 
 # Client errors that mean "this request (its media) is not acceptable": a retry
 # without the videos can succeed. 429 (quota) and 5xx are not about the media.
@@ -185,6 +187,13 @@ def skipped_notice_text(*, current: int = 0, earlier: int = 0, unsupported: bool
     return f"{earlier} video inviati in precedenza non sono più leggibili e sono stati esclusi dalla conversazione."
 
 
+def is_skipped_video_note(content: types.Content | None) -> bool:
+    """The message is the note of a turn run again without its videos (`skipped_model_note`),
+    not the client's own words: those are in the user event of the failed invocation."""
+    parts = content.parts if content is not None and content.parts else []
+    return len(parts) == 1 and (parts[0].text or "").startswith(SKIPPED_VIDEO_NOTE_PREFIX)
+
+
 def skipped_model_note(count: int, *, reupload_helps: bool = True) -> types.Part:
     """What the model is told, so it says the video is missing instead of inventing it."""
     subject = "1 video inviato dall'utente non è leggibile ed è stato escluso" if count == 1 else (
@@ -197,7 +206,7 @@ def skipped_model_note(count: int, *, reupload_helps: bool = True) -> types.Part
     )
     return types.Part(
         text=(
-            f"[NOTA DI SISTEMA: {subject}. Non descriverne il contenuto: rispondi al messaggio "
+            f"{SKIPPED_VIDEO_NOTE_PREFIX}{subject}. Non descriverne il contenuto: rispondi al messaggio "
             f"dell'utente senza il video e {advice}.]"
         )
     )

@@ -13,6 +13,7 @@ import pytest
 from google.adk.events import Event
 from google.genai import types
 from src.adk import tools
+from src.adk.video_attachments import is_skipped_video_note, skipped_model_note
 from src.tools.quote_submit_tools import NOT_SENT_PREFIX
 from src.tools.send_consent import consent_refusal
 from tests.unit.send_consent_fakes import EXPLICIT_YES as YES
@@ -158,6 +159,65 @@ def test_an_acute_accent_yes_counts():
 def test_the_send_words_must_be_in_the_question(reply):
     """ "Posso aiutarti con altro?" after a sentence about sending is no send question."""
     assert consent_refusal(_history(reply), TURN, _user("sì")) is not None
+
+
+@pytest.mark.parametrize("answer", [
+    "sì, invia pure, non ho altro da aggiungere",
+    "Sì, invia pure. Non ho altro.",
+    "ok, nient'altro, procedi",
+    "sì è tutto",
+    "va bene, non serve altro",
+    "Sì, non c'è altro",
+])
+def test_a_yes_with_a_closing_courtesy_is_consent(answer):
+    """ "non ho altro da aggiungere" closes the request: it is no "not yet" or more work."""
+    assert consent_refusal(_history(), TURN, _user(answer)) is None
+
+
+@pytest.mark.parametrize("answer", [
+    "sì, non ho altro da aggiungere ma prima cambia il bagno",
+    "non ho altro da aggiungere",
+    "Sì ma non ho le misure",
+    "sì, non ho altro, aggiungi solo il corridoio",
+])
+def test_a_closing_courtesy_does_not_hide_a_hold(answer):
+    refusal = consent_refusal(_history(), TURN, _user(answer))
+    assert refusal is not None and refusal.startswith(NOT_SENT_PREFIX)
+
+
+_VIDEO = types.Part(file_data=types.FileData(file_uri="gs://bucket/v.mp4", mime_type="video/mp4"))
+
+
+def _user_event(parts: list[types.Part], invocation_id: str) -> Event:
+    return Event(invocation_id=invocation_id, author="user", content=types.Content(role="user", parts=parts))
+
+
+def _note() -> types.Content:
+    return types.Content(role="user", parts=[skipped_model_note(1)])
+
+
+def test_a_yes_sent_with_an_unreadable_video_is_consent():
+    """The model refused the video: the turn is run again with only a system note
+    (a new invocation). The client's yes is the message of the failed one."""
+    events = [*_history(), _user_event([types.Part(text="Sì, invia"), _VIDEO], "inv-failed")]
+    assert consent_refusal(events, TURN, _note()) is None
+
+
+def test_the_unreadable_video_note_alone_is_no_yes():
+    """A video sent without words is no yes, even after an older "sì"."""
+    events = [
+        _text_event("user", "sì"),
+        _text_event("quote", ASK),
+        _user_event([_VIDEO], "inv-failed"),
+    ]
+    refusal = consent_refusal(events, TURN, _note())
+    assert refusal is not None and refusal.startswith(NOT_SENT_PREFIX)
+
+
+def test_is_skipped_video_note():
+    assert is_skipped_video_note(_note())
+    assert not is_skipped_video_note(_user("[NOTA] sì"))
+    assert not is_skipped_video_note(None)
 
 
 def test_the_whole_previous_turn_is_read():
