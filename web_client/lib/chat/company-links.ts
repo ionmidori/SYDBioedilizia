@@ -25,13 +25,12 @@ const SEPARATOR = '[\\s.\\-]?';
 const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * Fewer digits than this is not a phone number to look for. The company info is edited in the
- * admin console: a phone saved as "Chiamaci" (no digits) would make a pattern matching the empty
- * string everywhere, and "06" would link dates. The console refuses them (same constant); the rule
- * stays here for documents saved before it.
+ * The number, with or without "+39" / "0039", not glued to other digits.
+ *
+ * Null with fewer than PHONE_MIN_DIGITS national digits: "Chiamaci" (no digits) would make a
+ * pattern matching the empty string everywhere, and "06" would link dates. The console refuses
+ * such phones (same constant); the check stays for documents saved before that rule.
  */
-
-/** The number, with or without "+39" / "0039", not glued to other digits; null when too short. */
 function phoneRule(number: string, href: string): ContactRule | null {
     const digits = nationalPhoneDigits(number);
     if (digits.length < PHONE_MIN_DIGITS) return null;
