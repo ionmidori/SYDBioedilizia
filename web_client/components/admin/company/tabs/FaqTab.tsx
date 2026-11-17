@@ -16,6 +16,11 @@ const MAX_CATEGORIES = 20;
 
 const questions = (count: number) => `${count} ${count === 1 ? 'domanda' : 'domande'}`;
 
+type Option = { value: string; label: string };
+
+/** One choice per value, the first wins: a new section without a slug, or a new category without a name, is not a second "none". */
+const unique = (options: Option[]): Option[] => options.filter((option, i) => options.findIndex((o) => o.value === option.value) === i);
+
 /** The name is applied when the field is left, not on every key: the questions follow the name they use. */
 function CategoryName({ id, label, value, error, onCommit }: { id: string; label: string; value: string; error?: string; onCommit: (name: string) => void }) {
     const [draft, setDraft] = useState<string | null>(null);
@@ -62,16 +67,17 @@ export function FaqTab({ info, saved, onChange, issues }: TabProps) {
     const setFaq = (index: number, patch: Partial<Faq>) => onChange({ faq: faq.map((item, i) => (i === index ? { ...item, ...patch } : item)) });
 
     const shown = faq.map((item, index) => ({ item, index })).filter(({ item }) => filter === '' || item.category === filter);
+    const names = categories.map((c) => c.name);
+    // An unnamed category is offered only to the question that already uses it (its value must stay selectable).
     const categoryOptions = (current: string) =>
-        (categories.some((c) => c.name === current) ? categories.map((c) => c.name) : [current, ...categories.map((c) => c.name)]).map((name) => ({
-            value: name,
-            label: name,
-        }));
-    const sectionOptions = (current: string) => [
-        { value: '', label: 'Nessuna' },
-        ...(current === '' || sections.some((s) => s.slug === current) ? [] : [{ value: current, label: `${current} (non esiste)` }]),
-        ...sections.map((s) => ({ value: s.slug, label: s.title || s.slug })),
-    ];
+        unique([...(names.includes(current) ? [] : [current]), ...names].filter((name) => name !== '' || name === current).map((name) => ({ value: name, label: name })));
+    const sectionOptions = (current: string) =>
+        unique([
+            { value: '', label: 'Nessuna' },
+            ...(current === '' || sections.some((s) => s.slug === current) ? [] : [{ value: current, label: `${current} (non esiste)` }]),
+            ...sections.filter((s) => s.slug !== '').map((s) => ({ value: s.slug, label: s.title || s.slug })),
+        ]);
+    const filterOptions = unique([{ value: '', label: 'Tutte le categorie' }, ...names.filter((name) => name !== '').map((name) => ({ value: name, label: name }))]);
 
     return (
         <div className="space-y-10">
@@ -144,7 +150,7 @@ export function FaqTab({ info, saved, onChange, issues }: TabProps) {
                         label="Mostra le domande di"
                         value={filter}
                         onChange={setFilter}
-                        options={[{ value: '', label: 'Tutte le categorie' }, ...categories.map((c) => ({ value: c.name, label: c.name }))]}
+                        options={filterOptions}
                     />
                 </div>
                 <ol className="space-y-5">
