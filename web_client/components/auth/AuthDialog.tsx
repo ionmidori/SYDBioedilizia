@@ -30,6 +30,28 @@ interface AuthDialogProps {
     onOpenChange: (open: boolean) => void;
 }
 
+const FOCUS_VISIBLE_MARGIN_PX = 24;
+
+function centerFocusedFieldIfObscured(container: HTMLElement | null): void {
+    if (!container || typeof document === 'undefined') return;
+    const target = document.activeElement;
+    if (
+        !(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) ||
+        !container.contains(target)
+    ) {
+        return;
+    }
+    const cRect = container.getBoundingClientRect();
+    if (cRect.height <= 0) return;
+    const tRect = target.getBoundingClientRect();
+    if (tRect.top >= cRect.top + FOCUS_VISIBLE_MARGIN_PX && tRect.bottom <= cRect.bottom - FOCUS_VISIBLE_MARGIN_PX) {
+        return;
+    }
+    // Adjust only the inner scroll panel (never window or Vaul's outer sheet)
+    const desiredScrollTop = container.scrollTop + (tRect.top - cRect.top) - (cRect.height - tRect.height) / 2;
+    container.scrollTop = Math.max(0, desiredScrollTop);
+}
+
 export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     const { loginWithGoogle, user } = useAuth();
 
@@ -75,6 +97,35 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     };
 
     const isDesktop = useMediaQuery('(min-width: 768px)');
+    const drawerScrollRef = useRef<HTMLDivElement | null>(null);
+    const focusRevealTimerRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (!open || isDesktop) return;
+        const onViewportResize = () => centerFocusedFieldIfObscured(drawerScrollRef.current);
+        window.addEventListener('resize', onViewportResize);
+        const vv = window.visualViewport;
+        vv?.addEventListener('resize', onViewportResize);
+        return () => {
+            window.removeEventListener('resize', onViewportResize);
+            vv?.removeEventListener('resize', onViewportResize);
+            if (focusRevealTimerRef.current !== null) {
+                window.clearTimeout(focusRevealTimerRef.current);
+                focusRevealTimerRef.current = null;
+            }
+        };
+    }, [open, isDesktop]);
+
+    const scheduleDrawerFocusReveal = () => {
+        centerFocusedFieldIfObscured(drawerScrollRef.current);
+        if (focusRevealTimerRef.current !== null) {
+            window.clearTimeout(focusRevealTimerRef.current);
+        }
+        focusRevealTimerRef.current = window.setTimeout(() => {
+            centerFocusedFieldIfObscured(drawerScrollRef.current);
+            focusRevealTimerRef.current = null;
+        }, 350);
+    };
 
     const tabs = [
         { id: 'social', label: 'Social' },
@@ -253,7 +304,11 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
             <DrawerContent className={cn(
-                "p-0 overflow-hidden border-t border-line bg-surface backdrop-blur-xl",
+                // overflow-clip (not overflow-hidden): `hidden` is a scroll container that includes
+                // Vaul's 200% ::after backdrop, allowing focus/taps to scroll the whole sheet upwards.
+                // Bound the sheet itself with dvh (not inner svh) so Android resizes-content shrinks
+                // it with the keyboard before Vaul computes offsetFromTop.
+                "p-0 max-h-[90dvh] overflow-clip border-t border-line bg-surface backdrop-blur-xl",
                 "rounded-t-[32px]",
                 "shadow-2xl shadow-shade/50",
                 "[&>div:first-child]:hidden" // Hide Vaul's default drag indicator — we render our own notch
@@ -262,7 +317,11 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                 <DrawerTitle className="sr-only">Benvenuto in SYD</DrawerTitle>
                 <DrawerDescription className="sr-only">Effettua l&apos;accesso per salvare i tuoi progetti</DrawerDescription>
                 {closeBar}
-                <div className="relative z-10 overflow-y-auto max-h-[calc(90svh-2.5rem)] pb-safe">
+                <div
+                    ref={drawerScrollRef}
+                    onFocusCapture={scheduleDrawerFocusReveal}
+                    className="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-contain pb-safe"
+                >
                     {content}
                 </div>
             </DrawerContent>
