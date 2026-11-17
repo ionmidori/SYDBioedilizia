@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { BlocksEditor } from '@/components/admin/company/BlocksEditor';
 import { AddButton, fieldId, GroupTitle, IconSelect, issueOf, issuesOf, RowControls, SelectField, TextField } from '@/components/admin/company/fields';
@@ -22,8 +22,26 @@ type Option = { value: string; label: string };
 const unique = (options: Option[]): Option[] => options.filter((option, i) => options.findIndex((o) => o.value === option.value) === i);
 
 /** The name is applied when the field is left, not on every key: the questions follow the name they use. */
-function CategoryName({ id, label, value, error, onCommit }: { id: string; label: string; value: string; error?: string; onCommit: (name: string) => void }) {
+function CategoryName({
+    id,
+    label,
+    value,
+    error,
+    onCommit,
+    onPending,
+}: {
+    id: string;
+    label: string;
+    value: string;
+    error?: string;
+    onCommit: (name: string) => void;
+    /** The typed name differs from the applied one: an unsaved change the editor must count. */
+    onPending?: (pending: boolean) => void;
+}) {
     const [draft, setDraft] = useState<string | null>(null);
+    // A field removed while typing (the tab changes, the edits are discarded) leaves nothing pending.
+    // (The editor passes its state setter: stable, so this runs on unmount only.)
+    useEffect(() => () => onPending?.(false), [onPending]);
     return (
         <TextField
             id={id}
@@ -31,18 +49,22 @@ function CategoryName({ id, label, value, error, onCommit }: { id: string; label
             value={draft ?? value}
             maxLength={40}
             error={error}
-            onChange={setDraft}
+            onChange={(next) => {
+                setDraft(next);
+                onPending?.(next !== value);
+            }}
             onBlur={() => {
                 // An empty name is not applied: the field goes back to the name it had.
                 if (draft !== null && draft.trim() !== '' && draft !== value) onCommit(draft);
                 setDraft(null);
+                onPending?.(false);
             }}
         />
     );
 }
 
 /** The frequently asked questions, in categories. A question can be linked to a section: the section's text is then part of its answer. */
-export function FaqTab({ info, saved, onChange, issues }: TabProps) {
+export function FaqTab({ info, saved, onChange, issues, onPendingEdit }: TabProps) {
     const { faq, faq_categories: categories, sections } = info;
     const [filter, setFilter] = useState('');
     const savedSlugs = new Set(saved.faq.map((item) => item.slug));
@@ -104,6 +126,7 @@ export function FaqTab({ info, saved, onChange, issues }: TabProps) {
                                         value={category.name}
                                         error={issueOf(issues, fieldId('faq_categories', index, 'name'))}
                                         onCommit={(name) => renameCategory(index, name)}
+                                        onPending={onPendingEdit}
                                     />
                                     <IconSelect
                                         id={fieldId('faq_categories', index, 'icon')}

@@ -213,6 +213,41 @@ describe('CompanyInfoEditor', () => {
         confirm.mockRestore();
     });
 
+    it('counts a category name still being typed as unsaved, and discarding clears it', () => {
+        infoQuery();
+        const confirm = jest.spyOn(window, 'confirm').mockReturnValue(false);
+        render(<CompanyInfoEditor />);
+        fireEvent.click(screen.getByRole('tab', { name: /FAQ/ }));
+        const name = () => screen.getByLabelText('Nome della categoria 1');
+        const original = SEED_COMPANY_INFO.faq_categories[0].name;
+        // typed, the field not left yet
+        fireEvent.change(name(), { target: { value: `${original} nuova` } });
+        expect(screen.getByTestId('company-save')).toBeEnabled();
+        expect(confirmLeave()).toBe(false);
+        fireEvent.click(screen.getByTestId('company-discard'));
+        expect(name()).toHaveValue(original);
+        expect(screen.getByTestId('company-save')).toBeDisabled();
+        expect(confirmLeave()).toBe(true);
+        // typed back to the name it had: nothing to save
+        fireEvent.change(name(), { target: { value: 'X' } });
+        fireEvent.change(name(), { target: { value: original } });
+        expect(screen.getByTestId('company-save')).toBeDisabled();
+        confirm.mockRestore();
+    });
+
+    it('saves a category name typed and confirmed with Save straight away', () => {
+        infoQuery();
+        render(<CompanyInfoEditor />);
+        fireEvent.click(screen.getByRole('tab', { name: /FAQ/ }));
+        const name = screen.getByLabelText('Nome della categoria 1');
+        fireEvent.change(name, { target: { value: 'Nuovo nome' } });
+        // a click on Save leaves the field first
+        fireEvent.blur(name);
+        fireEvent.click(screen.getByTestId('company-save'));
+        fireEvent.click(screen.getByTestId('save-confirm'));
+        expect(saveMutation.mutate.mock.calls[0][0].body.info.faq_categories[0].name).toBe('Nuovo nome');
+    });
+
     it('shows a version conflict from the server in the save dialog', () => {
         infoQuery();
         saveMutation.error = new AdminApiError(409, 'VERSION_CONFLICT', 'changed');
