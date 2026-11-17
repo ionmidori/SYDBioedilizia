@@ -248,8 +248,10 @@ export function NumberField({ id, label, value, onChange, error, hint }: Omit<Fi
 }) {
     const [text, setText] = useState(String(value));
     const parse = (typed: string) => (typed.trim() === '' ? 0 : Number(typed));
-    // Object.is: a NaN must compare equal to itself, or this would re-render forever.
-    if (!Object.is(parse(text), value)) setText(String(value));
+    const parsed = parse(text);
+    // Equal as numbers (0 and -0 too: String(-0) is "0"), and NaN equal to itself: otherwise this re-renders forever.
+    const same = parsed === value || (Number.isNaN(parsed) && Number.isNaN(value));
+    if (!same) setText(String(value));
     return (
         <TextField
             id={id}

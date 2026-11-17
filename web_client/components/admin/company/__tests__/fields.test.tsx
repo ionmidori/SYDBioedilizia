@@ -1,4 +1,7 @@
-import { closestField } from '@/components/admin/company/fields';
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+
+import { closestField, NumberField } from '@/components/admin/company/fields';
 
 describe('closestField', () => {
     afterEach(() => {
@@ -20,5 +23,12 @@ describe('closestField', () => {
     it('is null when nothing of the path is on the page (never the bare "company" prefix)', () => {
         document.body.innerHTML = '<div id="company"></div>';
         expect(closestField('company-hours-0-days')).toBeNull();
+    });
+});
+
+describe('NumberField', () => {
+    it('shows a negative zero without re-rendering forever (String(-0) is "0")', () => {
+        render(<NumberField id="n" label="Giorni" value={-0} onChange={() => undefined} />);
+        expect(screen.getByLabelText('Giorni')).toHaveValue(0);
     });
 });
