@@ -1,7 +1,7 @@
 """The room an untagged user message talks about (src/services/room_mentions.py)."""
 import pytest
 from src.schemas.room import DEFAULT_ROOM_ID, RoomSchema
-from src.services.room_mentions import messages_naming_one_room
+from src.services.room_mentions import messages_naming_one_room, room_named_by
 from src.utils.datetime_utils import utc_now
 
 
@@ -72,3 +72,13 @@ def test_home_as_a_place_does_not_hide_the_room():
     """ "il bagno di casa" is still the bathroom: only the whole home is project-wide."""
     rooms = [_room("b1", "Bagno", "bagno"), _room("c1", "Cucina", "cucina")]
     assert list(messages_naming_one_room([{"role": "user", "content": "il bagno di casa è 8 mq"}], rooms)) == ["b1"]
+
+
+@pytest.mark.parametrize(("text", "room_id"), [
+    ("il bagno ospiti è 4 mq", "b2"),
+    ("Il secondo bagno è piccolo", None),   # two bathrooms: neither
+    ("Tutta la casa è 90 mq, cucina compresa", None),
+    ("", None),
+])
+def test_room_named_by_one_text(text, room_id):
+    assert room_named_by(text, ROOMS) == room_id

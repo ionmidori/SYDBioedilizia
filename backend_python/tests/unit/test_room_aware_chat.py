@@ -438,6 +438,27 @@ async def test_saved_reply_schedules_the_room_brief_refresh_of_the_turns_room():
     assert (turn.project_id, turn.session_id, turn.room_id, turn.is_guest) == (PROJECT, PROJECT, "r_bagno", False)
 
 
+async def test_a_turn_without_chip_naming_a_room_also_refreshes_that_room():
+    """ "il bagno è 8 mq" with no chip: the bathroom's brief catches up too, not only Generale's."""
+    repo = _repo(list_rooms=[KITCHEN, BATH], find_file_by_storage_path=None)
+    schedule = MagicMock(return_value=None)
+    request = _request(messages=[MagicMock(content="il bagno è 8 metri quadri")])
+    with patch.object(adk_orchestrator, "schedule_room_brief_refresh", schedule):
+        await _run_turn(request, [_make_text_event("Annotato.")], repo)
+    # First the turn's own room (the session's active one, a mock here), then the bathroom.
+    assert len(schedule.call_args_list) == 2
+    assert schedule.call_args_list[1].args[0].room_id == "r_bagno"
+
+
+async def test_a_turn_naming_its_own_room_refreshes_it_once():
+    repo = _repo(list_rooms=[KITCHEN, BATH], find_file_by_storage_path=None)
+    schedule = MagicMock(return_value=None)
+    request = _request(room_id="r_bagno", messages=[MagicMock(content="il bagno è 8 metri quadri")])
+    with patch.object(adk_orchestrator, "schedule_room_brief_refresh", schedule):
+        await _run_turn(request, [_make_text_event("Annotato.")], repo)
+    assert [call.args[0].room_id for call in schedule.call_args_list] == ["r_bagno"]
+
+
 async def test_turn_without_a_saved_reply_schedules_nothing():
     repo = _repo(list_rooms=[KITCHEN], find_file_by_storage_path=None)
     schedule = MagicMock(return_value=None)

@@ -37,12 +37,21 @@ def _reply(changed: bool = True, **brief: Any) -> SimpleNamespace:
 class _Backend:
     """Rooms, chat history and summarizer model of one test."""
 
-    def __init__(self, room: RoomSchema | None, history: list[dict[str, Any]], reply: Any = None) -> None:
+    def __init__(
+        self, room: RoomSchema | None, history: list[dict[str, Any]], reply: Any = None,
+        rooms: list[RoomSchema] | None = None,
+    ) -> None:
         self.rooms = MagicMock()
         self.rooms.get_room_versioned = AsyncMock(return_value=(room, VERSION) if room else None)
         self.rooms.update_brief = AsyncMock()
+        self.rooms.list_rooms = AsyncMock(return_value=rooms if rooms is not None else [r for r in [room] if r])
+
+        def context(session_id: str, limit: int, room_id: str | None = None) -> list[dict[str, Any]]:
+            # Like the repository: a room's query returns only its tagged messages.
+            return [m for m in history if room_id is None or m.get("room_id") == room_id][-limit:]
+
         self.conversations = MagicMock()
-        self.conversations.get_context = AsyncMock(return_value=history)
+        self.conversations.get_context = AsyncMock(side_effect=context)
         self.generate = AsyncMock(return_value=reply if reply is not None else _reply())
         client = MagicMock()
         client.aio.models.generate_content = self.generate
@@ -103,7 +112,7 @@ async def test_new_facts_update_the_brief_with_a_precondition():
     with _Backend(_room(), BATH_TALK) as backend:
         await _run(_turn())
 
-    backend.conversations.get_context.assert_awaited_once_with("s1", limit=settings.ROOM_BRIEF_HISTORY_MESSAGES, room_id="r_bagno")
+    backend.conversations.get_context.assert_any_await("s1", limit=settings.ROOM_BRIEF_HISTORY_MESSAGES, room_id="r_bagno")
     prompt = backend.generate.await_args.kwargs["contents"]
     assert "Il bagno è 2 x 2,5 m, pavimento 5 mq" in prompt and 'stanza "Bagno"' in prompt
     backend.rooms.update_brief.assert_awaited_once()
@@ -131,7 +140,8 @@ async def test_acknowledgements_are_not_new_facts(text):
 
 
 async def test_an_attachment_is_a_new_fact():
-    history = [{"id": "m1", "role": "user", "content": "", "attachments": {"images": ["user-uploads/s1/a.jpg"]}}]
+    history = [{"id": "m1", "role": "user", "content": "", "attachments": {"images": ["user-uploads/s1/a.jpg"]},
+                "room_id": "r_bagno"}]
     with _Backend(_room(), history) as backend:
         await _run(_turn())
     backend.generate.assert_awaited_once()
@@ -213,6 +223,61 @@ async def test_turn_without_room_refreshes_generale_from_project_wide_talk():
     assert "Il bagno è 2 x 2,5 m" not in prompt  # a created room's fact stays with that room
     assert "stanza non creata" in prompt
     backend.rooms.update_brief.assert_awaited_once()
+
+
+def _typed_room(room_id: str, label: str, room_type: str) -> RoomSchema:
+    return RoomSchema(room_id=room_id, label=label, room_type=room_type, created_at=VERSION, updated_at=VERSION)
+
+
+GENERALE = _typed_room(DEFAULT_ROOM_ID, "Generale", "altro")
+BAGNO = _typed_room("r_bagno", "Bagno", "bagno")
+# "Il bagno è 8 mq" typed with no room chip.
+NO_CHIP_TALK = [
+    {"id": "m1", "role": "user", "content": "Il bagno è 2 x 2,5 m, pavimento 5 mq", "room_id": "r_bagno"},
+    {"id": "m2", "role": "user", "content": "il bagno è 8 metri quadri"},
+    {"id": "m3", "role": "assistant", "content": "Ho aggiornato la proposta."},
+    {"id": "m4", "role": "user", "content": "Anche il corridoio: 8 mq di parquet da levigare"},
+]
+
+
+async def test_a_message_without_a_chip_naming_the_room_reaches_its_brief():
+    with _Backend(BAGNO, NO_CHIP_TALK, rooms=[GENERALE, BAGNO]) as backend:
+        await _run(_turn(room_id="r_bagno"))
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert prompt.index("pavimento 5 mq") < prompt.index("il bagno è 8 metri quadri")
+    assert "corridoio" not in prompt and "Ho aggiornato" not in prompt
+
+
+async def test_generale_leaves_out_messages_naming_one_room():
+    with _Backend(GENERALE, NO_CHIP_TALK, rooms=[GENERALE, BAGNO]) as backend:
+        await _run(_turn(room_id=None))
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert "corridoio: 8 mq di parquet" in prompt
+    assert "il bagno è 8 metri quadri" not in prompt
+
+
+async def test_with_two_bathrooms_the_bare_type_stays_in_generale():
+    rooms = [GENERALE, BAGNO, _typed_room("r_ospiti", "Bagno ospiti", "bagno")]
+    talk = [{"id": "m1", "role": "user", "content": "il bagno è 8 metri quadri"}]
+    with _Backend(BAGNO, talk, rooms=rooms) as backend:
+        await _run(_turn(room_id="r_bagno"))
+    backend.generate.assert_not_awaited()  # neither bathroom's talk
+    with _Backend(GENERALE, talk, rooms=rooms) as backend:
+        await _run(_turn(room_id=None))
+    assert "il bagno è 8 metri quadri" in backend.generate.await_args.kwargs["contents"]
+
+
+async def test_a_room_s_old_tagged_messages_outside_the_recent_window_still_count(monkeypatch):
+    monkeypatch.setattr(settings, "ROOM_BRIEF_HISTORY_MESSAGES", 2)
+    talk = [
+        {"id": "m1", "role": "user", "content": "Bagno: doccia walk-in", "room_id": "r_bagno"},
+        *({"id": f"x{i}", "role": "user", "content": f"corridoio nota {i}"} for i in range(6)),
+        {"id": "m9", "role": "user", "content": "il bagno è 8 metri quadri"},
+    ]
+    with _Backend(BAGNO, talk, rooms=[GENERALE, BAGNO]) as backend:
+        await _run(_turn(room_id="r_bagno"))
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert prompt.index("doccia walk-in") < prompt.index("il bagno è 8 metri quadri")
 
 
 async def test_missing_room_skips_the_model():

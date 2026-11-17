@@ -45,6 +45,7 @@ from src.prompts.components.room_brief import GENERAL_SCOPE, ROOM_BRIEF_PROMPT, 
 from src.repositories.conversation_repository import get_conversation_repository
 from src.repositories.room_repository import get_room_repository
 from src.schemas.room import DEFAULT_ROOM_ID, RoomBrief, RoomSchema
+from src.services.room_mentions import messages_naming_one_room
 
 logger = logging.getLogger(__name__)
 
@@ -188,16 +189,32 @@ def _format_messages(messages: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-async def _room_history(session_id: str, room_id: str) -> list[dict[str, Any]]:
+async def _room_history(project_id: str, session_id: str, room_id: str) -> list[dict[str, Any]]:
+    """The talk of one room, oldest first.
+
+    Project-wide talk is the messages tagged "generale" or with no room at all (an
+    absent field cannot be queried), read from the recent window: a turn without a
+    room refreshes right away, so its messages are among the newest ones. A user
+    message there that names exactly one room ("il bagno è 8 mq" with no chip) is
+    that room's talk, as for the quote (`room_mentions`), not Generale's."""
     repo = get_conversation_repository()
     limit = settings.ROOM_BRIEF_HISTORY_MESSAGES
-    if room_id != DEFAULT_ROOM_ID:
-        return await repo.get_context(session_id, limit=limit, room_id=room_id)
-    # Project-wide talk: messages tagged "generale" or with no room at all (an
-    # absent field cannot be queried). A turn without a room refreshes this brief
-    # right away, so its messages are among the newest ones.
-    history = await repo.get_context(session_id, limit=limit * _GENERAL_WINDOW_FACTOR)
-    return [m for m in history if m.get("room_id") in (None, DEFAULT_ROOM_ID)][-limit:]
+    window, rooms = await asyncio.gather(
+        repo.get_context(session_id, limit=limit * _GENERAL_WINDOW_FACTOR),
+        get_room_repository().list_rooms(project_id),
+    )
+    unassigned = [m for m in window if m.get("room_id") in (None, DEFAULT_ROOM_ID)]
+    named = messages_naming_one_room(unassigned, rooms)
+    if room_id == DEFAULT_ROOM_ID:
+        elsewhere = {id(m) for messages in named.values() for m in messages}
+        return [m for m in unassigned if id(m) not in elsewhere][-limit:]
+    tagged = await repo.get_context(session_id, limit=limit, room_id=room_id)
+    mine = {id(m) for m in named.get(room_id, [])}
+    in_window = {m.get("id") for m in window}
+    # Tagged messages older than the window come first; then the window, in its order.
+    older = [m for m in tagged if m.get("id") not in in_window]
+    recent = [m for m in window if m.get("room_id") == room_id or id(m) in mine]
+    return [*older, *recent][-limit:]
 
 
 async def _ask_model(room: RoomSchema, messages: list[dict[str, Any]]) -> _BriefUpdate:
@@ -252,7 +269,7 @@ async def _refresh(project_id: str, session_id: str, room_id: str) -> None:
 async def _refresh_room(project_id: str, session_id: str, room_id: str, key: _Key) -> str:
     rooms = get_room_repository()
     found, history = await asyncio.gather(
-        rooms.get_room_versioned(project_id, room_id), _room_history(session_id, room_id)
+        rooms.get_room_versioned(project_id, room_id), _room_history(project_id, session_id, room_id)
     )
     if found is None:
         return "no_room"

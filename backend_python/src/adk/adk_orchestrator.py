@@ -56,6 +56,7 @@ from src.schemas.room import RoomSchema
 from src.services.base_orchestrator import BaseOrchestrator
 from src.services.quote_drafts import read_quote_status
 from src.services.room_brief import BriefTurn, schedule_room_brief_refresh
+from src.services.room_mentions import room_named_by
 from src.tools.room_tools import brief_lines, media_label, room_of
 from src.utils.circuit_breaker import vertex_ai_breaker
 from src.utils.download import download_session_media, session_media_path
@@ -1081,12 +1082,16 @@ class ADKOrchestrator(BaseOrchestrator):
                             _synced_marker[sync_key] = replace(held, reply_id=assistant_msg_id)
                             # The room brief catches up with this turn in the background:
                             # the stream ends now, the summarizer reads the saved messages.
+                            brief_room = room_id or (getattr(session, "state", None) or {}).get(ACTIVE_ROOM_STATE_KEY)
                             schedule_room_brief_refresh(BriefTurn(
-                                project_id=session_id,
-                                session_id=session_id,
-                                room_id=room_id or (getattr(session, "state", None) or {}).get(ACTIVE_ROOM_STATE_KEY),
-                                is_guest=is_guest,
+                                project_id=session_id, session_id=session_id, room_id=brief_room, is_guest=is_guest,
                             ))
+                            # "Il bagno è 8 mq" with no chip is the bathroom's talk too.
+                            named = None if room_id else room_named_by(user_message_text, rooms or [])
+                            if named is not None and named != brief_room:
+                                schedule_room_brief_refresh(BriefTurn(
+                                    project_id=session_id, session_id=session_id, room_id=named, is_guest=is_guest,
+                                ))
                         logger.info("[Repo] Saved assistant message")
                     except Exception as e:  # noqa: BLE001
                         logger.error(f"Failed to persist assistant message: {e}")
