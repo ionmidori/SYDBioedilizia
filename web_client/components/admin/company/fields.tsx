@@ -230,6 +230,35 @@ export function LinesField({
     );
 }
 
+/**
+ * A whole number. The typed text is kept as typed, so the field can be emptied to type a new value
+ * (an empty field is 0, which the validation flags); it re-reads the value when it changes from outside.
+ */
+export function NumberField({ id, label, value, onChange, error, hint }: Omit<FieldProps, 'value' | 'onChange' | 'maxLength' | 'readOnly' | 'onBlur'> & {
+    value: number;
+    onChange: (value: number) => void;
+}) {
+    const [text, setText] = useState(String(value));
+    const parse = (typed: string) => (typed.trim() === '' ? 0 : Number(typed));
+    // Object.is: a NaN must compare equal to itself, or this would re-render forever.
+    if (!Object.is(parse(text), value)) setText(String(value));
+    return (
+        <TextField
+            id={id}
+            label={label}
+            type="number"
+            inputMode="numeric"
+            value={text}
+            onChange={(next) => {
+                setText(next);
+                onChange(parse(next));
+            }}
+            error={error}
+            hint={hint}
+        />
+    );
+}
+
 export function SelectField({
     id,
     label,

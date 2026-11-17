@@ -163,10 +163,16 @@ describe('QuoteTermsTab', () => {
         expect(seen.current.quote_terms.payment_terms).toEqual(['40% alla firma', '60% a fine lavori']);
     });
 
-    it('flags an empty validity', () => {
-        mount(QuoteTermsTab);
-        fireEvent.change(screen.getByLabelText('Validità del preventivo (giorni)'), { target: { value: '' } });
-        expect(screen.getByText('Valore troppo basso')).toBeInTheDocument();
+    it('lets the validity be emptied to type a new one, and flags it while empty', () => {
+        const seen = mount(QuoteTermsTab);
+        const field = screen.getByLabelText('Validità del preventivo (giorni)');
+        fireEvent.change(field, { target: { value: '' } });
+        expect(field).toHaveValue(null);
+        expect(field).toHaveAccessibleDescription('Minimo 1');
+        fireEvent.change(field, { target: { value: '30' } });
+        expect(field).toHaveValue(30);
+        expect(seen.current.quote_terms.validity_days).toBe(30);
+        expect(screen.queryByText('Minimo 1')).not.toBeInTheDocument();
     });
 
     it('edits the texts of the quote', () => {

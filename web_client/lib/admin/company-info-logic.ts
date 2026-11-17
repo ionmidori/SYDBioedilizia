@@ -97,6 +97,7 @@ interface RawIssue {
     message: string;
     origin?: string;
     minimum?: number | bigint;
+    maximum?: number | bigint;
     input?: unknown;
 }
 
@@ -105,10 +106,12 @@ function describeIssue(issue: RawIssue): string {
         case 'too_small':
             if (issue.origin === 'string') return Number(issue.minimum) <= 1 ? 'Campo obbligatorio' : `Almeno ${issue.minimum} caratteri`;
             if (issue.origin === 'array') return Number(issue.minimum) <= 1 ? 'Aggiungi almeno un elemento' : `Almeno ${issue.minimum} elementi`;
+            if (issue.origin === 'number') return `Minimo ${issue.minimum}`;
             return 'Valore troppo basso';
         case 'too_big':
             if (issue.origin === 'string') return 'Troppo lungo';
             if (issue.origin === 'array') return 'Troppi elementi';
+            if (issue.origin === 'number') return `Massimo ${issue.maximum}`;
             return 'Valore troppo alto';
         case 'invalid_format':
             return 'Formato non valido';
