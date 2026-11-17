@@ -14,11 +14,18 @@ describe('parseItalianDays', () => {
         ['Lun, Mer e Ven', ['Monday', 'Wednesday', 'Friday']],
         ['Sab-Lun', ['Saturday', 'Sunday', 'Monday']],
         ['Domenica', ['Sunday']],
+        // The footer prints the hours with an en dash: an admin may copy it.
+        ['Lun–Ven', ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']],
+        ['Lun — Ven', ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']],
     ])('reads "%s"', (text, days) => {
         expect(parseItalianDays(text)).toEqual(days.map(day));
     });
 
-    it.each(['su appuntamento', '', 'Lun-Xyz', 'martedì prossimo', 'Lun-'])('cannot read "%s"', (text) => {
+    it.each([
+        'su appuntamento', '', 'Lun-Xyz', 'martedì prossimo', 'Lun-',
+        // Names of Object.prototype are not days.
+        'constructor', 'Lun-constructor', 'toString', '__proto__',
+    ])('cannot read "%s"', (text) => {
         expect(parseItalianDays(text)).toBeNull();
     });
 });

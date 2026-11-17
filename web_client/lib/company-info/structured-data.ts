@@ -62,31 +62,37 @@ export function extractSocialUrls(sections: readonly Section[]): string[] {
 
 const WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 
-/** Italian day names, short and full, without accents (see `plain`). */
-const DAY_INDEX: Record<string, number> = {
-    lun: 0, lunedi: 0,
-    mar: 1, martedi: 1,
-    mer: 2, mercoledi: 2,
-    gio: 3, giovedi: 3,
-    ven: 4, venerdi: 4,
-    sab: 5, sabato: 5,
-    dom: 6, domenica: 6,
-};
+/**
+ * Italian day names, short and full, without accents (see `plain`). A Map, not an
+ * object literal: "constructor" or "toString" must not read as a day.
+ */
+const DAY_INDEX: ReadonlyMap<string, number> = new Map([
+    ['lun', 0], ['lunedi', 0],
+    ['mar', 1], ['martedi', 1],
+    ['mer', 2], ['mercoledi', 2],
+    ['gio', 3], ['giovedi', 3],
+    ['ven', 4], ['venerdi', 4],
+    ['sab', 5], ['sabato', 5],
+    ['dom', 6], ['domenica', 6],
+]);
+
+/** The dash of a range: hyphen, en dash (the footer prints "Lun–Ven") or em dash. */
+const RANGE_DASH = /\s*[-–—]\s*/;
 
 /** Lowercase, no accents, no trailing dot: "Lunedì." → "lunedi". */
 const plain = (text: string): string =>
     text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim().replace(/\.$/, '');
 
 /**
- * Schema.org day URLs for an hours row written in Italian: "Lun-Ven", "Sabato",
- * "Lun, Mer e Ven", "Sab-Lun" (a range may wrap the week). Anything else
+ * Schema.org day URLs for an hours row written in Italian: "Lun-Ven" (or "Lun–Ven"),
+ * "Sabato", "Lun, Mer e Ven", "Sab-Lun" (a range may wrap the week). Anything else
  * ("su appuntamento") is null: a free-text row must not become invalid markup.
  */
 export function parseItalianDays(days: string): string[] | null {
     const indexes: number[] = [];
     for (const part of days.split(/\s*,\s*|\s+e\s+/i)) {
-        const ends = part.split(/\s*-\s*/).map((token) => DAY_INDEX[plain(token)]);
-        if (ends.length > 2 || ends.some((index) => index === undefined)) return null;
+        const ends = part.split(RANGE_DASH).map((token) => DAY_INDEX.get(plain(token)));
+        if (ends.length > 2 || !ends.every((index): index is number => index !== undefined)) return null;
         const [start, end = start] = ends;
         const range = end >= start
             ? Array.from({ length: end - start + 1 }, (_, i) => start + i)
