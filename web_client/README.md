@@ -27,9 +27,9 @@ the Python backend.
 | `/` | Homepage: hero with the project gallery, "Cosa facciamo", technology, portfolio and testimonials sections |
 | `/progetti`, `/chi-siamo`, `/faq` | Portfolio, company and FAQ pages |
 | `/blog`, `/blog/[slug]` | Articles, defined as data in `lib/blog/posts/` and rendered by one route |
-| `/privacy`, `/cookie-policy`, `/terms` | Legal pages, with company data from `lib/company.ts` |
+| `/privacy`, `/cookie-policy`, `/terms` | Legal pages, with the company info (`lib/company-info/`, edited in `/admin/company`) |
 | `/dashboard` | Client area: projects, gallery, quotes, profile and settings |
-| `/admin` | Admin console: quote review, price book, portfolio, testimonials, GDPR tools |
+| `/admin` | Admin console: quote review, price book, company info, portfolio, testimonials, GDPR tools |
 
 The chat widget is available on every page. Premium actions (renders and
 quotes) ask anonymous visitors to sign in.

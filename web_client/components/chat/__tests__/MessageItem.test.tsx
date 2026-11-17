@@ -9,6 +9,8 @@ import type { Message } from '@/types/chat';
 let mockUser: { isAnonymous: boolean } | null = null;
 // The url transform the last rendered Markdown block received (react-markdown is mocked below).
 let lastUrlTransform: ((url: string) => string) | undefined;
+// The element renderers it received, e.g. `a` for links.
+let lastComponents: Record<string, React.ComponentType<Record<string, unknown>>> | undefined;
 jest.mock('@/hooks/useAuth', () => ({
     useAuth: () => ({ user: mockUser }),
 }));
@@ -31,8 +33,9 @@ jest.mock('../ToolStatus', () => ({
 // ESM-only module not transformed by Jest — render children as plain text.
 jest.mock('react-markdown', () => ({
     __esModule: true,
-    default: ({ children, remarkPlugins, urlTransform }: { children?: React.ReactNode; remarkPlugins?: unknown[]; urlTransform?: (url: string) => string }) => {
+    default: ({ children, remarkPlugins, urlTransform, components }: { children?: React.ReactNode; remarkPlugins?: unknown[]; urlTransform?: (url: string) => string; components?: typeof lastComponents }) => {
         lastUrlTransform = urlTransform;
+        lastComponents = components;
         return <div data-testid="markdown" data-plugins={remarkPlugins?.length ?? 0}>{children}</div>;
     },
 }));
@@ -247,6 +250,34 @@ describe('MessageItem — company contacts (Phase 141)', () => {
     it('lets through no tel: link at all in what the user writes', () => {
         renderWithCompany(<MessageItem message={say('user', 'Il mio numero è +39 06 1234567')} sessionId="s1" onImageClick={onImage} />);
         expect(lastUrlTransform?.('tel:+39061234567')).toBe('');
+    });
+
+    // PR-3 minor: a wa.me link (or any web link) in a reply took the user away from the chat.
+    describe('links in the reply', () => {
+        const renderLink = (href: string) => {
+            renderWithCompany(<MessageItem message={say('assistant', 'Ecco i link')} sessionId="s1" onImageClick={onImage} />);
+            const Link = lastComponents?.a;
+            if (!Link) throw new Error('MessageItem gives the Markdown no link renderer');
+            render(<Link href={href}>apri</Link>);
+            return screen.getByRole('link', { name: 'apri' });
+        };
+
+        // `//esempio.it` (protocol-relative) passes the url transform as a path: it is another site too.
+        it.each(['https://wa.me/393331112223', 'https://esempio.it/pagina', 'http://esempio.it', '//esempio.it'])(
+            'opens %s in a new tab, without access to this page',
+            (href) => {
+                const link = renderLink(href);
+                expect(link).toHaveAttribute('href', href);
+                expect(link).toHaveAttribute('target', '_blank');
+                expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+            },
+        );
+
+        it.each(['tel:+39061234567', 'mailto:info@esempio.it', '/faq'])('keeps %s in the same tab', (href) => {
+            const link = renderLink(href);
+            expect(link).toHaveAttribute('href', href);
+            expect(link).not.toHaveAttribute('target');
+        });
     });
 
     it('still renders the reply without company info', () => {

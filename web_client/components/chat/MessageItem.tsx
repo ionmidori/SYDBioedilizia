@@ -21,6 +21,7 @@ import { ConfirmationCard } from '@/components/confirmations/ConfirmationCard';
 import { useSmoothText } from '@/hooks/useSmoothText';
 import { MemoizedMarkdown, safeUrlTransform, type UrlTransform } from '@/components/chat/MemoizedMarkdown';
 import { ContactActions } from '@/components/chat/ContactActions';
+import { ReplyLink } from '@/components/chat/ReplyLink';
 import { useCompanyIdentity } from '@/components/providers/CompanyIdentityProvider';
 import { contactRules, mentionsCompanyContact, remarkCompanyLinks } from '@/lib/chat/company-links';
 
@@ -164,6 +165,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
 
     // ✅ Memoize ReactMarkdown components to prevent re-creation on every render
     const markdownComponents = useMemo<Components>(() => ({
+        a: ReplyLink,
         img: ({ src, alt }) => src ? (
             <ImagePreview
                 src={String(src)}
