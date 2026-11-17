@@ -262,7 +262,8 @@ describe('MessageItem — company contacts (Phase 141)', () => {
             return screen.getByRole('link', { name: 'apri' });
         };
 
-        it.each(['https://wa.me/393331112223', 'https://esempio.it/pagina', 'http://esempio.it'])(
+        // `//esempio.it` (protocol-relative) passes the url transform as a path: it is another site too.
+        it.each(['https://wa.me/393331112223', 'https://esempio.it/pagina', 'http://esempio.it', '//esempio.it'])(
             'opens %s in a new tab, without access to this page',
             (href) => {
                 const link = renderLink(href);

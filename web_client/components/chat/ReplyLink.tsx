@@ -1,6 +1,7 @@
 import type { Components } from 'react-markdown';
 
-const WEB_PAGE = /^https?:\/\//i;
+/** `http(s)://…`, or protocol-relative `//…` (the url transform lets it through as a path). */
+const WEB_PAGE = /^(https?:)?\/\//i;
 
 /**
  * A link in an assistant reply. A web page (wa.me included) opens in a new tab, so the
