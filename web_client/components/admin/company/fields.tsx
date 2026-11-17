@@ -28,6 +28,20 @@ export function issueUnder(issues: CompanyIssue[], id: string): string | undefin
     return issues.find((issue) => issue.fieldId === id || issue.fieldId.startsWith(`${id}-`))?.message;
 }
 
+/**
+ * The element to focus for a problem at `id`: the element itself, or the nearest one up its path.
+ * A list edited in one field reports its entries (`places-3`, `items-0`), which have no input of their own.
+ */
+export function closestField(id: string): HTMLElement | null {
+    const segments = id.split('-');
+    // Never the bare "company" prefix: at least one segment of the path.
+    for (let end = segments.length; end > 1; end--) {
+        const element = document.getElementById(segments.slice(0, end).join('-'));
+        if (element) return element;
+    }
+    return null;
+}
+
 const CONTROL =
     'w-full min-h-11 rounded-xl bg-surface border px-3 py-2 text-base md:text-sm text-ink focus:outline-hidden focus-visible:ring-2 ring-ring read-only:bg-surface-muted disabled:opacity-60';
 

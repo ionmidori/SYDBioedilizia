@@ -167,6 +167,21 @@ describe('CompanyInfoEditor', () => {
         expect(screen.getByTestId('company-ignored')).toHaveTextContent(/Modifica un campo e salva per sostituirla\./);
     });
 
+    it('shows the error of an untouched list under its field, and moves focus to that field', () => {
+        infoQuery();
+        render(<CompanyInfoEditor />);
+        fireEvent.click(screen.getByRole('tab', { name: /Sopralluogo/ }));
+        fireEvent.click(screen.getByRole('button', { name: /Aggiungi blocco/ }));
+        const types = screen.getAllByLabelText(/Tipo del blocco/);
+        fireEvent.change(types[types.length - 1], { target: { value: 'ul' } });
+        fireEvent.click(screen.getByTestId('company-save'));
+        const lists = screen.getAllByLabelText(/Voci del blocco/);
+        const list = lists[lists.length - 1];
+        expect(list).toHaveAttribute('aria-invalid', 'true');
+        expect(list).toHaveAccessibleDescription(/Campo obbligatorio/);
+        expect(document.activeElement).toBe(list);
+    });
+
     it('moves between tabs with the arrow keys, Home and End', () => {
         infoQuery();
         render(<CompanyInfoEditor />);

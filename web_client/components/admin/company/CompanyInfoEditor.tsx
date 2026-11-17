@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import { CheckCircle2, History, Loader2, Save } from 'lucide-react';
 
 import { CompanyHistoryPanel } from '@/components/admin/company/CompanyHistoryPanel';
+import { closestField } from '@/components/admin/company/fields';
 import { CompanyTabs, panelId, tabId } from '@/components/admin/company/CompanyTabs';
 import { AboutTab } from '@/components/admin/company/tabs/AboutTab';
 import { AreaTab } from '@/components/admin/company/tabs/AreaTab';
@@ -87,7 +88,7 @@ export function CompanyInfoEditor() {
         const id = focusAfterRender.current;
         if (!id) return;
         focusAfterRender.current = null;
-        const target = document.getElementById(id) ?? document.getElementById(panelId(tab));
+        const target = closestField(id) ?? document.getElementById(panelId(tab));
         target?.focus();
         target?.scrollIntoView?.({ block: 'center' });
     });

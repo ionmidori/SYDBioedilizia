@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 
 import { FAQAnswer } from '@/components/faq/FAQAnswer';
-import { issueOf, LinesField, RowControls, TextAreaField, TextField } from '@/components/admin/company/fields';
+import { issueOf, issueUnder, LinesField, RowControls, TextAreaField, TextField } from '@/components/admin/company/fields';
 import { BLOCK_TYPES, convertBlock, emptyBlock, MAX_BLOCKS, type BlockType } from '@/lib/admin/company-blocks';
 import { moveItem, type CompanyIssue } from '@/lib/admin/company-info-logic';
 import type { Block } from '@/types/company-info';
@@ -78,7 +78,8 @@ export function BlocksEditor({ id, label, value, onChange, minBlocks = 0, issues
                                     label={`Voci del blocco ${n} (una per riga)`}
                                     items={block.items}
                                     onItems={(items) => replace(index, { ...block, items })}
-                                    error={issueOf(issues, `${base}-items`)}
+                                    // An entry's problem (`items-0`) belongs to the one field the entries are typed in.
+                                    error={issueUnder(issues, `${base}-items`)}
                                 />
                             ) : block.type === 'definitions' ? (
                                 <div className="space-y-3">
