@@ -50,6 +50,10 @@ ACTIVE_ROOM_STATE_KEY = "syd_active_room_id"
 # Where the house quote stands ({} = no quote); None (or absent) when unknown:
 # it could not be read this turn, or the user is a guest.
 HOUSE_QUOTE_STATE_KEY = "syd_house_quote"
+# Whether the confirmation card of the draft still asks the client something, read
+# before the turn (no tool has written yet); None without a draft or when unread.
+# Not shown to the model: the quote step reads it (src/adk/quote_facts.py).
+CARD_PENDING_STATE_KEY = "syd_card_pending"
 
 _ROOM_TEXT_MAX = 120
 

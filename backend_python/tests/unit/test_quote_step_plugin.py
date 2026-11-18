@@ -1,22 +1,27 @@
 """
 QuoteStepPlugin logs the step of the quote once per turn (strada B, passo 1):
 no id in the line (session_ref is added by the formatter), never a change to
-the turn, never an error that stops it.
+the turn, never an error that stops it. The card of a draft comes from the
+session state (the orchestrator reads it before the turn), never from Firestore.
 """
 import asyncio
 import logging
+import uuid
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
 
 import pytest
-from google.api_core.exceptions import ServiceUnavailable
-from src.adk import quote_step_plugin
 from src.adk.quote_step_plugin import QuoteStepPlugin
-from src.adk.session_context import HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY
-from src.schemas.confirmation import ConfirmationState
+from src.adk.session_context import CARD_PENDING_STATE_KEY, HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY
+from src.core.context import set_request_id
 from tests.unit.send_consent_fakes import TURN, text_event, user_message
 
 REGISTER_ASK = "Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"
+
+
+@pytest.fixture(autouse=True)
+def _no_request():
+    """Other tests leave a request id behind: start each test outside a request."""
+    set_request_id("system")
 
 
 def _context(state: dict, events: list | None = None, words: str = "sì") -> SimpleNamespace:
@@ -27,31 +32,16 @@ def _context(state: dict, events: list | None = None, words: str = "sì") -> Sim
     )
 
 
-def _signed_in(quote: dict | None = None) -> dict:
+def _signed_in(quote: dict | None = None, card: bool | None = None) -> dict:
     state: dict = {SESSION_CONTEXT_STATE_KEY: {"is_guest": False, "phone_on_file": True, "session_id": "proj-1"}}
     if quote is not None:
         state[HOUSE_QUOTE_STATE_KEY] = quote
+    state[CARD_PENDING_STATE_KEY] = card
     return state
 
 
 def _steps(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
     return [r for r in caplog.records if getattr(r, "event", None) == "quote_step"]
-
-
-def _card(*pending: bool) -> ConfirmationState:
-    return ConfirmationState.model_validate({
-        "sections": [
-            {"section_key": f"r{i}", "label": None, "pending": p, "measures": [], "element_choices": []}
-            for i, p in enumerate(pending)
-        ],
-        "editable": True,
-        "precision": None,
-    })
-
-
-async def _drain() -> None:
-    for _ in range(5):
-        await asyncio.sleep(0)
 
 
 async def test_the_step_is_logged_once_without_ids(caplog):
@@ -75,56 +65,44 @@ async def test_the_line_says_whether_the_house_quote_was_read(caplog, quote, rea
     assert record.quote_read is read
 
 
-async def test_an_unexpected_card_error_is_not_hidden():
-    """Only read errors become "card unknown"; a bug surfaces (background task log)."""
-    with patch.object(quote_step_plugin, "confirmation_state", AsyncMock(side_effect=KeyError("bug"))), \
-            pytest.raises(KeyError):
-        await quote_step_plugin._card_pending("proj-1")
-
-
 async def test_a_turn_without_session_facts_is_not_logged(caplog):
     caplog.set_level(logging.INFO)
     await QuoteStepPlugin().before_run_callback(invocation_context=_context({}))
     assert _steps(caplog) == []
 
 
-async def test_a_draft_reads_its_card_before_logging(caplog):
+@pytest.mark.parametrize(("card", "step"), [(True, "scheda"), (False, "domanda_invio"), (None, "domanda_invio")])
+async def test_the_card_of_a_draft_comes_from_the_state(caplog, card, step):
     caplog.set_level(logging.INFO)
-    state = _signed_in({"status": "draft", "version": 1, "quote_number": "PRV-2026-0001"})
-    with patch.object(quote_step_plugin, "confirmation_state", AsyncMock(return_value=_card(False, True))) as read:
-        await QuoteStepPlugin().before_run_callback(invocation_context=_context(state, words="ok"))
-        await _drain()
-    read.assert_awaited_once_with("proj-1")
+    state = _signed_in({"status": "draft", "version": 1, "quote_number": "PRV-2026-0001"}, card=card)
+    await QuoteStepPlugin().before_run_callback(invocation_context=_context(state, words="fatto"))
     [record] = _steps(caplog)
-    assert record.quote_step == "scheda" and record.card_pending is True
+    assert record.quote_step == step and record.card_pending is card
 
 
-async def test_a_confirmed_card_asks_to_send(caplog):
+async def test_a_turn_run_again_logs_its_step_once(caplog):
+    """The retry without the refused videos (or after a lost session) runs the
+    plugin again in the same request: one line per turn."""
     caplog.set_level(logging.INFO)
-    state = _signed_in({"status": "draft", "version": 1})
-    with patch.object(quote_step_plugin, "confirmation_state", AsyncMock(return_value=_card(False))):
-        await QuoteStepPlugin().before_run_callback(invocation_context=_context(state, words="fatto"))
-        await _drain()
-    [record] = _steps(caplog)
-    assert record.quote_step == "domanda_invio" and record.card_pending is False
+    plugin = QuoteStepPlugin()
+    set_request_id(f"req-{uuid.uuid4().hex}")
+    # Each run may be in its own copied context (a task): the first mark must still count.
+    for _ in range(2):
+        await asyncio.create_task(plugin.before_run_callback(invocation_context=_context(_signed_in({}))))
+    assert len(_steps(caplog)) == 1
+    set_request_id(f"req-{uuid.uuid4().hex}")
+    await plugin.before_run_callback(invocation_context=_context(_signed_in({})))
+    assert len(_steps(caplog)) == 2
 
 
-async def test_an_unreadable_card_logs_the_step_anyway(caplog):
+async def test_runs_without_a_request_are_all_logged(caplog):
+    """Evals and tests have no request id ("system"): nothing to tell apart."""
     caplog.set_level(logging.INFO)
-    state = _signed_in({"status": "draft", "version": 1})
-    with patch.object(quote_step_plugin, "confirmation_state", AsyncMock(side_effect=ServiceUnavailable("down"))):
-        await QuoteStepPlugin().before_run_callback(invocation_context=_context(state, words="fatto"))
-        await _drain()
-    [record] = _steps(caplog)
-    assert record.quote_step == "domanda_invio" and record.card_pending is None
-
-
-async def test_no_quote_does_not_read_the_card(caplog):
-    caplog.set_level(logging.INFO)
-    with patch.object(quote_step_plugin, "confirmation_state", AsyncMock()) as read:
-        await QuoteStepPlugin().before_run_callback(invocation_context=_context(_signed_in({})))
-        await _drain()
-    read.assert_not_awaited()
+    plugin = QuoteStepPlugin()
+    set_request_id("system")
+    await plugin.before_run_callback(invocation_context=_context(_signed_in({})))
+    await plugin.before_run_callback(invocation_context=_context(_signed_in({})))
+    assert len(_steps(caplog)) == 2
 
 
 async def test_a_broken_session_never_stops_the_turn(caplog):

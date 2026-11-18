@@ -1,6 +1,7 @@
 """
 The facts of the quote step (`src/services/quote_step.py`), read from the ADK
-session: its events and the state the orchestrator writes (`session_context.py`).
+session: its events and the state the orchestrator writes (`session_context.py`),
+the card of a draft included (read before the turn, `CARD_PENDING_STATE_KEY`).
 """
 from __future__ import annotations
 
@@ -10,7 +11,7 @@ from typing import Any
 from google.adk.events import Event
 from google.genai import types
 
-from src.adk.session_context import HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY
+from src.adk.session_context import CARD_PENDING_STATE_KEY, HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY
 from src.adk.turn_reading import client_words, last_reply, last_turn_calls, turn_calls
 from src.services.quote_step import QuoteFacts
 
@@ -20,19 +21,18 @@ def quote_facts(
     invocation_id: str,
     user_content: types.Content | None,
     state: Mapping[str, Any],
-    *,
-    card_pending: bool | None,
 ) -> QuoteFacts:
     """The facts of this turn, from the ADK session and its state (the session
     block the orchestrator writes: `session_context.py`)."""
     session = state.get(SESSION_CONTEXT_STATE_KEY) or {}
     quote = state.get(HOUSE_QUOTE_STATE_KEY) or {}
+    card = state.get(CARD_PENDING_STATE_KEY)
     return QuoteFacts(
         is_guest=bool(session.get("is_guest", True)),
         phone_on_file=bool(session.get("phone_on_file")),
         quote_status=quote.get("status"),
         delivery_status=quote.get("delivery_status"),
-        card_pending=card_pending,
+        card_pending=card if isinstance(card, bool) else None,
         last_reply=last_reply(events, invocation_id),
         last_turn_calls=tuple(last_turn_calls(events, invocation_id)),
         turn_calls=tuple(turn_calls(events, invocation_id)),

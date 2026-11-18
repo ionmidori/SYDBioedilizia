@@ -17,6 +17,7 @@ from google.auth.exceptions import DefaultCredentialsError
 from src.adk import adk_orchestrator, tools
 from src.adk.session_context import (
     ACTIVE_ROOM_STATE_KEY,
+    CARD_PENDING_STATE_KEY,
     HOUSE_QUOTE_STATE_KEY,
     ROOMS_STATE_KEY,
     house_quote_entry,
@@ -25,6 +26,7 @@ from src.adk.session_context import (
     session_context_block,
 )
 from src.core.exceptions import ProjectFileNotFoundError, RoomLimitError, RoomNotFoundError
+from src.schemas.confirmation import ConfirmationState, SectionState
 from src.schemas.room import RoomSchema
 from src.services.quote_drafts import QuoteStatusView
 from src.tools import room_tools
@@ -520,6 +522,69 @@ async def test_a_guest_turn_does_not_read_the_quote():
     _, kwargs, _ = await _run_turn(_request(), [], repo, quote=read, is_guest=True)
     read.assert_not_awaited()
     assert HOUSE_QUOTE_STATE_KEY not in kwargs["state_delta"]
+
+
+DRAFT_QUOTE = QuoteStatusView(status="draft", delivery_status=None, quote_number="PRV-2026-0010", version=1,
+                              sent_before=False)
+
+
+def _card(*pending: bool) -> ConfirmationState:
+    return ConfirmationState(
+        sections=[
+            SectionState(section_key=f"r{i}", label=None, pending=p, measures=[], element_choices=[])
+            for i, p in enumerate(pending)
+        ],
+        editable=True,
+        precision=None,
+    )
+
+
+@pytest.mark.parametrize(("card", "pending"), [(_card(False, True), True), (_card(False), False)])
+async def test_state_delta_carries_the_card_of_a_draft_read_before_the_turn(card, pending):
+    """The quote step reads it from the state: read before any tool of the turn writes the card."""
+    repo = _repo(list_rooms=[KITCHEN], find_file_by_storage_path=None)
+    read = AsyncMock(return_value=card)
+    with patch.object(adk_orchestrator, "confirmation_state", read):
+        _, kwargs, _ = await _run_turn(_request(), [], repo, quote=DRAFT_QUOTE)
+    read.assert_awaited_once_with(PROJECT)
+    assert kwargs["state_delta"][CARD_PENDING_STATE_KEY] is pending
+
+
+@pytest.mark.parametrize("is_guest", [False, True])
+async def test_no_draft_reads_no_card_and_clears_the_previous_one(is_guest):
+    repo = _repo(list_rooms=[KITCHEN], find_file_by_storage_path=None)
+    read = AsyncMock()
+    with patch.object(adk_orchestrator, "confirmation_state", read):
+        _, kwargs, _ = await _run_turn(_request(), [], repo, quote=SENT_QUOTE, is_guest=is_guest)
+    read.assert_not_awaited()
+    assert kwargs["state_delta"][CARD_PENDING_STATE_KEY] is None
+
+
+async def test_an_unreadable_card_is_unknown():
+    repo = _repo(list_rooms=[KITCHEN], find_file_by_storage_path=None)
+    with patch.object(adk_orchestrator, "confirmation_state", AsyncMock(side_effect=ServiceUnavailable("down"))):
+        _, kwargs, _ = await _run_turn(_request(), [], repo, quote=DRAFT_QUOTE)
+    assert kwargs["state_delta"][CARD_PENDING_STATE_KEY] is None
+
+
+async def test_a_bug_in_the_card_read_does_not_fail_the_turn():
+    repo = _repo(list_rooms=[KITCHEN], find_file_by_storage_path=None)
+    with patch.object(adk_orchestrator, "confirmation_state", AsyncMock(side_effect=KeyError("bug"))):
+        _, kwargs, _ = await _run_turn(_request(), [], repo, quote=DRAFT_QUOTE)
+    assert kwargs["state_delta"][CARD_PENDING_STATE_KEY] is None
+
+
+async def test_a_slow_card_does_not_hold_the_turn(monkeypatch):
+    monkeypatch.setattr(adk_orchestrator, "_CARD_READ_TIMEOUT_S", 0.01)
+
+    async def slow(_project_id: str) -> ConfirmationState:
+        await asyncio.sleep(1)
+        return _card(True)
+
+    repo = _repo(list_rooms=[KITCHEN], find_file_by_storage_path=None)
+    with patch.object(adk_orchestrator, "confirmation_state", slow):
+        _, kwargs, _ = await _run_turn(_request(), [], repo, quote=DRAFT_QUOTE)
+    assert kwargs["state_delta"][CARD_PENDING_STATE_KEY] is None
 
 
 async def test_a_firestore_client_that_cannot_start_does_not_fail_the_turn(monkeypatch):

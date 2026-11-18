@@ -244,7 +244,7 @@ def test_a_confirmed_card_asks_to_send():
 
 def test_a_draft_whose_card_is_unknown_asks_to_send():
     """The card could not be read: the send stays guarded by the explicit yes."""
-    assert _step(quote_status="draft", card_pending=None) is QuoteStep.DOMANDA_INVIO
+    assert _step(quote_status="draft") is QuoteStep.DOMANDA_INVIO
 
 
 def test_a_yes_to_the_send_question_sends():
@@ -356,8 +356,9 @@ def test_facts_read_the_session():
         "syd_session_context": {"is_guest": False, "phone_on_file": True, "session_id": "s"},
         "syd_house_quote": {"quote_number": "PRV-2026-0001", "status": "draft", "version": 1,
                             "delivery_status": None},
+        "syd_card_pending": True,  # read by the orchestrator before the turn
     }
-    facts = quote_facts(events, TURN, user_message("###\nsì\n###"), state, card_pending=True)
+    facts = quote_facts(events, TURN, user_message("###\nsì\n###"), state)
     assert facts == QuoteFacts(
         is_guest=False, phone_on_file=True, quote_status="draft", delivery_status=None, card_pending=True,
         last_reply=REGISTER_ASK, last_turn_calls=("request_login",), turn_calls=("save_contact_phone",),
@@ -366,13 +367,13 @@ def test_facts_read_the_session():
 
 
 def test_facts_without_session_context_are_a_guest_without_quote():
-    facts = quote_facts([], TURN, user_message("ciao"), {}, card_pending=None)
+    facts = quote_facts([], TURN, user_message("ciao"), {})
     assert facts.is_guest and not facts.phone_on_file and facts.quote_status is None
 
 
 def test_facts_of_an_unreadable_quote_are_no_quote():
     state = {"syd_session_context": {"is_guest": False}, "syd_house_quote": None}
-    assert quote_facts([], TURN, user_message("ciao"), state, card_pending=None).quote_status is None
+    assert quote_facts([], TURN, user_message("ciao"), state).quote_status is None
 
 
 def test_facts_of_a_turn_without_its_video_read_the_failed_message():
@@ -382,5 +383,5 @@ def test_facts_of_a_turn_without_its_video_read_the_failed_message():
     ])
     events = [text_event("quote", SEND_ASK), Event(invocation_id="inv-failed", author="user", content=failed)]
     note = types.Content(role="user", parts=[skipped_model_note(1)])
-    facts = quote_facts(events, TURN, note, {}, card_pending=None)
+    facts = quote_facts(events, TURN, note, {})
     assert facts.client_words == "###\nsì\n###" and facts.last_reply == SEND_ASK
