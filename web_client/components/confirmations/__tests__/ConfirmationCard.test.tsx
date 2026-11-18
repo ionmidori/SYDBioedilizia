@@ -461,6 +461,23 @@ describe('ConfirmationCard — changing one thing of a confirmed section', () =>
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('still says why when the team took the quote while a confirmed voice was being changed', async () => {
+    confirm.mockRejectedValue({ message: 'Il preventivo è già stato inviato al team.' });
+    getState
+      .mockResolvedValueOnce(state({ sections: [cucina()], precision: 90 }))
+      .mockResolvedValue(state({ editable: false, sections: [cucina()], precision: 90 }));
+    const user = userEvent.setup();
+    renderCard();
+
+    await edit(user, 'Superficie pavimento');
+    await user.click(screen.getByRole('button', { name: 'Conferma' }));
+
+    // Read again, nothing is left to change: the card closes, the reason stays.
+    await waitFor(() => expect(getState).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Il preventivo è già stato inviato al team.');
+    expect(screen.queryByLabelText('Superficie pavimento')).not.toBeInTheDocument();
+  });
+
   it('says what is wrong with the value before it is sent', async () => {
     const user = userEvent.setup();
     renderCard();

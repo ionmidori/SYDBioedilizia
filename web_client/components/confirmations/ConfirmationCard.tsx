@@ -76,8 +76,9 @@ export function ConfirmationCard({ projectId }: { projectId: string }) {
       {announcement}
     </p>
   );
-  // Nothing to confirm or change: the card stays only to say how precise the estimate is.
-  if (shown.length === 0 && !(mutation.isSuccess && data.precision !== null)) {
+  // Nothing to confirm or change: the card stays only to say how precise the estimate is, or why
+  // the last save failed (the team took the quote meanwhile: the read-only card shows nothing else).
+  if (shown.length === 0 && !mutation.isError && !(mutation.isSuccess && data.precision !== null)) {
     return announcement ? (
       <>
         {null}
