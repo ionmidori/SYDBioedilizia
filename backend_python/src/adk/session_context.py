@@ -47,6 +47,10 @@ SESSION_CONTEXT_STATE_KEY = "syd_session_context"
 ROOMS_STATE_KEY = "syd_rooms"
 # Room the conversation is about (chip in the UI or `select_room`).
 ACTIVE_ROOM_STATE_KEY = "syd_active_room_id"
+# The client's message of this turn ({id, room_id}), written every turn. /chat/stream
+# saves it to Firestore only after the stream: a tool reading the chat history adds
+# it from here (its words come from the ADK user content).
+TURN_MESSAGE_STATE_KEY = "syd_turn_message"
 # Where the house quote stands ({} = no quote); None (or absent) when unknown:
 # it could not be read this turn, or the user is a guest.
 HOUSE_QUOTE_STATE_KEY = "syd_house_quote"
@@ -98,6 +102,12 @@ def session_context_delta(*, is_guest: bool, phone_on_file: bool, session_id: st
             "session_id": session_id,
         }
     }
+
+
+def turn_message_entry(message_id: str | None, room_id: str | None) -> dict[str, str | None]:
+    """The turn's message as kept in the session state: its Firestore id and the
+    room it was sent with (None for none)."""
+    return {"id": message_id, "room_id": room_id}
 
 
 def room_index_entry(room_id: str, label: str, room_type: str, summary: str | None = None) -> dict[str, str]:

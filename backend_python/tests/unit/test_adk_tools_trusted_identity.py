@@ -45,7 +45,7 @@ async def test_suggest_quote_items_ignores_model_identity(tool_context):
     with patch("src.tools.quote_tools.suggest_quote_items_wrapper", new=AsyncMock(return_value="ok")) as w:
         await tools.suggest_quote_items(session_id=FOREIGN_SESSION, tool_context=tool_context)
     w.assert_awaited_once_with(
-        session_id=TRUSTED_SESSION, project_id=TRUSTED_SESSION, user_id=TRUSTED_UID
+        session_id=TRUSTED_SESSION, project_id=TRUSTED_SESSION, user_id=TRUSTED_UID, turn_message=None
     )
 
 
