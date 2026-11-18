@@ -86,12 +86,15 @@ def _label_and_unit(name: str) -> tuple[str, str]:
     return (found.group(1), f" {found.group(2)}") if found else (label, "")
 
 
-def proposal_notes(spec: RoomInterventionSpec) -> list[str]:
+def proposal_notes(spec: RoomInterventionSpec, before: RoomInterventionSpec | None = None) -> list[str]:
     """For the client: each confirmed measure the lines used while a new value
-    waits on the card. The agent reports these, never a value of its own."""
+    waits on the card. The agent reports these, never a value of its own.
+    With the spec stored `before` this call, only the news: a proposal already
+    reported on the same confirmed value is not said again every turn."""
+    reported = {(m.name, m.value, m.proposed) for m in before.measures} if before is not None else set()
     notes = []
     for m in spec.measures:
-        if m.source == "confirmed" and m.proposed is not None:
+        if m.source == "confirmed" and m.proposed is not None and (m.name, m.value, m.proposed) not in reported:
             label, unit = _label_and_unit(m.name)
             notes.append(
                 f"{label}: calcolato su {_number(m.value)}{unit}, il valore confermato da te. "

@@ -484,6 +484,7 @@ class _UnitResult:
     analysed: _Analysed
     spec: RoomInterventionSpec | None = None  # what the lines were expanded from (None: no library)
     on_card: bool = False  # its spec is stored: the confirmation card shows this unit
+    before: RoomInterventionSpec | None = None  # the spec stored before this call: its proposals were reported
 
     @property
     def lines(self) -> list[ExpandedLine]:
@@ -878,7 +879,7 @@ async def _analyse(
     library = load_library()
     # "Generale" has no brief of its own measures: its floor is not the rest of the home's.
     measures = resolve_measures(validated, unit.room.brief if unit.room else None)
-    stored = stored_specs.get(unit.spec_key) if stored_specs is not None else None
+    stored = before = stored_specs.get(unit.spec_key) if stored_specs is not None else None
     expansion = _expansion(validated, measures, library, stored)
     # Built from the model's values: one that differs from a confirmed value is a proposal.
     fresh = _build_spec(unit, validated, measures, library, expansion)
@@ -895,7 +896,7 @@ async def _analyse(
     expansion, spec = _checked(analysed, expansion, stored, spec)
     return _UnitResult(
         unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, analysed=analysed,
-        spec=spec, on_card=on_card,
+        spec=spec, on_card=on_card, before=before,
     )
 
 
@@ -1031,12 +1032,13 @@ def _section_label(result: _UnitResult) -> str | None:
 
 
 def _proposals_note(results: list[_UnitResult]) -> str:
-    """The values the lines used while a new one waits on the card, per section."""
+    """The values the lines used while a new one waits on the card, per section:
+    only the proposals new in this call (the card keeps showing the others)."""
     notes: list[str] = []
     for result in results:
         if result.on_card and result.spec is not None:
             label = _section_label(result)
-            notes += [f"**{label}** — {note}" if label else note for note in proposal_notes(result.spec)]
+            notes += [f"**{label}** — {note}" if label else note for note in proposal_notes(result.spec, result.before)]
     return "\n".join(notes)
 
 

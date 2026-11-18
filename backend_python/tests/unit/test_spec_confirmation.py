@@ -288,6 +288,34 @@ def test_a_proposal_note_without_a_unit_shows_the_bare_count():
     ]
 
 
+# Test chat of 18/11: "Bagno pavimento 10 / 13 m²" in three turns in a row, one per
+# call of the quote tool while the proposal waited on the card.
+
+def test_a_proposal_already_reported_is_not_repeated() -> None:
+    before = _spec([_confirmed("mq", 10, proposed=13)])
+    assert proposal_notes(_spec([_confirmed("mq", 10, proposed=13)]), before) == []
+
+
+def test_a_new_proposal_is_reported() -> None:
+    notes = proposal_notes(_spec([_confirmed("mq", 10, proposed=13)]), _spec([_confirmed("mq", 10)]))
+    assert len(notes) == 1 and "13 m²" in notes[0]
+
+
+def test_a_changed_proposal_is_reported_again() -> None:
+    notes = proposal_notes(_spec([_confirmed("mq", 10, proposed=15)]), _spec([_confirmed("mq", 10, proposed=13)]))
+    assert len(notes) == 1 and "15 m²" in notes[0]
+
+
+def test_a_proposal_on_another_confirmed_value_is_reported() -> None:
+    """The client confirmed 12 on the card, the model still says 13: news for the client."""
+    notes = proposal_notes(_spec([_confirmed("mq", 12, proposed=13)]), _spec([_confirmed("mq", 10, proposed=13)]))
+    assert len(notes) == 1 and "12 m²" in notes[0]
+
+
+def test_without_a_stored_spec_every_proposal_is_reported() -> None:
+    assert len(proposal_notes(_spec([_confirmed("mq", 10, proposed=13)]), None)) == 1
+
+
 # ── The team's checks the card keeps (no analysis when it recomputes) ────────
 
 def _checked(*checks: StoredAdminCheck, conflicts: dict[str, list[float]] | None = None) -> RoomInterventionSpec:
