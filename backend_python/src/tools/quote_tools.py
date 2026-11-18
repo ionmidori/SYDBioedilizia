@@ -41,6 +41,7 @@ from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_ai_draft
 from src.services.quote_followup import FollowupResult, relay_client_request
 from src.services.quote_state import QuoteStatus, ai_draft_action
+from src.services.quote_step import NEEDS_DETAILS
 from src.services.room_aggregation import load_rules
 from src.services.room_mentions import message_rooms
 from src.services.spec_confirmation import (
@@ -974,7 +975,7 @@ def _single_unit_reply(result: _UnitResult) -> str | None:
         )
         return (
             f"Ho identificato le lavorazioni principali ({analysis.summary}), "
-            f"ma ho bisogno di qualche dettaglio in più per un preventivo preciso.\n\n"
+            f"ma {NEEDS_DETAILS} per un preventivo preciso.\n\n"
             + _blocks(" ".join(result.questions), _CARD_MEASURES_NOTE if result.asks_card else "")
         )
     if not result.lines:
@@ -997,8 +998,7 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
         logger.info("[QuoteTool] Completeness gate triggered.", extra={"rooms": [_room_label(r) for r in gated]})
         questions = "\n".join(f"**{_room_label(r)}**: {' '.join(r.questions)}" for r in gated if r.questions)
         return (
-            "Prima di prepararti un preventivo accurato per tutta la casa ho bisogno di qualche "
-            "dettaglio in più.\n\n" + _blocks(questions, _CARD_MEASURES_NOTE if any(r.asks_card for r in gated) else "")
+            f"Prima di prepararti un preventivo accurato per tutta la casa {NEEDS_DETAILS}.\n\n" + _blocks(questions, _CARD_MEASURES_NOTE if any(r.asks_card for r in gated) else "")
         )
     discarded = [r for r in results if r.proposed_lines and not r.lines]
     if discarded and any(r.lines for r in results):

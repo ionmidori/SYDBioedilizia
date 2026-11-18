@@ -12,8 +12,8 @@ from google.adk.events import Event
 from google.genai import types
 
 from src.adk.session_context import CARD_PENDING_STATE_KEY, HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY
-from src.adk.turn_reading import client_words, last_reply, last_turn_calls, turn_calls
-from src.services.quote_step import QuoteFacts
+from src.adk.turn_reading import client_words, last_reply, last_turn_calls, last_turn_responses, turn_calls
+from src.services.quote_step import REGISTER_TOOL, QuoteFacts
 
 
 def quote_facts(
@@ -37,4 +37,5 @@ def quote_facts(
         last_turn_calls=tuple(last_turn_calls(events, invocation_id)),
         turn_calls=tuple(turn_calls(events, invocation_id)),
         client_words=client_words(events, invocation_id, user_content),
+        last_register_reply="\n".join(last_turn_responses(events, invocation_id, REGISTER_TOOL)),
     )

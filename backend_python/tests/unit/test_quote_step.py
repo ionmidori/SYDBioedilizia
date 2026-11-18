@@ -8,6 +8,7 @@ turn run again without an unreadable video.
 import ast
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from google.adk.events import Event
@@ -15,7 +16,8 @@ from google.genai import types
 from src.adk.quote_facts import quote_facts
 from src.adk.video_attachments import skipped_model_note
 from src.services import quote_step as quote_step_module
-from src.services.quote_step import QuoteFacts, QuoteStep, quote_step
+from src.services.quote_step import NEEDS_DETAILS, QuoteFacts, QuoteStep, quote_step
+from src.tools.quote_tools import _rooms_reply, _single_unit_reply
 from tests.unit.send_consent_fakes import TURN, text_event, user_message
 
 REGISTER_ASK = "Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"
@@ -35,6 +37,7 @@ BASE = QuoteFacts(
     last_turn_calls=(),
     turn_calls=(),
     client_words="",
+    last_register_reply="",
 )
 
 
@@ -330,6 +333,62 @@ def test_a_yes_with_a_courtesy_is_a_yes():
     assert step is QuoteStep.INVIO
 
 
+# ── after the completeness gate: the answer is registered ────────────────────
+
+# What suggest_quote_items answered in the test chat of 18/11 (turn 8).
+GATE_REPLY = (
+    "Prima di prepararti un preventivo accurato per tutta la casa ho bisogno di qualche dettaglio in più.\n\n"
+    "**Soggiorno**: Quali interventi vorresti realizzare nel soggiorno?"
+)
+GATED = {"last_turn_calls": ("suggest_quote_items",), "last_register_reply": GATE_REPLY}
+
+
+@pytest.mark.parametrize("answer", ["Il soggiorno non lo includere", "Sì lascia solo camera da letto e bagno"])
+def test_the_answer_to_the_gate_registers(answer):
+    """The tool asked instead of registering: the answer goes back to it (turns 9 and 10)."""
+    assert _step(quote_status="sent", phone_on_file=False, client_words=answer, **GATED) is QuoteStep.REGISTRA
+
+
+def test_the_answer_to_the_gate_on_a_draft_registers():
+    step = _step(quote_status="draft", card_pending=True, client_words="il soggiorno non lo includere", **GATED)
+    assert step is QuoteStep.REGISTRA
+
+
+def test_a_rebuilt_session_reads_the_gate_in_the_reply():
+    """No tool calls after a rebuild from Firestore: the model copied the questions."""
+    assert _step(last_reply=GATE_REPLY, client_words="il soggiorno è 20 mq") is QuoteStep.REGISTRA
+
+
+def test_a_guest_answering_the_gate_still_logs_in():
+    assert _step(is_guest=True, last_reply=GATE_REPLY, client_words="20 mq") is QuoteStep.ACCESSO
+
+
+def test_a_change_at_the_gate_goes_back_to_collecting():
+    assert _step(client_words="aggiungi anche il soggiorno, 20 mq", **GATED) is QuoteStep.RACCOLTA
+
+
+def test_a_registered_draft_is_not_a_gate():
+    """Turn 11: the last turn registered (no questions), the client says yes to the send."""
+    step = _step(quote_status="draft", card_pending=False, last_reply=SEND_ASK, client_words="Confermo",
+                 last_turn_calls=("suggest_quote_items",), last_register_reply="Ho registrato la nuova revisione.")
+    assert step is QuoteStep.INVIO
+
+
+def _gated_unit() -> SimpleNamespace:
+    return SimpleNamespace(
+        needs_info=True, proposed_lines=True, questions=["Quanti metri quadri?"], asks_card=False,
+        unit=SimpleNamespace(room=None), unknown_skus=[], expansion=SimpleNamespace(missing_measures=[]),
+        analysis=SimpleNamespace(summary="bagno", packages=["p"], suggestions=[], missing_info=["mq"],
+                                 completeness_score=0.5),
+    )
+
+
+def test_the_gate_replies_of_the_tool_carry_the_marker():
+    """The rule reads the tool's own words: they come from the same constant."""
+    for reply in (_rooms_reply([_gated_unit()]), _single_unit_reply(_gated_unit())):
+        assert reply is not None and NEEDS_DETAILS in reply
+
+
 def test_the_step_is_a_plain_string_for_the_log():
     assert QuoteStep.DOMANDA_INVIO == "domanda_invio"
 
@@ -362,7 +421,7 @@ def test_facts_read_the_session():
     assert facts == QuoteFacts(
         is_guest=False, phone_on_file=True, quote_status="draft", delivery_status=None, card_pending=True,
         last_reply=REGISTER_ASK, last_turn_calls=("request_login",), turn_calls=("save_contact_phone",),
-        client_words="###\nsì\n###",
+        client_words="###\nsì\n###", last_register_reply="",
     )
 
 
@@ -385,3 +444,34 @@ def test_facts_of_a_turn_without_its_video_read_the_failed_message():
     note = types.Content(role="user", parts=[skipped_model_note(1)])
     facts = quote_facts(events, TURN, note, {})
     assert facts.client_words == "###\nsì\n###" and facts.last_reply == SEND_ASK
+
+
+def _response(name: str, invocation_id: str, result: object) -> Event:
+    return Event(
+        invocation_id=invocation_id,
+        author="quote",
+        content=types.Content(role="user", parts=[
+            types.Part(function_response=types.FunctionResponse(name=name, response=result)),
+        ]),
+    )
+
+
+def test_facts_read_the_register_reply_of_the_last_turn():
+    events = [
+        text_event("user", "procedi"),
+        _call("suggest_quote_items", "inv-before"),
+        _response("suggest_quote_items", "inv-before", {"result": GATE_REPLY}),
+        text_event("quote", GATE_REPLY),
+        text_event("user", "il soggiorno non lo includere", TURN),
+    ]
+    assert quote_facts(events, TURN, user_message("x"), {}).last_register_reply == GATE_REPLY
+
+
+def test_facts_ignore_a_register_reply_of_an_older_turn():
+    events = [
+        _call("suggest_quote_items", "inv-old"),
+        _response("suggest_quote_items", "inv-old", {"result": GATE_REPLY}),
+        text_event("quote", "Ecco la bozza."),
+        text_event("user", "ok", TURN),
+    ]
+    assert quote_facts(events, TURN, user_message("ok"), {}).last_register_reply == ""

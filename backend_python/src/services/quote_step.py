@@ -30,7 +30,7 @@ from src.services.reply_reading import (
     without_courtesies,
 )
 
-_REGISTER_TOOL = "suggest_quote_items"
+REGISTER_TOOL = "suggest_quote_items"
 _LOGIN_TOOL = "request_login"
 _PHONE_TOOL = "save_contact_phone"
 
@@ -60,6 +60,7 @@ class QuoteFacts:
     last_turn_calls: tuple[str, ...]
     turn_calls: tuple[str, ...]  # tools called so far in this turn
     client_words: str
+    last_register_reply: str = ""  # what suggest_quote_items answered in the last turn ("": not called)
 
 
 # The assistant offers to do it, at the start of the sentence: "Preparo la richiesta di preventivo?",
@@ -85,6 +86,10 @@ _PHONE = re.compile(r"\b(whatsapp|telefono|cellulare)\b", re.IGNORECASE)
 # The login message of the quote (modes.py, STEP AUTH_GATE): the trace of the login when the
 # session was rebuilt from Firestore, whose history keeps no tool calls.
 _LOGIN_TEXT = re.compile(r"account gratuito|accedi qui", re.IGNORECASE)
+# The completeness gate of suggest_quote_items (src/tools/quote_tools.py): questions instead
+# of a quote. The tool writes this constant; the rule reads it back.
+NEEDS_DETAILS = "ho bisogno di qualche dettaglio in più"
+_GATE_TEXT = re.compile(rf"{re.escape(NEEDS_DETAILS)}|ho bisogno di qualche informazione", re.IGNORECASE)
 
 
 def _names_registration(sentence: str) -> bool:
@@ -124,6 +129,12 @@ def _quote_login(f: QuoteFacts) -> bool:
     return asked and bool(_QUOTE_OBJECT.search(f.last_reply))
 
 
+def _gate_asked(f: QuoteFacts) -> bool:
+    """The last registration stopped at the completeness gate and asked for details. A
+    rebuilt session has no tool calls: the questions in the reply count."""
+    return bool(_GATE_TEXT.search(f.last_register_reply) or _GATE_TEXT.search(f.last_reply))
+
+
 def _confirmed(f: QuoteFacts) -> QuoteStep:
     """The registration is confirmed: login for a guest, then the phone once, then register."""
     if f.is_guest:
@@ -142,7 +153,7 @@ def _answer(f: QuoteFacts, asked: QuoteStep, on_yes: QuoteStep) -> QuoteStep:
 
 
 def _with_team(f: QuoteFacts) -> QuoteStep:
-    relayed = _REGISTER_TOOL in f.turn_calls or _asks_change(f.client_words) or asks_to_register(f.client_words)
+    relayed = REGISTER_TOOL in f.turn_calls or _asks_change(f.client_words) or asks_to_register(f.client_words)
     return QuoteStep.INOLTRO if relayed else QuoteStep.AL_TEAM
 
 
@@ -151,6 +162,8 @@ def _on_draft(f: QuoteFacts) -> QuoteStep:
         return QuoteStep.REGISTRA  # the phone was asked at the first registration
     if _asks_change(f.client_words):
         return QuoteStep.RACCOLTA  # new work, at the card or anywhere: modifiche -> R
+    if _gate_asked(f):
+        return QuoteStep.REGISTRA  # the details the gate asked for: register again
     if f.card_pending:
         return QuoteStep.SCHEDA
     if asked_to_send(f.last_reply):
@@ -161,6 +174,9 @@ def _on_draft(f: QuoteFacts) -> QuoteStep:
 def _without_draft(f: QuoteFacts) -> QuoteStep:
     if not f.is_guest and not f.phone_on_file and _asked_phone(f.last_reply):
         return QuoteStep.REGISTRA  # asked once, whatever the answer
+    if _gate_asked(f) and not _asks_change(f.client_words):
+        # The details the gate asked for (the phone was asked before the first try).
+        return QuoteStep.ACCESSO if f.is_guest else QuoteStep.REGISTRA
     if _quote_login(f):
         return _confirmed(f)  # still a guest: still the login; signed in: the confirmation holds
     if asks_to_register(f.client_words):
@@ -175,7 +191,7 @@ def quote_step(f: QuoteFacts) -> QuoteStep:
     action = ai_draft_action(f.quote_status, f.delivery_status)
     if action == "relay":
         return _with_team(f)
-    if _REGISTER_TOOL in f.turn_calls:
+    if REGISTER_TOOL in f.turn_calls:
         return QuoteStep.SCHEDA
     if _LOGIN_TOOL in f.turn_calls:
         return QuoteStep.ACCESSO
