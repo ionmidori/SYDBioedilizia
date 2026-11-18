@@ -77,6 +77,7 @@ def _clean_state(monkeypatch):
     room_brief._watermark.clear()
     room_brief._running.clear()
     room_brief._dirty.clear()
+    room_brief._saves.clear()
     yield
 
 
@@ -412,3 +413,47 @@ async def test_a_failed_user_message_save_still_refreshes_the_brief():
     with _Backend(_room(), BATH_TALK) as backend:
         await _run(BriefTurn(project_id="p1", session_id="s1", room_id="r_bagno", is_guest=False, user_message_saved=saved))
     backend.generate.assert_awaited_once()
+    assert isinstance(saved.exception(), RuntimeError)
+
+
+async def test_a_save_that_never_ends_holds_the_refresh_only_for_a_while(monkeypatch):
+    monkeypatch.setattr(settings, "ROOM_BRIEF_TIMEOUT_SECONDS", 0.05)
+    never = asyncio.get_running_loop().create_future()
+    with _Backend(_room(), BATH_TALK) as backend:
+        await asyncio.wait_for(
+            _run(BriefTurn(project_id="p1", session_id="s1", room_id="r_bagno", is_guest=False, user_message_saved=never)),
+            timeout=1,
+        )
+    backend.generate.assert_awaited_once()
+    assert not room_brief._saves
+
+
+async def test_a_turn_ending_during_a_refresh_is_read_after_its_own_user_message():
+    """The running refresh goes again for the second turn, and waits for that
+    turn's user message too, not only the first one's."""
+    release = asyncio.Event()
+    summarizing = asyncio.Event()
+
+    async def slow_reply(**_: Any) -> SimpleNamespace:
+        summarizing.set()
+        await release.wait()
+        return _reply()
+
+    history = list(BATH_TALK)
+    second_saved = asyncio.get_running_loop().create_future()
+    with _Backend(_room(), history) as backend:
+        backend.generate.side_effect = slow_reply
+        first = schedule_room_brief_refresh(_turn())
+        await asyncio.wait_for(summarizing.wait(), timeout=1)
+        history.append({"id": "m4", "role": "assistant", "content": "Va bene.", "room_id": "r_bagno"})
+        assert schedule_room_brief_refresh(
+            BriefTurn(project_id="p1", session_id="s1", room_id="r_bagno", is_guest=False, user_message_saved=second_saved)
+        ) is None
+        release.set()
+        assert first is not None
+        done, _ = await asyncio.wait({first}, timeout=0.2)
+        assert not done
+        history.insert(2, {"id": "m3", "role": "user", "content": "Il bagno è 9 mq", "room_id": "r_bagno"})
+        second_saved.set_result(None)
+        await first
+    assert "Il bagno è 9 mq" in backend.generate.await_args.kwargs["contents"]

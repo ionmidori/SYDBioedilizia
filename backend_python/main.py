@@ -16,7 +16,6 @@ from google.api_core.exceptions import GoogleAPICallError
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from src.adk.background import run_in_background
 from src.auth.jwt_handler import verify_token
 from src.core.chat_timing import start_turn
 from src.core.config import settings
@@ -826,8 +825,15 @@ async def chat_stream(
         body.room_id = None
     turn.mark("session_ready")
 
+    # Resolved once the user message below is written (or failed): the room briefs,
+    # scheduled when the reply is saved inside the stream, read the chat after it.
+    user_message_saved: asyncio.Future[None] = asyncio.get_running_loop().create_future()
+
     async def _persist_user_message():
-        """Background: persist user message to Firestore without blocking the stream."""
+        """Background: persist user message to Firestore without blocking the stream.
+
+        After the stream, like before: the history the turn restores never holds
+        this message twice."""
         try:
             await repo.save_message(
                 session_id=body.session_id,
@@ -843,10 +849,11 @@ async def chat_stream(
             logger.info("[Anchor] User message persisted")
         except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to pre-persist user message in route: {e}")
+        finally:
+            if not user_message_saved.done():
+                user_message_saved.set_result(None)
 
-    # Started now, not after the stream (a BackgroundTask): the room briefs are
-    # scheduled when the reply is saved and must read this message.
-    user_message_saved = run_in_background(_persist_user_message(), name="persist_user_message")
+    background_tasks.add_task(_persist_user_message)
 
     # Directly pass the async iterator to StreamingResponse.
     # The orchestrator emits the AI SDK v6 UI Message Stream protocol (SSE),

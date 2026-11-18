@@ -175,22 +175,46 @@ def test_chat_request_has_no_project_id():
 
 
 @pytest.mark.asyncio
-async def test_the_stream_can_wait_for_the_user_message_to_be_saved(_overrides, db):
-    """The room brief reads the chat at the end of the turn: the user message is
-    saved while the reply streams (not after it), and the orchestrator can wait for it."""
+async def test_the_stream_gets_a_future_resolved_once_the_user_message_is_saved(_overrides, db):
+    """The room brief reads the chat after the user message, which is written after
+    the stream (the turn's restored history never holds it twice)."""
     db.put("users", REGISTERED.uid, {"chat_id": "my-chat"})
     repo = _repo()
-    saved_before_the_stream_ended: list[bool] = []
+    futures: list = []
+    resolved_before_the_save: list[bool] = []
 
     async def stream(*_args, **kwargs):
-        await kwargs["user_message_saved"]
-        saved_before_the_stream_ended.append(repo.save_message.await_count == 1)
+        futures.append(kwargs["user_message_saved"])
         yield ""
 
+    async def save(**_kwargs):
+        resolved_before_the_save.append(futures[0].done())
+
     _overrides.stream_chat = MagicMock(side_effect=stream)
+    repo.save_message = AsyncMock(side_effect=save)
 
     resp = await _post(repo, {**_BODY, "sessionId": "my-chat"})
 
     assert resp.status_code == 200
-    assert saved_before_the_stream_ended == [True]
+    assert resolved_before_the_save == [False]
+    assert futures[0].done()
     assert repo.save_message.await_args.kwargs["role"] == "user"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_user_message_save_still_resolves_the_future(_overrides, db):
+    db.put("users", REGISTERED.uid, {"chat_id": "my-chat"})
+    repo = _repo()
+    futures: list = []
+
+    async def stream(*_args, **kwargs):
+        futures.append(kwargs["user_message_saved"])
+        yield ""
+
+    _overrides.stream_chat = MagicMock(side_effect=stream)
+    repo.save_message = AsyncMock(side_effect=ServiceUnavailable("firestore down"))
+
+    resp = await _post(repo, {**_BODY, "sessionId": "my-chat"})
+
+    assert resp.status_code == 200
+    assert futures[0].done() and futures[0].exception() is None
