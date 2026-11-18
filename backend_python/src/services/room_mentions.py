@@ -1,11 +1,11 @@
 """
-The room a message without a room chip talks about.
+The room a client message talks about.
 
-A client may correct a room with no chip active ("il bagno è 8 metri quadri"):
-the message is saved without a room and the quote read it only as background,
-so the analysis kept the old measure of the room's brief. A user message that
-names exactly one room is that room's talk; one that names several rooms, or
-none, stays project-wide.
+A client may correct a room from another chip ("il bagno è 8 metri quadri" typed
+in Generale or in the kitchen): the message is saved with the chip it was typed
+in, and the brief and the quote of the bathroom never read it. A user message that
+names exactly one room is that room's talk, whatever chip it was sent with; one
+that names several rooms, or none, stays with its chip (or project-wide).
 
 A room is named by its label (without the article: "Il Bagno" = "bagno") and by
 its type ("cucina") when no other room has that type; with two rooms of a type,
@@ -70,6 +70,20 @@ def messages_naming_one_room(
         if shared is None or not shared.search(rest):
             found[hits[0]].append(message)
     return dict(found)
+
+
+def message_rooms(
+    messages: Sequence[Mapping[str, object]], rooms: Sequence[RoomSchema]
+) -> dict[int, str | None]:
+    """The room each message belongs to, by `id(message)`: the one room a user message
+    names, else the room it was sent with (`room_id`, None for none)."""
+    named = {id(m): room_id for room_id, found in messages_naming_one_room(messages, rooms).items() for m in found}
+    return {id(m): named.get(id(m), _chip(m)) for m in messages}
+
+
+def _chip(message: Mapping[str, object]) -> str | None:
+    room_id = message.get("room_id")
+    return room_id if isinstance(room_id, str) else None
 
 
 def room_named_by(text: str, rooms: Sequence[RoomSchema]) -> str | None:

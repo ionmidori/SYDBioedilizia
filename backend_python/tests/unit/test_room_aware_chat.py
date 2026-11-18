@@ -455,6 +455,16 @@ async def test_a_turn_without_chip_naming_a_room_also_refreshes_that_room():
     assert schedule.call_args_list[1].args[0].room_id == "r_bagno"
 
 
+async def test_a_turn_sent_from_a_room_naming_another_room_also_refreshes_that_room():
+    """ "il bagno è 11 mq" typed in another chip: the bathroom's brief catches up too."""
+    repo = _repo(list_rooms=[KITCHEN, BATH], find_file_by_storage_path=None)
+    schedule = MagicMock(return_value=None)
+    request = _request(room_id="r_cucina", messages=[MagicMock(content="il bagno è 11 metri quadri")])
+    with patch.object(adk_orchestrator, "schedule_room_brief_refresh", schedule):
+        await _run_turn(request, [_make_text_event("Annotato.")], repo)
+    assert [call.args[0].room_id for call in schedule.call_args_list] == ["r_cucina", "r_bagno"]
+
+
 async def test_every_brief_refresh_waits_for_the_user_message_of_the_turn():
     repo = _repo(list_rooms=[KITCHEN, BATH], find_file_by_storage_path=None)
     schedule = MagicMock(return_value=None)

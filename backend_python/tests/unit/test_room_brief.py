@@ -268,15 +268,38 @@ async def test_with_two_bathrooms_the_bare_type_stays_in_generale():
     assert "il bagno è 8 metri quadri" in backend.generate.await_args.kwargs["contents"]
 
 
-async def test_a_message_sent_with_the_generale_chip_stays_generale_s():
-    """The client chose Generale: the room it names does not take it."""
-    talk = [{"id": "m1", "role": "user", "content": "voglio rifare il bagno entro giugno", "room_id": DEFAULT_ROOM_ID}]
-    with _Backend(GENERALE, talk, rooms=[GENERALE, BAGNO]) as backend:
-        await _run(_turn(room_id=None))
-    assert "rifare il bagno entro giugno" in backend.generate.await_args.kwargs["contents"]
+async def test_a_message_sent_from_generale_naming_one_room_is_that_room_s_talk():
+    """ "Il bagno è 11 mq" typed in Generale: the bathroom's brief takes it, Generale's does not."""
+    talk = [
+        {"id": "m1", "role": "user", "content": "Il bagno è 9mq", "room_id": "r_bagno"},
+        {"id": "m2", "role": "user", "content": "Il bagno è 11 mq", "room_id": DEFAULT_ROOM_ID},
+        {"id": "m3", "role": "user", "content": "rifacciamo il corridoio", "room_id": DEFAULT_ROOM_ID},
+    ]
     with _Backend(BAGNO, talk, rooms=[GENERALE, BAGNO]) as backend:
         await _run(_turn(room_id="r_bagno"))
-    backend.generate.assert_not_awaited()
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert prompt.index("Il bagno è 9mq") < prompt.index("Il bagno è 11 mq")
+    assert "corridoio" not in prompt
+    with _Backend(GENERALE, talk, rooms=[GENERALE, BAGNO]) as backend:
+        await _run(_turn(room_id=None))
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert "corridoio" in prompt and "11 mq" not in prompt
+
+
+async def test_a_message_sent_from_a_room_naming_another_room_is_the_other_room_s_talk():
+    cucina = _typed_room("r_cucina", "Cucina", "cucina")
+    talk = [
+        {"id": "m1", "role": "user", "content": "doccia al posto della vasca", "room_id": "r_bagno"},
+        {"id": "m2", "role": "user", "content": "in cucina il top in quarzo", "room_id": "r_bagno"},
+    ]
+    with _Backend(cucina, talk, rooms=[GENERALE, BAGNO, cucina]) as backend:
+        await _run(_turn(room_id="r_cucina"))
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert "top in quarzo" in prompt and "doccia" not in prompt
+    with _Backend(BAGNO, talk, rooms=[GENERALE, BAGNO, cucina]) as backend:
+        await _run(_turn(room_id="r_bagno"))
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert "doccia" in prompt and "top in quarzo" not in prompt
 
 
 async def test_a_watermark_on_a_message_now_named_elsewhere_reads_only_what_follows():
@@ -308,6 +331,42 @@ async def test_a_room_s_old_tagged_messages_outside_the_recent_window_still_coun
         await _run(_turn(room_id="r_bagno"))
     prompt = backend.generate.await_args.kwargs["contents"]
     assert prompt.index("doccia walk-in") < prompt.index("il bagno è 8 metri quadri")
+
+
+async def test_an_old_room_message_naming_another_room_outside_the_window_stays_with_its_room(monkeypatch):
+    """The named room reads only the recent window: an older message it cannot see stays where it was typed."""
+    monkeypatch.setattr(settings, "ROOM_BRIEF_HISTORY_MESSAGES", 2)
+    cucina = _typed_room("r_cucina", "Cucina", "cucina")
+    talk = [
+        {"id": "m1", "role": "user", "content": "in cucina il top in quarzo", "room_id": "r_bagno"},
+        *({"id": f"x{i}", "role": "user", "content": f"corridoio nota {i}"} for i in range(6)),
+        {"id": "m9", "role": "user", "content": "doccia walk-in", "room_id": "r_bagno"},
+    ]
+    with _Backend(BAGNO, talk, rooms=[GENERALE, BAGNO, cucina]) as backend:
+        await _run(_turn(room_id="r_bagno"))
+    assert "top in quarzo" in backend.generate.await_args.kwargs["contents"]
+
+
+async def test_a_watermark_older_than_the_window_reads_only_the_window(monkeypatch):
+    """The bathroom's watermark is "il bagno è 11 mq" typed in Generale; the chat moves on
+    past the window. The next refresh reads what follows, not the room's old messages again."""
+    monkeypatch.setattr(settings, "ROOM_BRIEF_HISTORY_MESSAGES", 2)
+    talk = [
+        {"id": "m1", "role": "user", "content": "Bagno: doccia walk-in", "room_id": "r_bagno"},
+        {"id": "m2", "role": "user", "content": "il bagno è 11 mq", "room_id": DEFAULT_ROOM_ID},
+    ]
+    with _Backend(BAGNO, talk, rooms=[GENERALE, BAGNO]) as backend:
+        await _run(_turn(room_id="r_bagno"))
+    assert room_brief._watermark[("s1", "r_bagno")] == "m2"
+    later = [
+        *talk,
+        *({"id": f"x{i}", "role": "user", "content": f"corridoio nota {i}"} for i in range(6)),
+        {"id": "m9", "role": "user", "content": "Bagno: piastrelle grigie", "room_id": "r_bagno"},
+    ]
+    with _Backend(BAGNO, later, rooms=[GENERALE, BAGNO]) as backend:
+        await _run(_turn(room_id="r_bagno"))
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert "piastrelle grigie" in prompt and "doccia walk-in" not in prompt
 
 
 async def test_missing_room_skips_the_model():

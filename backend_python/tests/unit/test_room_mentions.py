@@ -1,7 +1,7 @@
 """The room an untagged user message talks about (src/services/room_mentions.py)."""
 import pytest
 from src.schemas.room import DEFAULT_ROOM_ID, RoomSchema
-from src.services.room_mentions import messages_naming_one_room, room_named_by
+from src.services.room_mentions import message_rooms, messages_naming_one_room, room_named_by
 from src.utils.datetime_utils import utc_now
 
 
@@ -82,3 +82,23 @@ def test_home_as_a_place_does_not_hide_the_room():
 ])
 def test_room_named_by_one_text(text, room_id):
     assert room_named_by(text, ROOMS) == room_id
+
+
+def test_a_message_goes_to_the_one_room_it_names_whatever_room_it_was_sent_from():
+    """Sent from Generale or from another room, "lo studio è 11 mq" is the study's."""
+    messages = [
+        {"role": "user", "content": "lo studio è 11 mq", "room_id": DEFAULT_ROOM_ID},
+        {"role": "user", "content": "in cucina il top in quarzo", "room_id": "s1"},
+        {"role": "user", "content": "il bagno ospiti è 4 mq"},
+    ]
+    assert list(message_rooms(messages, ROOMS).values()) == ["s1", "c1", "b2"]
+
+
+def test_a_message_naming_no_single_room_keeps_the_room_it_was_sent_from():
+    messages = [
+        {"role": "user", "content": "va tinteggiato tutto", "room_id": "s1"},
+        {"role": "user", "content": "bagno e cucina da rifare", "room_id": DEFAULT_ROOM_ID},
+        {"role": "assistant", "content": "Il bagno è 5 mq", "room_id": "c1"},
+        {"role": "user", "content": "ok"},
+    ]
+    assert list(message_rooms(messages, ROOMS).values()) == ["s1", DEFAULT_ROOM_ID, "c1", None]

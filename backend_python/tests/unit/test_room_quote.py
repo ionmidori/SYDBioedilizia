@@ -103,7 +103,7 @@ def _files_for_room(files: list[dict[str, Any]]):
 
 def _history(history: list[dict[str, Any]]):
     async def get_context(session_id, limit=10, room_id=None):
-        return [m for m in history if room_id is None or m.get("room_id") == room_id]
+        return [m for m in history if room_id is None or m.get("room_id") == room_id][-limit:]
     return get_context
 
 
@@ -1036,6 +1036,59 @@ async def test_a_message_without_a_room_that_names_one_room_is_that_room_s_talk(
     assert "8 metri quadri" not in _room_talk(calls["Cucina"][0], "Cucina")
     # A message naming several rooms stays project-wide background.
     assert "Ristrutturo casa" not in bagno and "Ristrutturo casa" in calls["Bagno"][0]
+
+
+async def test_a_message_naming_one_room_is_that_room_s_talk_whatever_chip_it_was_sent_with():
+    """ "Il bagno è 11 mq" typed in Generale, "top in quarzo" asked in the bathroom chip."""
+    history = [
+        {"id": "m1", "role": "user", "content": "Ristrutturo casa: bagno e cucina."},
+        {"id": "m2", "role": "user", "content": "Nel bagno voglio la doccia", "room_id": "bagno1"},
+        {"id": "m3", "role": "user", "content": "In cucina un top in quarzo", "room_id": "bagno1"},
+        {"id": "m4", "role": "user", "content": "Il bagno è 11 metri quadri", "room_id": DEFAULT_ROOM_ID},
+    ]
+    with _project(history=history) as mocks:
+        await _quote()
+
+    calls = _calls_by_room(mocks["analyze"])
+    bagno = _room_talk(calls["Bagno"][0], "Bagno")
+    assert "doccia" in bagno and "11 metri quadri" in bagno and "top in quarzo" not in bagno
+    assert "top in quarzo" in _room_talk(calls["Cucina"][0], "Cucina")
+    assert "11 metri quadri" not in calls["Generale"][0] and "top in quarzo" not in calls["Generale"][0]
+
+
+async def test_a_room_named_only_from_other_chips_is_quoted():
+    history = [
+        {"id": "m1", "role": "user", "content": "Nel bagno voglio la doccia", "room_id": "bagno1"},
+        {"id": "m2", "role": "user", "content": "In cucina un top in quarzo", "room_id": DEFAULT_ROOM_ID},
+    ]
+    files = [f for f in FILES if f["roomId"] != "cucina1"]
+    with _project(history=history, files=files) as mocks:
+        await _quote()
+
+    assert "top in quarzo" in _room_talk(_calls_by_room(mocks["analyze"])["Cucina"][0], "Cucina")
+
+
+async def test_a_room_whose_only_talk_names_another_room_is_not_quoted():
+    history = [{"id": "m1", "role": "user", "content": "In cucina un top in quarzo", "room_id": "bagno1"}]
+    files = [f for f in FILES if f["roomId"] != "bagno1"]
+    with _project(history=history, files=files) as mocks:
+        await _quote()
+
+    assert "Bagno" not in _calls_by_room(mocks["analyze"])
+
+
+async def test_an_old_room_message_the_named_room_cannot_see_stays_with_its_room(monkeypatch):
+    """Older than the chat window, it would reach neither room: it stays where it was typed."""
+    monkeypatch.setattr(quote_tools, "_QUOTE_HISTORY_MESSAGES", 2)
+    history = [
+        {"id": "m1", "role": "user", "content": "In cucina un top in quarzo", "room_id": "bagno1"},
+        {"id": "m2", "role": "user", "content": "Nel bagno voglio la doccia", "room_id": "bagno1"},
+        {"id": "m3", "role": "user", "content": "Cucina: pensili nuovi", "room_id": "cucina1"},
+    ]
+    with _project(history=history) as mocks:
+        await _quote()
+
+    assert "top in quarzo" in _room_talk(_calls_by_room(mocks["analyze"])["Bagno"][0], "Bagno")
 
 
 async def test_a_room_is_also_named_by_its_type_when_it_is_the_only_one():

@@ -42,7 +42,7 @@ from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_
 from src.services.quote_followup import FollowupResult, relay_client_request
 from src.services.quote_state import QuoteStatus, ai_draft_action
 from src.services.room_aggregation import load_rules
-from src.services.room_mentions import messages_naming_one_room
+from src.services.room_mentions import message_rooms
 from src.services.spec_confirmation import (
     apply_confirmations,
     capped_checks,
@@ -643,7 +643,7 @@ async def _general_unit(
 def _in_chat_order(
     tagged: list[dict[str, Any]], named: Sequence[Mapping[str, Any]], order: Mapping[str, int]
 ) -> list[dict[str, Any]]:
-    """The room's tagged messages and the untagged ones that name it, in chat
+    """The room's tagged messages and the ones from other chips that name it, in chat
     order (`order`: message id -> position in the project chat). Tagged messages
     older than the chat window keep their place at the start."""
     merged = [*tagged, *(dict(m) for m in named)]
@@ -660,13 +660,19 @@ async def _room_unit(
     project_id: str,
     named: Sequence[Mapping[str, Any]] = (),
     order: Mapping[str, int] | None = None,
+    rooms: Sequence[RoomSchema] = (),
 ) -> _QuoteUnit:
-    """One room: its messages (and the untagged ones that name only this room),
-    its photos, measures and render delta of its own media."""
+    """One room: its messages (and the ones from other chips that name only this
+    room, `named`), its photos, measures and render delta of its own media. A
+    message of its chip that names another room is that room's (`rooms`), when that
+    room can see it (it is in the chat window, `order`)."""
     tagged, room_files = await asyncio.gather(
         ConversationRepository().get_context(session_id, limit=_ROOM_HISTORY_MESSAGES, room_id=room.room_id),
         get_room_repository().files_for_room(project_id, room.room_id),  # newest first
     )
+    owner = message_rooms(tagged, rooms)
+    seen = order or {}
+    tagged = [m for m in tagged if owner[id(m)] == room.room_id or (m.get("id") or "") not in seen]
     room_messages = _in_chat_order(tagged, named, order or {})
     own = {id(m) for m in named}
     general = [m for m in general if id(m) not in own]
@@ -725,7 +731,11 @@ async def _rooms_to_quote(
     tagged = {m["room_id"] for m in history if m.get("room_id") not in (None, DEFAULT_ROOM_ID)}
     if not tagged:
         return [], rooms, {}
-    used = tagged | {room_of(f) for f in files if f.get("type") in _ROOM_MEDIA_TYPES}
+    # The rooms with talk of their own: a room named only from other chips ("in cucina il
+    # top in quarzo" typed in Generale) has some, one whose messages all name another has none.
+    used = set(message_rooms(history, rooms).values()) | {
+        room_of(f) for f in files if f.get("type") in _ROOM_MEDIA_TYPES
+    }
     to_quote = [r for r in rooms if r.room_id != DEFAULT_ROOM_ID and r.room_id in used]
     return to_quote, rooms, {f["id"]: f for f in files}
 
@@ -1109,9 +1119,13 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         results: list[_UnitResult] = []
         try:
             if to_quote:
-                general = [m for m in history if m.get("room_id") in (None, DEFAULT_ROOM_ID)]
-                # "Il bagno è 8 mq" typed with no room chip is the bathroom's talk, not background.
-                named = messages_naming_one_room(general, all_rooms)
+                # "Il bagno è 8 mq" is the bathroom's talk whatever chip it was typed in.
+                owner = message_rooms(history, all_rooms)
+                general = [m for m in history if owner[id(m)] in (None, DEFAULT_ROOM_ID)]
+                named: dict[str | None, list[dict[str, Any]]] = {}
+                for m in history:
+                    if owner[id(m)] != m.get("room_id"):
+                        named.setdefault(owner[id(m)], []).append(m)
                 order = {m["id"]: i for i, m in enumerate(history) if m.get("id")}
                 semaphore = asyncio.Semaphore(_ROOM_ANALYSIS_CONCURRENCY)
 
@@ -1120,7 +1134,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                     async with semaphore:
                         unit = await _room_unit(
                             room, others, general, project_files, session_id, target_project_id,
-                            named=named.get(room.room_id, ()), order=order,
+                            named=named.get(room.room_id, ()), order=order, rooms=all_rooms,
                         )
                         return await _analyse(unit, session_id, target_project_id, stored_specs)
 
