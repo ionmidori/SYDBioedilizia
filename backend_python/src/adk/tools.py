@@ -167,7 +167,9 @@ async def search_listino(query: str) -> str:
     """Quick customer-facing price RANGE from the SYD listino (composite
     'fornitura e posa' packages). Use this FIRST for "quanto costa X?"
     questions (e.g. finestra PVC, rifacimento bagno). If it returns
-    NESSUNA_VOCE_LISTINO, fall back to search_prezzario.
+    NESSUNA_VOCE_LISTINO, fall back to search_prezzario. Report the figures
+    as returned; a line may end with "(il prezzo vale per … cm; …)" when the
+    customer asked for another size: tell the customer, never rescale.
 
     Args:
         query: The work or material the customer asks about.

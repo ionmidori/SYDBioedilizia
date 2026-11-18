@@ -47,6 +47,43 @@ def _searchable(item: dict[str, Any]) -> str:
     return " ".join(parts)
 
 
+# A width x height size: "120x140", "120 x 140 cm", "120×140", "120*140", "120 per 140"
+# in cm, or "1,20x1,40" in metres. Not part of a longer number ("1200x1400").
+_SIDE = r"(\d[.,]\d{1,2}|\d{2,3})"
+_SIZE = re.compile(
+    rf"(?<![\d.,]){_SIDE}\s*(?:x|×|\*|per)\s*{_SIDE}(?![\d.,]*\d)", re.IGNORECASE
+)
+# Words saying the size in a description is a limit or an example, not the priced size.
+_SIZE_NOT_PRICED = re.compile(r"max|o simili|su misura", re.IGNORECASE)
+
+
+def _cm(side: str) -> int:
+    if "," in side or "." in side:
+        return int(round(float(side.replace(",", ".")) * 100))
+    return int(side)
+
+
+def _size(text: str) -> tuple[int, int] | None:
+    match = _SIZE.search(text)
+    return (_cm(match.group(1)), _cm(match.group(2))) if match else None
+
+
+def _size_note(query: str, item: dict[str, Any]) -> str:
+    """Says the price is for the item's size when the customer asked for another one,
+    so the model keeps the figures instead of rescaling them (11 Nov). Only for items
+    priced per piece at one size: a per-mq price or an "80x80 o su misura" fits any."""
+    description = str(item.get("description", ""))
+    if item.get("unit") != "cad" or _SIZE_NOT_PRICED.search(description):
+        return ""
+    asked, priced = _size(query), _size(description)
+    if asked is None or priced is None or sorted(asked) == sorted(priced):
+        return ""
+    return (
+        f" (il prezzo vale per {priced[0]}x{priced[1]} cm; "
+        f"per {asked[0]}x{asked[1]} cm la misura è diversa e il prezzo va quotato)"
+    )
+
+
 def _format_eur(v: float) -> str:
     return f"{v:,.0f}".replace(",", ".")
 
@@ -106,7 +143,7 @@ async def search_listino(query: str, top_k: int = 4) -> str:
             price = f"€{_format_eur(rmin)}–€{_format_eur(rmax)}/{unit}"
         else:
             price = f"~€{_format_eur(it.get('unit_price', 0))}/{unit}"
-        lines.append(f"- {it.get('description')}: {price}")
+        lines.append(f"- {it.get('description')}: {price}{_size_note(query, it)}")
     lines.append("")
     lines.append(
         "Sono fasce indicative (variano per misure, materiali e finiture). "
