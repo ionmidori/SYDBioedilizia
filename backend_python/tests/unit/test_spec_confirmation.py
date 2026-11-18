@@ -8,7 +8,9 @@ from decimal import Decimal
 
 from src.schemas.confirmation import ChoiceConfirmation, ConfirmationUpdate, MeasureConfirmation
 from src.schemas.intervention_spec import (
+    ADMIN_CHECKS_MAX,
     RoomInterventionSpec,
+    StoredAdminCheck,
     StoredElementChoice,
     StoredExtraItem,
     StoredMeasure,
@@ -18,6 +20,7 @@ from src.services.insight_engine import ElementChoice, InsightAnalysis, SpecMeas
 from src.services.spec_confirmation import (
     analysis_from_spec,
     apply_confirmations,
+    capped_checks,
     choice_checks,
     confirm,
     confirmations_only,
@@ -26,6 +29,7 @@ from src.services.spec_confirmation import (
     proposal_notes,
     same_confirmations,
     spec_measures,
+    team_checks,
     unassigned_note,
 )
 
@@ -281,4 +285,95 @@ def test_a_proposal_note_without_a_unit_shows_the_bare_count():
     assert proposal_notes(spec) == [
         "numero di finestre da sostituire: calcolato su 2, il valore confermato da te. "
         "Il nuovo valore 3 è nella scheda qui sotto: confermalo lì per usarlo."
+    ]
+
+
+# ── The team's checks the card keeps (no analysis when it recomputes) ────────
+
+def _checked(*checks: StoredAdminCheck, conflicts: dict[str, list[float]] | None = None) -> RoomInterventionSpec:
+    return _spec([StoredMeasure(name="mq", value=6, source="declared")]).model_copy(
+        update={"admin_checks": list(checks), "conflicts": conflicts or {}}
+    )
+
+
+def test_confirming_a_measure_drops_its_checks_and_keeps_the_others() -> None:
+    spec = _checked(
+        StoredAdminCheck(message="mq: più valori", measure="mq"),
+        StoredAdminCheck(message="sanitari: confermato Lascia", element="sanitari"),
+        StoredAdminCheck(message="Bagno scelto più volte"),
+    )
+    confirmed = confirm(spec, ConfirmationUpdate(measures=[MeasureConfirmation(name="mq", value=8)]))
+    assert [c.message for c in confirmed.admin_checks] == ["sanitari: confermato Lascia", "Bagno scelto più volte"]
+
+    rechosen = confirm(spec, ConfirmationUpdate(element_choices=[ChoiceConfirmation(element="sanitari", action="keep")]))
+    assert [c.message for c in rechosen.admin_checks] == ["mq: più valori", "Bagno scelto più volte"]
+
+
+def test_team_checks_rebuild_open_conflicts_and_read_the_stored_ones() -> None:
+    spec = _checked(StoredAdminCheck(message="Bagno scelto più volte"), conflicts={"mq_pareti": [20.0, 25.5]})
+    checks = team_checks(spec)
+    assert checks == [
+        "Valori diversi per mq_pareti (20 e 25.5): forse stanze diverse, misura non usata",
+        "Bagno scelto più volte",
+    ]
+    # Confirmed: the conflict is settled, its check gone.
+    settled = confirm(spec, ConfirmationUpdate(measures=[MeasureConfirmation(name="mq_pareti", value=22)]))
+    assert team_checks(settled) == ["Bagno scelto più volte"]
+
+
+def test_an_old_spec_without_admin_checks_reads() -> None:
+    old = {"library_version": "2.1.0", "generated_at": T0.isoformat()}
+    assert RoomInterventionSpec.model_validate(old).admin_checks == []
+
+
+def test_confirmations_only_leaves_the_checks_behind() -> None:
+    spec = _checked(StoredAdminCheck(message="x"))
+    spec = spec.model_copy(update={"measures": [StoredMeasure(name="mq", value=8, source="confirmed")]})
+    moved = confirmations_only(spec)
+    assert moved is not None and moved.admin_checks == []
+
+
+def test_stored_checks_are_capped() -> None:
+    checks = capped_checks([StoredAdminCheck(message=f"c{i}") for i in range(30)] + [StoredAdminCheck(message="c1")])
+    assert len(checks) == ADMIN_CHECKS_MAX and len({c.message for c in checks}) == ADMIN_CHECKS_MAX
+
+
+def test_confirming_the_same_value_again_answers_no_check() -> None:
+    """The card sends every value of the section: an unchanged one is no answer."""
+    spec = _spec(
+        [StoredMeasure(name="mq", value=8, source="confirmed")],
+        [StoredElementChoice(element="sanitari", action="keep", confirmed=True)],
+    ).model_copy(update={"admin_checks": [
+        StoredAdminCheck(message="mq: più valori", measure="mq"),
+        StoredAdminCheck(message="sanitari: la nuova analisi indica Sostituisci", element="sanitari"),
+    ]})
+    same = ConfirmationUpdate(
+        measures=[MeasureConfirmation(name="mq", value=8)],
+        element_choices=[ChoiceConfirmation(element="sanitari", action="keep")],
+    )
+    assert confirm(spec, same).admin_checks == spec.admin_checks
+
+    changed = ConfirmationUpdate(
+        measures=[MeasureConfirmation(name="mq", value=9)],
+        element_choices=[ChoiceConfirmation(element="sanitari", action="replace")],
+    )
+    assert confirm(spec, changed).admin_checks == []
+
+
+def test_a_long_note_is_cut_never_an_error() -> None:
+    assert len(StoredAdminCheck(message="x" * 900).message) == 500
+    fresh = _spec([StoredMeasure(name="mq", value=6, source="declared")]).model_copy(
+        update={"conflicts": {"mq": [float(v) for v in range(1, 200)]}}
+    )
+    stored = _spec([StoredMeasure(name="mq", value=8, source="confirmed")])
+    merged = apply_confirmations(fresh, stored)[0]
+    assert len(merged.admin_checks) == 1 and len(merged.admin_checks[0].message) == 500
+    RoomInterventionSpec.model_validate(merged.model_dump())  # reads again
+
+
+def test_a_spec_without_checks_is_stored_without_the_field() -> None:
+    """A backend rolled back past admin_checks (extra="forbid") still reads it."""
+    assert "admin_checks" not in _spec().model_dump()
+    assert _checked(StoredAdminCheck(message="x")).model_dump()["admin_checks"] == [
+        {"message": "x", "measure": None, "element": None}
     ]

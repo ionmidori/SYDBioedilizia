@@ -15,7 +15,7 @@ every serialization: the client reads it through the confirmation API.
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.schemas.assembly_library import ElementAction
 
@@ -66,6 +66,29 @@ class StoredExtraItem(BaseModel):
     qty: float = Field(ge=0)
 
 
+# Bounds of the team's checks kept on a spec (`capped_checks` keeps a write within them:
+# a spec that does not read is ignored and never overwritten).
+ADMIN_CHECKS_MAX = 20
+ADMIN_CHECK_MAX_CHARS = 500
+
+
+class StoredAdminCheck(BaseModel):
+    """A team's check of the last analysis that the card cannot rebuild without it
+    (several values for a confirmed measure, a confirmed choice the model contradicts,
+    a package chosen twice). Confirming its measure or element answers it."""
+    model_config = ConfigDict(extra="forbid")
+
+    message: str = Field(max_length=ADMIN_CHECK_MAX_CHARS)
+    measure: str | None = None
+    element: str | None = None
+
+    @field_validator("message", mode="before")
+    @classmethod
+    def _fit(cls, value: object) -> object:
+        # A long note (many values from the model) is cut, never a failed quote.
+        return value[:ADMIN_CHECK_MAX_CHARS] if isinstance(value, str) else value
+
+
 class RoomInterventionSpec(BaseModel):
     """The spec the room's quote was expanded from."""
     model_config = ConfigDict(extra="forbid")
@@ -79,5 +102,11 @@ class RoomInterventionSpec(BaseModel):
     missing_measures: list[str] = Field(default_factory=list)
     # Measure → the different values the model gave for it (several rooms in one unit?).
     conflicts: dict[str, list[MeasureValue]] = Field(default_factory=dict)
+    # The team's checks a recalculation from the card keeps (it has no analysis). Left
+    # out of a dump when empty: a backend rolled back past this field (extra="forbid")
+    # still reads every spec without checks.
+    admin_checks: list[StoredAdminCheck] = Field(
+        default_factory=list, max_length=ADMIN_CHECKS_MAX, exclude_if=lambda checks: not checks
+    )
     library_version: str
     generated_at: datetime

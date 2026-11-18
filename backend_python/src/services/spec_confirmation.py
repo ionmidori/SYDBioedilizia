@@ -7,15 +7,21 @@ kept as a proposal the card shows to the client, and the team gets a check
 without the model (`analysis_from_spec`). Pure: no I/O.
 """
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from decimal import Decimal
 
 from src.core.money import to_decimal
 from src.schemas.assembly_library import MEASURE_LABELS, ElementAction
 from src.schemas.confirmation import ConfirmationUpdate
-from src.schemas.intervention_spec import RoomInterventionSpec, StoredElementChoice, StoredMeasure
+from src.schemas.intervention_spec import (
+    ADMIN_CHECKS_MAX,
+    RoomInterventionSpec,
+    StoredAdminCheck,
+    StoredElementChoice,
+    StoredMeasure,
+)
 from src.services.insight_engine import ElementChoice, InsightAnalysis
-from src.services.intervention_expansion import ACTION_LABELS, requested_actions
+from src.services.intervention_expansion import ACTION_LABELS, conflict_check, requested_actions
 
 # Reasoning of a single line recomputed from the stored spec (the model's own is not stored).
 _STORED_EXTRA_REASONING = "Voce singola dell'ultima analisi, ricalcolata con le misure confermate"
@@ -105,6 +111,25 @@ def proposal_checks(spec: RoomInterventionSpec) -> list[str]:
     return [_proposal_note(m.name, m.value, m.proposed) for m in spec.measures if m.proposed is not None]
 
 
+def capped_checks(checks: Iterable[StoredAdminCheck]) -> list[StoredAdminCheck]:
+    """The checks once each (by message; each already cut by its model), within the
+    spec's bounds: a spec written past them would not read again, and a spec that
+    does not read is never overwritten."""
+    kept: dict[str, StoredAdminCheck] = {}
+    for check in checks:
+        kept.setdefault(check.message, check)
+    return list(kept.values())[:ADMIN_CHECKS_MAX]
+
+
+def team_checks(spec: RoomInterventionSpec) -> list[str]:
+    """Every team's check a draft recomputed from the spec carries (no analysis then):
+    the open proposals, the measures still in conflict, the checks the analysis left."""
+    conflicts = [
+        conflict_check(name, [to_decimal(value) for value in values]) for name, values in spec.conflicts.items()
+    ]
+    return [*proposal_checks(spec), *conflicts, *(check.message for check in spec.admin_checks)]
+
+
 def apply_confirmations(
     fresh: RoomInterventionSpec, stored: RoomInterventionSpec | None
 ) -> tuple[RoomInterventionSpec, list[str]]:
@@ -120,24 +145,42 @@ def apply_confirmations(
     by_name = {m.name: m for m in fresh.measures}
     measures = [_merged_measure(m, confirmed[m.name], notes) if m.name in confirmed else m for m in fresh.measures]
     measures += [m for name, m in confirmed.items() if name not in by_name]
-    notes += [
-        _conflict_note(name, confirmed[name].value, values) for name, values in fresh.conflicts.items() if name in confirmed
+    # Several new values for a confirmed measure: the spec keeps the check (its conflict is settled).
+    conflict_checks = [
+        StoredAdminCheck(message=_conflict_note(name, confirmed[name].value, values), measure=name)
+        for name, values in fresh.conflicts.items()
+        if name in confirmed
     ]
+    notes += [check.message for check in conflict_checks]
 
     chosen = _confirmed_choices(stored)
     choices = [*chosen.values(), *(c for c in fresh.element_choices if c.element not in chosen)]
-    return _settled(fresh.model_copy(update={"measures": measures, "element_choices": choices})), notes
+    merged = fresh.model_copy(update={
+        "measures": measures, "element_choices": choices,
+        "admin_checks": capped_checks([*fresh.admin_checks, *conflict_checks]),
+    })
+    return _settled(merged), notes
 
 
 def choice_checks(analysis: InsightAnalysis, stored: RoomInterventionSpec | None) -> list[str]:
     """The team's checks for the confirmed element choices the model's analysis
     contradicts. Read from the analysis: the spec never stores a "replace"."""
+    return [check.message for check in choice_check_items(analysis, stored)]
+
+
+def choice_check_items(analysis: InsightAnalysis, stored: RoomInterventionSpec | None) -> list[StoredAdminCheck]:
+    """`choice_checks` as the spec keeps them: confirming the element again answers each."""
     if stored is None:
         return []
     model = requested_actions(analysis)
     return [
-        f"{element}: il cliente ha confermato \"{ACTION_LABELS[kept.action]}\", la nuova analisi "
-        f"indica \"{ACTION_LABELS[model[element]]}\". Usata la scelta confermata"
+        StoredAdminCheck(
+            message=(
+                f"{element}: il cliente ha confermato \"{ACTION_LABELS[kept.action]}\", la nuova analisi "
+                f"indica \"{ACTION_LABELS[model[element]]}\". Usata la scelta confermata"
+            ),
+            element=element,
+        )
         for element, kept in _confirmed_choices(stored).items()
         if element in model and model[element] != kept.action
     ]
@@ -167,7 +210,7 @@ def confirmations_only(spec: RoomInterventionSpec | None) -> RoomInterventionSpe
         return None
     return spec.model_copy(update={
         "measures": measures, "element_choices": choices, "packages": [], "extra_items": [],
-        "unmapped_work_requests": [], "missing_measures": [], "conflicts": {},
+        "unmapped_work_requests": [], "missing_measures": [], "conflicts": {}, "admin_checks": [],
     })
 
 
@@ -209,7 +252,8 @@ def same_confirmations(a: RoomInterventionSpec | None, b: RoomInterventionSpec |
 
 def confirm(spec: RoomInterventionSpec, update: ConfirmationUpdate) -> RoomInterventionSpec:
     """The section's spec with what the client confirmed on the card: each measure
-    becomes the client's (any proposal is answered), each element choice too."""
+    becomes the client's (any proposal is answered), each element choice too, and
+    the team's checks on what was just confirmed are answered."""
     measures = {m.name: StoredMeasure(name=m.name, value=m.value, source="confirmed") for m in update.measures}
     choices = {
         c.element: StoredElementChoice(element=c.element, action=c.action, confirmed=True)
@@ -217,7 +261,16 @@ def confirm(spec: RoomInterventionSpec, update: ConfirmationUpdate) -> RoomInter
     }
     stored_names = {m.name for m in spec.measures}
     stored_elements = {c.element for c in spec.element_choices}
+    # The card sends every value of the section: only a value the client changed (or
+    # confirmed for the first time) answers a check, not the same one confirmed again.
+    was_measure, was_choice = _confirmed_values(spec)
+    answered_measures = {name for name, m in measures.items() if was_measure.get(name) != m.value}
+    answered_choices = {element for element, c in choices.items() if was_choice.get(element) != c.action}
     return _settled(spec.model_copy(update={
+        "admin_checks": [
+            c for c in spec.admin_checks
+            if c.measure not in answered_measures and c.element not in answered_choices
+        ],
         "measures": [
             *(measures.get(m.name, m) for m in spec.measures),
             *(m for name, m in measures.items() if name not in stored_names),

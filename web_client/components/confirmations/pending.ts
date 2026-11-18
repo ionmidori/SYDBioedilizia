@@ -8,6 +8,12 @@ export const choicePending = (choice: ElementChoiceState) => !choice.confirmed;
 export const measureVoice = (name: string) => `measure:${name}`;
 export const choiceVoice = (element: string) => `choice:${element}`;
 
+/** What is being saved: a section, through one confirmed voice or (`null`) its group "Conferma". */
+export interface SaveOrigin {
+  section: string;
+  voice: string | null;
+}
+
 /** The voice exists in the section and is confirmed: the only kind the client can open to change. */
 export function voiceConfirmed(section: SectionState, voice: string): boolean {
   const measure = section.measures.find((m) => measureVoice(m.name) === voice);

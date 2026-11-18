@@ -15,7 +15,9 @@ Ownership is the caller's job, like `RoomRepository`. No project id in the logs:
 from the quote tool it is the chat session id, an access token for guests.
 """
 import asyncio
-from collections.abc import Callable, Iterable
+import hashlib
+import json
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from typing import Any
 
 from google.api_core.exceptions import NotFound
@@ -39,11 +41,20 @@ _ROOM_FIELD = "intervention_spec"
 
 # The new spec of a unit from the one stored now (None: none yet).
 SpecChange = Callable[[RoomInterventionSpec | None], RoomInterventionSpec]
+# Reads in a write's transaction before its own reads; raises to write nothing (the
+# caller's error reaches the client). Unlike `quote_drafts.DraftGuard`, which returns False.
+TransactionGuard = Callable[[Any], Awaitable[None]]
 
 
 def chat_on_card(keys: Iterable[str]) -> bool:
     """The whole chat is a section of the card only while no room has a spec."""
     return all(key == CHAT_SPEC_KEY for key in keys)
+
+
+def spec_fingerprint(specs: Mapping[str, RoomInterventionSpec]) -> str:
+    """One string for a project's specs (`load_all`): equal only when every unit's spec is."""
+    canonical = {key: spec.model_dump(mode="json") for key, spec in specs.items()}
+    return hashlib.sha256(json.dumps(canonical, sort_keys=True).encode()).hexdigest()
 
 
 def _valid(key: str, data: object) -> RoomInterventionSpec | None:
@@ -68,24 +79,27 @@ class SpecStore:
     def _project_specs(self, db: Any, project_id: str) -> Any:
         return self._project(db, project_id).collection(_PRIVATE).document(_PROJECT_SPECS)
 
-    async def _stored_in_project(self, db: Any, project_id: str) -> dict[str, object]:
-        snap = await self._project_specs(db, project_id).get()
+    async def _stored_in_project(self, db: Any, project_id: str, transaction: Any | None) -> dict[str, object]:
+        snap = await self._project_specs(db, project_id).get(transaction=transaction)
         return (snap.to_dict() or {}) if snap.exists else {}
 
-    async def _stored_on_rooms(self, db: Any, project_id: str) -> dict[str, object]:
+    async def _stored_on_rooms(self, db: Any, project_id: str, transaction: Any | None) -> dict[str, object]:
         query = self._project(db, project_id).collection(ROOMS).select([_ROOM_FIELD])
         stored: dict[str, object] = {}
-        async for doc in query.stream():
+        async for doc in query.stream(transaction=transaction):
             data = (doc.to_dict() or {}).get(_ROOM_FIELD)
             if data is not None:
                 stored[doc.id] = data
         return stored
 
-    async def load_all(self, project_id: str) -> dict[str, RoomInterventionSpec]:
-        """Every readable stored spec by section key; a room's wins over the project copy."""
+    async def load_all(self, project_id: str, *, transaction: Any | None = None) -> dict[str, RoomInterventionSpec]:
+        """Every readable stored spec by section key; a room's wins over the project copy.
+
+        With `transaction`, both reads are the transaction's: the card checks there that
+        the specs are still the ones its draft was computed from (`spec_fingerprint`)."""
         db = get_async_firestore_client()
         in_project, on_rooms = await asyncio.gather(
-            self._stored_in_project(db, project_id), self._stored_on_rooms(db, project_id)
+            self._stored_in_project(db, project_id, transaction), self._stored_on_rooms(db, project_id, transaction)
         )
         specs: dict[str, RoomInterventionSpec] = {}
         for key, data in {**in_project, **on_rooms}.items():
@@ -94,10 +108,15 @@ class SpecStore:
                 specs[key] = spec
         return specs
 
-    async def update(self, project_id: str, section_key: str, change: SpecChange) -> RoomInterventionSpec | None:
+    async def update(
+        self, project_id: str, section_key: str, change: SpecChange, *, guard: TransactionGuard | None = None
+    ) -> RoomInterventionSpec | None:
         """Write `change(stored spec)` as the unit's spec, in one transaction, leaving
         every other field and unit alone. Returns what was written, or None (nothing
         written) when the stored spec does not read.
+
+        `guard` runs first in the transaction and raises to write nothing (the card:
+        the quote is still the client's when the spec is written, not only when read).
 
         A room id that is no room raises NotFound (a GoogleAPIError)."""
         db = get_async_firestore_client()
@@ -105,6 +124,8 @@ class SpecStore:
         room = None if section_key == CHAT_SPEC_KEY else self._project(db, project_id).collection(ROOMS).document(section_key)
 
         async def body(transaction: Any) -> RoomInterventionSpec | None:
+            if guard is not None:
+                await guard(transaction)
             # Every read before the first write (Firestore transactions).
             room_snap = await room.get(transaction=transaction) if room is not None else None
             room_data = (room_snap.to_dict() or {}) if room_snap is not None and room_snap.exists else None
