@@ -21,7 +21,8 @@ def test_plugins_in_production_order_then_the_extra_ones():
     extra = BasePlugin(name="eval_extra")
     app = build_app(extra_plugins=[extra])
     assert [p.name for p in app.plugins] == [
-        "syd_post_turn_compaction", "syd_video_guard", "syd_media_model", "syd_latency", "eval_extra",
+        "syd_post_turn_compaction", "syd_video_guard", "syd_media_model", "syd_latency", "syd_quote_step",
+        "eval_extra",
     ]
     assert app.name == APP_NAME
 

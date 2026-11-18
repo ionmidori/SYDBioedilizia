@@ -105,7 +105,13 @@ def house_quote_entry(view: QuoteStatusView | None) -> dict[str, Any]:
     """The house quote as kept in the session state ({} when there is none)."""
     if view is None:
         return {}
-    return {"quote_number": view.quote_number, "status": view.status, "version": view.version}
+    return {
+        "quote_number": view.quote_number,
+        "status": view.status,
+        "version": view.version,
+        # Not shown to the model: a sent quote still in the mail is with the team (quote_step).
+        "delivery_status": view.delivery_status,
+    }
 
 
 def house_quote_line(entry: dict[str, Any]) -> str:
