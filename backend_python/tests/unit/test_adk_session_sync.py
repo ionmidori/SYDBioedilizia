@@ -7,6 +7,7 @@
   model as the agents' dynamic instruction (session_context), not in the user text.
 - Tool results without an id keep the call_id of their own call.
 """
+import logging
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -405,6 +406,16 @@ async def test_session_context_goes_in_the_state_delta_not_in_the_user_message()
     assert "SYSTEM_MESSAGE" not in text and "test-user-abc" not in text
     context = kwargs["state_delta"][SESSION_CONTEXT_STATE_KEY]
     assert context["session_id"] == "test-session-123"
+
+
+async def test_turn_logs_do_not_print_the_user_uid(caplog):
+    # The session-context line ran on every turn with the Firebase uid in clear.
+    caplog.set_level(logging.INFO)
+    await _turn(marker="a1", latest="a1")
+
+    lines = [r.getMessage() for r in caplog.records]
+    assert any("Session context" in line for line in lines)
+    assert not [line for line in lines if "test-user-abc" in line]
 
 
 def _instruction(state: dict) -> str:

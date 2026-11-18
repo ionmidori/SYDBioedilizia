@@ -587,7 +587,7 @@ class ADKOrchestrator(BaseOrchestrator):
         if turn is not None:
             turn.mark("user_profile_ready")
 
-        logger.info(f"[ADK] Session context: is_guest={is_guest}, uid={user_id}, phone_on_file={phone_on_file}")
+        logger.info(f"[ADK] Session context: is_guest={is_guest}, phone_on_file={phone_on_file}")
         # Login state, phone and session id reach the model through the session
         # state (session_context → the agents' dynamic instruction), not the user message.
         context_delta: dict[str, Any] = session_context_delta(
