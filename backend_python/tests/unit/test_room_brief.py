@@ -347,6 +347,28 @@ async def test_an_old_room_message_naming_another_room_outside_the_window_stays_
     assert "top in quarzo" in backend.generate.await_args.kwargs["contents"]
 
 
+async def test_a_watermark_older_than_the_window_reads_only_the_window(monkeypatch):
+    """The bathroom's watermark is "il bagno è 11 mq" typed in Generale; the chat moves on
+    past the window. The next refresh reads what follows, not the room's old messages again."""
+    monkeypatch.setattr(settings, "ROOM_BRIEF_HISTORY_MESSAGES", 2)
+    talk = [
+        {"id": "m1", "role": "user", "content": "Bagno: doccia walk-in", "room_id": "r_bagno"},
+        {"id": "m2", "role": "user", "content": "il bagno è 11 mq", "room_id": DEFAULT_ROOM_ID},
+    ]
+    with _Backend(BAGNO, talk, rooms=[GENERALE, BAGNO]) as backend:
+        await _run(_turn(room_id="r_bagno"))
+    assert room_brief._watermark[("s1", "r_bagno")] == "m2"
+    later = [
+        *talk,
+        *({"id": f"x{i}", "role": "user", "content": f"corridoio nota {i}"} for i in range(6)),
+        {"id": "m9", "role": "user", "content": "Bagno: piastrelle grigie", "room_id": "r_bagno"},
+    ]
+    with _Backend(BAGNO, later, rooms=[GENERALE, BAGNO]) as backend:
+        await _run(_turn(room_id="r_bagno"))
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert "piastrelle grigie" in prompt and "doccia walk-in" not in prompt
+
+
 async def test_missing_room_skips_the_model():
     """No "Generale" room in the project: nothing is created (no new chip in the client)."""
     with _Backend(None, BATH_TALK) as backend:

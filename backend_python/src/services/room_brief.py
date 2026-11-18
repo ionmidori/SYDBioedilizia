@@ -190,16 +190,21 @@ def _is_substantial(message: dict[str, Any]) -> bool:
 @dataclass(frozen=True)
 class _Talk:
     """A room's messages, and the ids of every message read, in chat order: the
-    watermark may be a message read but not the room's (now named elsewhere)."""
+    watermark may be a message read but not the room's (now named elsewhere).
+    `window`: the ids of the recent chat window (the rest are older tagged messages)."""
 
     messages: list[dict[str, Any]]
     order: list[str]
+    window: frozenset[str]
 
 
 def _new_messages(talk: _Talk, watermark: str | None) -> list[dict[str, Any]]:
-    """Messages after the watermark (all of them when it is not among the messages read)."""
-    if watermark not in talk.order:
+    """Messages after the watermark: all of them without one (a restart); the window's
+    when it is no longer among the messages read (the chat moved past it: it is older)."""
+    if watermark is None:
         return list(talk.messages)
+    if watermark not in talk.order:
+        return [m for m in talk.messages if str(m.get("id")) in talk.window]
     position = {message_id: i for i, message_id in enumerate(talk.order)}
     after = position[watermark]
     return [m for m in talk.messages if position.get(str(m.get("id")), -1) > after]
@@ -242,13 +247,13 @@ async def _room_history(project_id: str, session_id: str, room_id: str) -> _Talk
     owner = message_rooms(window, rooms)
     if general:
         talk = [m for m in window if owner[id(m)] in (None, DEFAULT_ROOM_ID)]
-        return _Talk(talk[-limit:], _ids(window))
+        return _Talk(talk[-limit:], _ids(window), frozenset(_ids(window)))
     in_window = {m.get("id") for m in window}
     # Tagged messages older than the window come first, all the room's: the room they
     # name reads only the window, so there they would reach no room. Then the window.
     older = [m for m in tagged if m.get("id") not in in_window]
     recent = [m for m in window if owner[id(m)] == room_id]
-    return _Talk([*older, *recent][-limit:], _ids([*older, *window]))
+    return _Talk([*older, *recent][-limit:], _ids([*older, *window]), frozenset(_ids(window)))
 
 
 async def _ask_model(room: RoomSchema, messages: list[dict[str, Any]]) -> _BriefUpdate:
