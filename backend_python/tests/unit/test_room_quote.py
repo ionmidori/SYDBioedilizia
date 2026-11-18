@@ -1116,6 +1116,16 @@ async def test_the_reply_says_which_value_was_used_and_where_the_new_one_waits()
     assert reply.startswith(f"{MEASURES_TO_REPORT}\n**Bagno** — pavimento della stanza: calcolato su 8 m²")
 
 
+async def test_a_proposal_already_waiting_on_the_card_is_not_reported_again():
+    """Test chat of 18/11: the note came back at every call of the tool (3 turns)."""
+    stored = _stored(measures=[{"name": "mq", "value": 8, "source": "confirmed", "proposed": 6}])
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}, specs={"bagno1": stored}):
+        reply = await _quote()
+
+    assert "calcolato su" not in reply
+    assert not reply.startswith(MEASURES_TO_REPORT)
+
+
 async def test_no_value_note_without_a_proposal():
     stored = _stored(measures=[{"name": "mq", "value": 6, "source": "confirmed"}])
     with _project(analyses={**ANALYSES, "Bagno": _bathroom()}, specs={"bagno1": stored}):
