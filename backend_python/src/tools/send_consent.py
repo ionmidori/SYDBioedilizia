@@ -18,6 +18,7 @@ from collections.abc import Sequence
 
 from google.adk.events import Event
 from google.genai import types
+from src.adk.video_attachments import is_skipped_video_note
 from src.tools.quote_submit_tools import NOT_SENT_PREFIX
 
 _QUOTE_TOOL = "suggest_quote_items"
@@ -38,9 +39,23 @@ _YES = re.compile(
 # A yes with any of these is not a plain yes: a change, more work, a doubt, a "not now".
 _HOLD = re.compile(
     r"\?|\b(no|non|ma|però|prima|aspett\w*|aspe|annull\w*|modific\w*|aggiung\w*|cambi\w*|togli\w*"
-    r"|anche|invece|dubbio|scheda|dopo|domani|tardi|ci pens\w*|ferm\w*|stop)\b",
+    r"|anche|invece|dubbio|scheda|dopo|domani|tardi|ci pens\w*|ferm\w*|stop|sbagli\w*|troppo)\b",
     re.IGNORECASE,
 )
+# A clause that only closes the request ("non ho altro da aggiungere", "è tutto"): left
+# out before the hold check, its "non"/"aggiungere" are no "not yet" and no more work.
+# Whole clauses only: "non ho altro tempo" or "è tutto sbagliato" are no courtesy.
+_CLAUSE = re.compile(r"[,.;!]+")
+_COURTESY = re.compile(
+    r"non ho (più )?(altro|nient['’ ]?altro|niente( altro)?)( da (aggiungere|dire|chiedere))?"
+    r"|non (c['’]è|serve|mi serve) (più )?(altro|nient['’ ]?altro|niente( altro)?)"
+    r"|nient['’ ]?altro|niente altro|(è|e['’]) tutto",
+    re.IGNORECASE,
+)
+
+
+def _without_courtesies(text: str) -> str:
+    return ", ".join(c for c in (c.strip() for c in _CLAUSE.split(text)) if c and not _COURTESY.fullmatch(c))
 
 _SAME_TURN = (
     f"{NOT_SENT_PREFIX} la richiesta è stata appena registrata in questo turno. "
@@ -96,8 +111,30 @@ def _asked_to_send(reply: str) -> bool:
 
 
 def _plain_yes(message: str) -> bool:
-    text = message.strip().strip("#").strip()
+    text = _without_courtesies(message.strip().strip("#").strip())
     return bool(_YES.search(text)) and not _HOLD.search(text)
+
+
+def _has_video(content: types.Content) -> bool:
+    return any(
+        p.file_data is not None and (p.file_data.mime_type or "").startswith("video/") for p in content.parts or []
+    )
+
+
+def _client_words(events: Sequence[Event], invocation_id: str, user_content: types.Content | None) -> str:
+    """What the client wrote in this turn. A turn run again without its videos (the
+    model refused one) carries only a system note: the client's words are in the
+    message of the failed invocation: the last one before it, after the assistant's
+    last reply, and with the video. Anything else (the note typed by the client, a
+    session rebuilt without the message) has no words: never an older message's yes."""
+    if not is_skipped_video_note(user_content):
+        return _text(user_content)
+    # A state-only event (the refused video forgotten) has no parts: not a message.
+    before = [e for e in events if e.invocation_id != invocation_id and e.content and e.content.parts]
+    failed = before[-1] if before else None
+    if failed is None or failed.author != "user" or failed.content is None or not _has_video(failed.content):
+        return ""
+    return _text(failed.content)
 
 
 def consent_refusal(events: Sequence[Event], invocation_id: str, user_content: types.Content | None) -> str | None:
@@ -105,6 +142,8 @@ def consent_refusal(events: Sequence[Event], invocation_id: str, user_content: t
     the "not sent" reply that tells the agent what to do."""
     if any(_QUOTE_TOOL in _calls(e) for e in events if e.invocation_id == invocation_id):
         return _SAME_TURN
-    if _asked_to_send(_last_reply(events, invocation_id)) and _plain_yes(_text(user_content)):
+    if _asked_to_send(_last_reply(events, invocation_id)) and _plain_yes(
+        _client_words(events, invocation_id, user_content)
+    ):
         return None
     return _NO_YES

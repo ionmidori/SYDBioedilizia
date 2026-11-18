@@ -70,3 +70,9 @@ def messages_naming_one_room(
         if shared is None or not shared.search(rest):
             found[hits[0]].append(message)
     return dict(found)
+
+
+def room_named_by(text: str, rooms: Sequence[RoomSchema]) -> str | None:
+    """The room one user message talks about, or None (none, several, the whole home)."""
+    named = messages_naming_one_room([{"role": "user", "content": text}], rooms)
+    return next(iter(named), None)
