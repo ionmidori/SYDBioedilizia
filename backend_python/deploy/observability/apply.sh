@@ -24,6 +24,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 PROJECT="${PROJECT:-chatbotluca-a8a73}"
+# Git Bash on Windows rewrites `--path=/health` into `/C:/Program Files/Git/health`
+# (the uptime check then gets a 403 and the alert fires for nothing). No effect elsewhere.
+export MSYS2_ARG_CONV_EXCL='--path='
 
 for spec in chat_ttft_ms chat_total_ms chat_llm_ms chat_queued_ms email_dead_letter app_check_auth_fallback chat_turn_failed; do
   if gcloud logging metrics describe "$spec" --project="$PROJECT" >/dev/null 2>&1; then
