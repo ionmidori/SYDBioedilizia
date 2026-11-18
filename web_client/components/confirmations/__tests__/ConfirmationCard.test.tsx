@@ -293,11 +293,13 @@ describe('ConfirmationCard — one confirmation at a time', () => {
     confirm.mockResolvedValue({ recalculated: false, blocked_sections: [], state: done });
     getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] })] })).mockResolvedValue(done);
     const user = userEvent.setup();
-    const { container } = renderCard();
+    renderCard();
 
     await user.click(await confirmButton());
 
-    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    await waitFor(() => expect(screen.queryByRole('region')).not.toBeInTheDocument());
+    // The live region outlives the card: the last save is still read.
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Bagno: confermato.'));
   });
 });
 
@@ -760,7 +762,9 @@ describe('ConfirmationCard — while saving and after', () => {
 
   it('tells which rooms still miss a measure when the estimate could not be updated', async () => {
     const cucinaPending = bagno({ section_key: 'cucina1', label: 'Cucina', element_choices: [] });
-    getState.mockResolvedValue(state({ sections: [half(), cucinaPending] }));
+    getState
+      .mockResolvedValueOnce(state({ sections: [half(), cucinaPending] }))
+      .mockResolvedValue(state({ sections: [cucinaPending] }));
     confirm.mockResolvedValue({
       recalculated: false,
       blocked_sections: ['cucina1'],
@@ -774,5 +778,25 @@ describe('ConfirmationCard — while saving and after', () => {
 
     expect(await screen.findByText('Stima non aggiornata: manca una misura in Cucina.')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('Bagno: confermato. Stima non aggiornata: manca una misura in Cucina.');
+
+    // A failed save later says nothing new about the estimate: the note stays.
+    confirm.mockRejectedValue({ message: 'Errore di rete.' });
+    await user.type(screen.getByLabelText('Superficie pareti'), '9');
+    await user.click(screen.getByRole('button', { name: 'Conferma' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Errore di rete.');
+    expect(screen.getByText('Stima non aggiornata: manca una misura in Cucina.')).toBeInTheDocument();
+  });
+
+  it('does not name the rooms when a blocked section has no name', async () => {
+    const unnamed = bagno({ section_key: 'chat', label: null, element_choices: [] });
+    getState.mockResolvedValueOnce(state({ sections: [half(), unnamed] })).mockResolvedValue(state({ sections: [unnamed] }));
+    confirm.mockResolvedValue({ recalculated: false, blocked_sections: ['chat'], state: state({ sections: [unnamed] }) });
+    const user = userEvent.setup();
+    renderCard();
+
+    const [bagnoConfirm] = await screen.findAllByRole('button', { name: 'Conferma' });
+    await user.click(bagnoConfirm);
+
+    expect(await screen.findByText('Stima non aggiornata: manca ancora una misura.')).toBeInTheDocument();
   });
 });

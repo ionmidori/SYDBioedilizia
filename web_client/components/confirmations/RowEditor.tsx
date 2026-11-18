@@ -43,7 +43,7 @@ function EditorFrame({ children, label, canSave, saving, locked, hint, onSave, o
         <Button
           type="button"
           size="sm"
-          className="h-11 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 md:h-9"
+          className="h-11 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-primary md:h-9"
           aria-disabled={unavailable || undefined}
           aria-describedby={hint ? hintId : undefined}
           onClick={() => !unavailable && onSave()}

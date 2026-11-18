@@ -84,18 +84,27 @@ export function ConfirmationSection({
     };
     setStored(fields);
   }
+  // A field the server just dropped stays dropped.
   const setValue = (name: string, value: string) =>
-    setStored((current) => ({
-      ...current,
-      values: { ...current.values, [name]: value },
-      touchedValues: new Set(current.touchedValues).add(name),
-    }));
+    setStored((current) =>
+      name in current.values
+        ? {
+            ...current,
+            values: { ...current.values, [name]: value },
+            touchedValues: new Set(current.touchedValues).add(name),
+          }
+        : current,
+    );
   const setAction = (element: string, action: ElementAction) =>
-    setStored((current) => ({
-      ...current,
-      actions: { ...current.actions, [element]: action },
-      touchedActions: new Set(current.touchedActions).add(element),
-    }));
+    setStored((current) =>
+      element in current.actions
+        ? {
+            ...current,
+            actions: { ...current.actions, [element]: action },
+            touchedActions: new Set(current.touchedActions).add(element),
+          }
+        : current,
+    );
 
   const draft = buildDraft(measures, choices, fields.values, fields.actions);
   const disabled = !editable || locked;
@@ -181,7 +190,7 @@ export function ConfirmationSection({
           <Button
             type="button"
             size="sm"
-            className="h-11 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 md:h-9"
+            className="h-11 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-primary md:h-9"
             aria-disabled={unavailable || undefined}
             aria-describedby={hintIds || undefined}
             onClick={() => !unavailable && 'update' in draft && onConfirm(draft.update, null)}

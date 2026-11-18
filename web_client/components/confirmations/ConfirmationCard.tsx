@@ -12,10 +12,13 @@ const hasContent = (section: SectionState) => section.measures.length + section.
 
 const ROOMS = new Intl.ListFormat('it', { type: 'conjunction' });
 
-/** Why the estimate was not updated: the rooms still missing a measure (none named without rooms). */
-function blockedNote(sections: readonly SectionState[]): string {
+/**
+ * Why the estimate was not updated: the rooms still missing a measure. Named only when every one
+ * of the `total` blocked sections has a name (a project without rooms has none).
+ */
+function blockedNote(sections: readonly SectionState[], total = sections.length): string {
   const rooms = sections.flatMap((section) => (section.label === null ? [] : [section.label]));
-  return rooms.length > 0
+  return rooms.length > 0 && rooms.length === total
     ? `Stima non aggiornata: manca una misura in ${ROOMS.format(rooms)}.`
     : 'Stima non aggiornata: manca ancora una misura.';
 }
@@ -23,9 +26,10 @@ function blockedNote(sections: readonly SectionState[]): string {
 /** What a screen reader hears once a section is saved. */
 function savedMessage(section: SectionState, result: ConfirmationResult): string {
   const saved = section.label === null ? 'Confermato.' : `${section.label}: confermato.`;
-  const blocked = result.state.sections.filter((s) => result.blocked_sections.includes(s.section_key));
   if (result.recalculated) return `${saved} Stima aggiornata.`;
-  return result.blocked_sections.length > 0 ? `${saved} ${blockedNote(blocked)}` : saved;
+  if (result.blocked_sections.length === 0) return saved;
+  const blocked = result.state.sections.filter((s) => result.blocked_sections.includes(s.section_key));
+  return `${saved} ${blockedNote(blocked, result.blocked_sections.length)}`;
 }
 
 /** The confirmed voice the client opened to change (one at a time, in the whole card). */
@@ -65,8 +69,22 @@ export function ConfirmationCard({ projectId }: { projectId: string }) {
   const open = editing && data.editable && editedSection && voiceConfirmed(editedSection, editing.voice) ? editing : null;
   // What is no longer open must not reopen when the voice comes back.
   if (editing && !open) setEditing(null);
+  // Beside the card, always in the same place: a live region added together with its text is not
+  // read, and the last save can close the card while its result is still to be said.
+  const liveRegion = (
+    <p role="status" aria-live="polite" className="sr-only">
+      {announcement}
+    </p>
+  );
   // Nothing to confirm or change: the card stays only to say how precise the estimate is.
-  if (shown.length === 0 && !(mutation.isSuccess && data.precision !== null)) return null;
+  if (shown.length === 0 && !(mutation.isSuccess && data.precision !== null)) {
+    return announcement ? (
+      <>
+        {null}
+        {liveRegion}
+      </>
+    ) : null;
+  }
 
   const saving = mutation.isPending ? origin : null;
   // Only what still misses a measure: a section confirmed since (from the chat too) drops out.
@@ -76,7 +94,6 @@ export function ConfirmationCard({ projectId }: { projectId: string }) {
     const finished = open;
     setOrigin({ section: section.section_key, voice });
     setAnnouncement('Salvataggio…');
-    setBlocked([]);
     mutation.mutate(
       { sectionKey: section.section_key, update },
       {
@@ -98,47 +115,46 @@ export function ConfirmationCard({ projectId }: { projectId: string }) {
   };
 
   return (
-    <section
-      aria-label="Conferma misure e lavori"
-      data-testid="confirmation-card"
-      className="not-prose w-full max-w-md space-y-4 rounded-2xl border border-line bg-surface-muted p-4 shadow-1"
-    >
-      <p className="text-sm font-semibold text-ink">Conferma misure e lavori</p>
-      {shown.map((section) => (
-        <ConfirmationSection
-          key={section.section_key}
-          section={section}
-          editable={data.editable}
-          saving={saving?.section === section.section_key ? saving : null}
-          locked={mutation.isPending}
-          onConfirm={(update, voice) => confirm(section, update, voice)}
-          editingVoice={open?.section === section.section_key ? open.voice : null}
-          editingElsewhere={open !== null}
-          restoreVoice={closed?.section === section.section_key ? closed.voice : null}
-          onRestored={() => setClosed(null)}
-          onEdit={(voice) => {
-            setClosed(null);
-            setEditing({ section: section.section_key, voice });
-          }}
-          onCancelEdit={cancel}
-        />
-      ))}
-      {!data.editable && shown.length > 0 && (
-        <p className="text-xs text-ink-muted">Per cambiare qualcosa scrivi in chat.</p>
-      )}
-      {mutation.isError && (
-        <p role="alert" className="text-sm text-danger-ink">
-          {describeApiError(mutation.error)}
-        </p>
-      )}
-      {stillBlocked.length > 0 && <p className="text-xs text-warning-ink">{blockedNote(stillBlocked)}</p>}
-      {data.precision !== null && (
-        <p className="text-sm font-medium text-success-ink">Stima precisa al {data.precision} %</p>
-      )}
-      {/* Always mounted: a live region added together with its text is not read. */}
-      <p role="status" aria-live="polite" className="sr-only">
-        {announcement}
-      </p>
-    </section>
+    <>
+      <section
+        aria-label="Conferma misure e lavori"
+        data-testid="confirmation-card"
+        className="not-prose w-full max-w-md space-y-4 rounded-2xl border border-line bg-surface-muted p-4 shadow-1"
+      >
+        <p className="text-sm font-semibold text-ink">Conferma misure e lavori</p>
+        {shown.map((section) => (
+          <ConfirmationSection
+            key={section.section_key}
+            section={section}
+            editable={data.editable}
+            saving={saving?.section === section.section_key ? saving : null}
+            locked={mutation.isPending}
+            onConfirm={(update, voice) => confirm(section, update, voice)}
+            editingVoice={open?.section === section.section_key ? open.voice : null}
+            editingElsewhere={open !== null}
+            restoreVoice={closed?.section === section.section_key ? closed.voice : null}
+            onRestored={() => setClosed(null)}
+            onEdit={(voice) => {
+              setClosed(null);
+              setEditing({ section: section.section_key, voice });
+            }}
+            onCancelEdit={cancel}
+          />
+        ))}
+        {!data.editable && shown.length > 0 && (
+          <p className="text-xs text-ink-muted">Per cambiare qualcosa scrivi in chat.</p>
+        )}
+        {mutation.isError && (
+          <p role="alert" className="text-sm text-danger-ink">
+            {describeApiError(mutation.error)}
+          </p>
+        )}
+        {stillBlocked.length > 0 && <p className="text-xs text-warning-ink">{blockedNote(stillBlocked)}</p>}
+        {data.precision !== null && (
+          <p className="text-sm font-medium text-success-ink">Stima precisa al {data.precision} %</p>
+        )}
+      </section>
+      {liveRegion}
+    </>
   );
 }
