@@ -1,6 +1,7 @@
 """Phase 140 step 3: the quote agent leaves the measures to the confirmation card
 when the quote tool points to it (no measure question twice, no amount)."""
 from src.prompts.components.modes import MODE_B_SURVEYOR
+from src.tools import quote_tools
 from src.tools.quote_tools import MEASURES_TO_REPORT
 
 _STEP_1 = MODE_B_SURVEYOR.split("**STEP 1 ")[1].split("**STEP 2 ")[0]
@@ -93,3 +94,11 @@ def test_values_and_state_are_reported_only_as_the_tool_gives_them():
     assert "calcolato su" in _STEP_1 and "come li riporta lo strumento" in _STEP_1
     # The rule names the heading the tool puts first (quote_tools.MEASURES_TO_REPORT).
     assert MEASURES_TO_REPORT in _STEP_1 and "parola per parola" in _STEP_1
+
+
+def test_step_1_relays_the_rooms_left_out_of_the_quote():
+    # The tool's note (quote_tools._IDLE_ROOM_NOTE) reaches the client as it is.
+    assert quote_tools._IDLE_ROOM_NOTE.startswith("non ho lavori da quotare per questa stanza")
+    assert "non ho lavori da quotare per questa stanza" in _STEP_1
+    assert "non citarle nel riepilogo" in _STEP_1
+    assert "non chiedere di nuovo i lavori di quella stanza" in _STEP_1

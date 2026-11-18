@@ -1,6 +1,7 @@
 """One quote for the whole home (Phase 138, PR-3): every room analysed on its own
 media and messages, in parallel, then merged into sections ("Generale" last)."""
 import asyncio
+import json
 from contextlib import contextmanager
 from decimal import Decimal
 from typing import Any
@@ -1157,3 +1158,78 @@ async def test_questions_for_one_room_still_report_the_values_of_another():
 
     assert reply.startswith(f"{MEASURES_TO_REPORT}\n**Bagno** — pavimento della stanza: calcolato su 8 m²")
     assert "quarzo o in laminato" in reply
+
+
+# ─── A room without works no longer blocks the home quote ───────────────────
+# 18/11: an old room with no works ("Soggiorno") stopped the quote turn after
+# turn. Left out when the client has not talked about it since the last quote
+# call, or when that call already asked about it; asked when named now.
+
+NO_WORKS = InsightAnalysis(summary="Cucina", completeness_score=0.2, missing_info=["Quali lavori in cucina?"],
+                           suggestions=[])
+CUCINA_LEFT_OUT = "**Cucina**: non ho lavori da quotare per questa stanza, quindi non l'ho inclusa nel preventivo."
+
+
+def _earlier_call(reply: str) -> list[dict[str, Any]]:
+    return [
+        {"id": "t_c1", "role": "tool", "content": reply, "tool_call_id": "c1"},
+        {"id": "a_c1", "role": "assistant", "content": "...",
+         "tool_calls": [{"id": "c1", "name": "suggest_quote_items", "args": {}}]},
+    ]
+
+
+def _saved_sections(saved: AsyncMock) -> list[str]:
+    return [room.room_label for room in saved.await_args.args[2].rooms]
+
+
+async def test_a_stale_room_without_works_leaves_the_quote_with_a_note():
+    history = [*HISTORY, *_earlier_call("ok"),
+               {"id": "u9", "role": "user", "content": "Nel bagno anche il bidet", "room_id": "bagno1"}]
+    with _project(history=history, analyses={**ANALYSES, "Cucina": NO_WORKS}) as mocks:
+        reply = await _quote()
+
+    mocks["saved"].assert_awaited_once()
+    assert "Cucina" not in _saved_sections(mocks["saved"])
+    assert CUCINA_LEFT_OUT in reply and "Quali lavori in cucina?" not in reply
+
+
+async def test_a_room_asked_last_time_and_still_without_works_leaves_the_quote():
+    # As Firestore holds it: the str tool result wrapped by ADK, saved as JSON.
+    history = [*HISTORY, *_earlier_call(json.dumps({"result": "Prima...\n\n**Cucina**: Quali lavori in cucina?"})),
+               {"id": "u9", "role": "user", "content": "la cucina non la includere"}]
+    with _project(history=history, analyses={**ANALYSES, "Cucina": NO_WORKS}) as mocks:
+        reply = await _quote()
+
+    mocks["saved"].assert_awaited_once()
+    assert "Cucina" not in _saved_sections(mocks["saved"])
+    assert CUCINA_LEFT_OUT in reply
+
+
+async def test_a_room_named_now_with_vague_works_is_asked():
+    # First call: the client named the kitchen, the gate asks its works.
+    with _project(analyses={**ANALYSES, "Cucina": NO_WORKS}) as mocks:
+        reply = await _quote()
+
+    assert "**Cucina**: Quali lavori in cucina?" in reply
+    mocks["saved"].assert_not_awaited()
+
+
+async def test_every_room_without_works_keeps_the_gate():
+    history = [*HISTORY, *_earlier_call("ok")]
+    bagno = NO_WORKS.model_copy(update={"summary": "Bagno", "missing_info": ["Quali lavori in bagno?"]})
+    with _project(history=history, analyses={**ANALYSES, "Bagno": bagno, "Cucina": NO_WORKS}) as mocks:
+        reply = await _quote()
+
+    assert "**Cucina**: Quali lavori in cucina?" in reply
+    mocks["saved"].assert_not_awaited()
+
+
+async def test_a_room_with_works_but_missing_data_is_never_left_out():
+    history = [*HISTORY, *_earlier_call("**Cucina**: Quanti metri di top?")]
+    cucina = InsightAnalysis(summary="Cucina", completeness_score=0.4, missing_info=["Quanti metri di top?"],
+                             suggestions=[_s("CUC-TOP-002", 1)])
+    with _project(history=history, analyses={**ANALYSES, "Cucina": cucina}) as mocks:
+        reply = await _quote()
+
+    assert "**Cucina**: Quanti metri di top?" in reply
+    mocks["saved"].assert_not_awaited()
