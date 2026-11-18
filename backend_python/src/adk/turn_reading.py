@@ -60,6 +60,24 @@ def last_turn_calls(events: Sequence[Event], invocation_id: str) -> list[str]:
     return turn_calls(events, previous) if previous is not None else []
 
 
+def tool_responses(events: Sequence[Event], invocation_id: str, name: str) -> list[str]:
+    """What the tool answered in that turn: the text of its responses (ADK wraps a
+    `str` result as {"result": ...})."""
+    return [
+        str(response.get("result", response))
+        for e in events if e.invocation_id == invocation_id and e.content
+        for p in e.content.parts or []
+        if p.function_response and p.function_response.name == name
+        and (response := p.function_response.response) is not None
+    ]
+
+
+def last_turn_responses(events: Sequence[Event], invocation_id: str, name: str) -> list[str]:
+    """What the tool answered in the last turn before this one."""
+    previous = _previous_turn(events, invocation_id)
+    return tool_responses(events, previous, name) if previous is not None else []
+
+
 def _has_video(content: types.Content) -> bool:
     return any(
         p.file_data is not None and (p.file_data.mime_type or "").startswith("video/") for p in content.parts or []
