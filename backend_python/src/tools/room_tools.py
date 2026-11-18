@@ -14,7 +14,16 @@ from src.core.exceptions import ProjectFileNotFoundError, RoomLimitError, RoomNo
 from src.core.logger import get_logger
 from src.db.projects.constants import FILE_ROOM_FIELD
 from src.repositories.room_repository import get_room_repository
-from src.schemas.room import ROOM_ID_PATTERN, ROOM_TYPES, RoomCreate, RoomSchema, RoomType, normalize_room_label
+from src.schemas.room import (
+    DEFAULT_ROOM_ID,
+    ROOM_ID_PATTERN,
+    ROOM_TYPES,
+    RoomCreate,
+    RoomSchema,
+    RoomType,
+    RoomUpdate,
+    normalize_room_label,
+)
 
 logger = get_logger(__name__)
 
@@ -74,7 +83,7 @@ def match_room(rooms: list[RoomSchema], name: str, room_type: str) -> RoomSchema
 
 async def select_room(project_id: str, name: str, room_type: str) -> tuple[dict[str, Any], list[RoomSchema]]:
     """Find the room by name (or create it); returns the result and the project's rooms."""
-    kind: RoomType = cast(RoomType, room_type) if room_type in ROOM_TYPES else "altro"
+    kind = _room_type(room_type)
     try:
         request = RoomCreate(label=name, room_type=kind)
     except ValidationError:
@@ -100,6 +109,48 @@ async def select_room(project_id: str, name: str, room_type: str) -> tuple[dict[
         "room_type": room.room_type,
         "created": created,
         "message": f"Stanza attiva: {room.label}" + (" (nuova)" if created else ""),
+    }, rooms
+
+
+def _room_type(room_type: str) -> RoomType:
+    return cast(RoomType, room_type) if room_type in ROOM_TYPES else "altro"
+
+
+async def rename_room(
+    project_id: str, room_id: str, name: str, room_type: str
+) -> tuple[dict[str, Any], list[RoomSchema]]:
+    """Give a room another name and type in place: its media and brief stay with it."""
+    if not _ROOM_ID.match(room_id):
+        return _error("Id stanza non valido."), []
+    if room_id == DEFAULT_ROOM_ID:
+        return _error("La stanza Generale non si rinomina: crea la stanza giusta con select_room."), []
+    try:
+        change = RoomUpdate(label=name, room_type=_room_type(room_type))
+    except ValidationError:
+        return _error("Nome stanza non valido: usa da 1 a 60 caratteri."), []
+    repo = get_room_repository()
+    try:
+        key = normalize_room_label(name)
+        taken = next(
+            (r for r in await repo.list_rooms(project_id)
+             if r.room_id != room_id and normalize_room_label(r.label) == key),
+            None,
+        )
+        if taken is not None:
+            return _error(f"Esiste già la stanza {taken.label}: usa un altro nome o quella stanza."), []
+        room = await repo.update_room(project_id, room_id, change)
+        rooms = await repo.list_rooms(project_id)
+    except RoomNotFoundError:
+        return _error("Stanza non trovata in questo progetto: usa un id da STANZE DEL PROGETTO."), []
+    except (GoogleAPIError, ValidationError) as e:
+        logger.error("[Rooms] rename_room failed", extra={"error": type(e).__name__})
+        return _error("Non riesco a rinominare la stanza in questo momento. Riprova."), []
+    return {
+        "status": "success",
+        "room_id": room.room_id,
+        "label": room.label,
+        "room_type": room.room_type,
+        "message": f"Stanza rinominata: {room.label}",
     }, rooms
 
 
