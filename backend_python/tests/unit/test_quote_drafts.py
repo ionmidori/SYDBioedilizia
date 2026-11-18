@@ -269,13 +269,15 @@ async def test_read_quote_status_in_a_transaction():
 # ── Phase 140 seguiti T4: a draft never older than the specs ─────────────────
 
 
-@pytest.mark.parametrize("seed_draft", [False, True], ids=["first-draft", "update"])
-async def test_a_draft_computed_from_older_specs_is_never_saved(seed_draft: bool):
+@pytest.mark.parametrize("seed", ["none", "draft", "legacy"], ids=["first-draft", "update", "legacy-without-number"])
+async def test_a_draft_computed_from_older_specs_is_never_saved(seed: str):
     """The card read the specs, then another confirmation changed one: the guard
-    (a read in the same transaction) says so and nothing is written."""
+    (a read in the same transaction) says so and nothing is written, no number burnt."""
     db = FakeDb()
-    if seed_draft:
+    if seed == "draft":
         await _save(db)
+    elif seed == "legacy":  # a draft from before numbering: an update allocates its number
+        db.put(*QUOTE_PATH, {"status": "draft", "version": 1, "items": []})
     before = db.get_data(*QUOTE_PATH)
     tx = FakeTransaction(db)
     guarded: list[int] = []
@@ -290,7 +292,7 @@ async def test_a_draft_computed_from_older_specs_is_never_saved(seed_draft: bool
     assert guarded == [0] and tx.writes == []
     assert db.get_data(*QUOTE_PATH) == before
     counter = db.get_data("counters", "quote_2026")
-    assert (counter or {}).get("next") == (2 if seed_draft else None)  # no number burnt
+    assert (counter or {}).get("next") == (2 if seed == "draft" else None)
 
 
 async def test_a_draft_of_the_current_specs_is_saved():

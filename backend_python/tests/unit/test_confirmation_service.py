@@ -68,7 +68,9 @@ def _project(specs: dict[str, RoomInterventionSpec], status: QuoteStatusView | N
     `meanwhile` hook runs just before a draft save (another writer's spec)."""
     stored = dict(specs)
     transaction = object()
-    mocks: dict[str, Any] = {"stored": stored, "status_in_transaction": status, "meanwhile": []}
+    mocks: dict[str, Any] = {
+        "stored": stored, "status": status, "status_in_transaction": status, "meanwhile": [], "outcome": outcome,
+    }
     store = MagicMock()
     store.load_all = AsyncMock(side_effect=lambda pid, transaction=None: dict(stored))
 
@@ -81,14 +83,16 @@ def _project(specs: dict[str, RoomInterventionSpec], status: QuoteStatusView | N
 
     async def read_status(_db, project_id, *, transaction=None):
         assert project_id == PID
-        return status if transaction is None else mocks["status_in_transaction"]
+        return mocks["status"] if transaction is None else mocks["status_in_transaction"]
 
     async def save(_db, project_id, quote, request, *, guard, **_kwargs):
         if mocks["meanwhile"]:
             mocks["meanwhile"].pop(0)()
+        if mocks["outcome"] is DraftSaveOutcome.NOT_EDITABLE:
+            return DraftSaveResult(DraftSaveOutcome.NOT_EDITABLE, "sent", "PRV-2026-0042", 1)
         if not await guard(transaction):
             return DraftSaveResult(DraftSaveOutcome.STALE, "draft", "PRV-2026-0042", 1)
-        return DraftSaveResult(outcome, "draft", "PRV-2026-0042", 2)
+        return DraftSaveResult(mocks["outcome"], "draft", "PRV-2026-0042", 2)
 
     store.update = AsyncMock(side_effect=update)
     repo = MagicMock()
@@ -388,16 +392,36 @@ async def test_confirm_gives_up_after_three_stale_attempts(caplog: pytest.LogCap
     def kitchen(mq: float) -> RoomInterventionSpec:
         return _spec(PENSILI, StoredMeasure(name="mq", value=mq, source="confirmed"), package="ASM-CUCINA-FULL")
 
-    with _project({"bagno1": BAGNO, "cucina1": kitchen(12)}, _draft()) as mocks:
+    with _project({"bagno1": BAGNO, "cucina1": kitchen(12)}, _draft(precision=60)) as mocks:
         for mq in (13, 14, 15):
             mocks["meanwhile"].append(lambda mq=mq: mocks["stored"].update(cucina1=kitchen(mq)))
+        # The other writer saved its own draft meanwhile: the card shows that one's precision.
+        mocks["meanwhile"][-1] = lambda: (mocks["stored"].update(cucina1=kitchen(15)),
+                                          mocks.update(status=_draft(precision=70)))
         result = await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
 
     assert not result.recalculated and result.blocked_sections == []
+    assert result.state.precision == 70
     assert mocks["saved"].await_count == 3
     assert mocks["stored"]["bagno1"].measures == [StoredMeasure(name="mq", value=8, source="confirmed")]
     assert "Draft left for the next recalculation" in caplog.text
+    assert "Draft recomputed without the model" not in caplog.text  # nothing was saved
     assert all(PID not in str(r.__dict__) for r in caplog.records)
+
+
+async def test_a_quote_taken_while_recomputing_again_is_409_with_the_spec_kept() -> None:
+    kitchen = _spec(PENSILI, StoredMeasure(name="mq", value=12, source="confirmed"), package="ASM-CUCINA-FULL")
+    kitchen_later = _spec(PENSILI, StoredMeasure(name="mq", value=15, source="confirmed"), package="ASM-CUCINA-FULL")
+    with _project({"bagno1": BAGNO, "cucina1": kitchen}, _draft()) as mocks, pytest.raises(AppException) as error:
+        mocks["meanwhile"].extend([
+            lambda: mocks["stored"].update(cucina1=kitchen_later),
+            lambda: mocks.update(outcome=DraftSaveOutcome.NOT_EDITABLE),
+        ])
+        await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
+
+    assert error.value.error_code == "QUOTE_NOT_EDITABLE"
+    assert mocks["saved"].await_count == 2
+    assert mocks["stored"]["bagno1"].measures == [StoredMeasure(name="mq", value=8, source="confirmed")]
 
 
 async def test_three_confirmations_close_together_leave_the_draft_of_the_last_spec() -> None:

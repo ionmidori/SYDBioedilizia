@@ -41,7 +41,8 @@ _ROOM_FIELD = "intervention_spec"
 
 # The new spec of a unit from the one stored now (None: none yet).
 SpecChange = Callable[[RoomInterventionSpec | None], RoomInterventionSpec]
-# Reads in a write's transaction before its own reads; raises to write nothing.
+# Reads in a write's transaction before its own reads; raises to write nothing (the
+# caller's error reaches the client). Unlike `quote_drafts.DraftGuard`, which returns False.
 TransactionGuard = Callable[[Any], Awaitable[None]]
 
 

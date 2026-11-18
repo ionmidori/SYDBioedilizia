@@ -57,7 +57,8 @@ logger = logging.getLogger(__name__)
 REVISIONS_SUBCOLLECTION = "revisions"
 CLIENT_REVISION_REASON = "Nuova richiesta del cliente in chat"
 
-# Reads in the draft's transaction: False when the draft was computed from older data.
+# Reads in the draft's transaction: False when the draft was computed from older data
+# (STALE, the caller computes it again). Unlike `spec_store.TransactionGuard`, which raises.
 DraftGuard = Callable[[Any], Awaitable[bool]]
 
 

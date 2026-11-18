@@ -302,10 +302,11 @@ async def _recalculate(
     )
     if saved.outcome is DraftSaveOutcome.NOT_EDITABLE:
         raise QuoteNotEditableError()
-    logger.info(
-        "[Confirmation] Draft recomputed without the model.",
-        extra={"quote_number": saved.quote_number, "outcome": saved.outcome.value},
-    )
+    if saved.outcome is not DraftSaveOutcome.STALE:
+        logger.info(
+            "[Confirmation] Draft recomputed without the model.",
+            extra={"quote_number": saved.quote_number, "outcome": saved.outcome.value},
+        )
     return saved.outcome, built.quote.estimate.precision if built.quote.estimate is not None else None
 
 
@@ -333,7 +334,9 @@ async def _recalculate_latest(
             return _Recalculation(computed, [], recalculated=True, precision=saved_precision)
     # The client's confirmation is stored: the next confirmation or analysis brings the draft up.
     logger.warning("[Confirmation] Draft left for the next recalculation.", extra={"attempts": _RECALC_ATTEMPTS})
-    return _Recalculation(computed, [], recalculated=False, precision=precision)
+    # The other writer may have saved its own draft meanwhile: the card shows that one's precision.
+    latest = await read_quote_status(get_async_firestore_client(), project_id)
+    return _Recalculation(computed, [], recalculated=False, precision=latest.precision if latest else None)
 
 
 async def confirm_section(
