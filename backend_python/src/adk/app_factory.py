@@ -23,6 +23,7 @@ from src.adk.background import run_in_background
 from src.adk.compaction import PostTurnCompactionPlugin, build_events_compaction_config
 from src.adk.latency_plugin import LatencyPlugin
 from src.adk.media_model_plugin import MediaModelPlugin
+from src.adk.quote_step_plugin import QuoteStepPlugin
 from src.adk.video_guard_plugin import VideoGuardPlugin
 from src.core.config import settings
 
@@ -82,6 +83,8 @@ def build_app(
             VideoGuardPlugin(),
             MediaModelPlugin(),
             LatencyPlugin(),
+            # Logs the step of the quote the turn starts at (quote_step_plugin.py).
+            QuoteStepPlugin(),
             *(extra_plugins or []),
         ],
         events_compaction_config=compaction or build_events_compaction_config(),

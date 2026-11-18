@@ -13,6 +13,7 @@ from src.adk.adk_orchestrator import ADKOrchestrator, _attachment_labels, _Resto
 from src.adk.media_model_plugin import _is_customer_media
 from src.auth.jwt_handler import verify_token
 from src.core import media_policy
+from src.core.config import settings
 from src.models.media import DocumentMediaAsset
 from src.repositories.conversation_repository import ConversationRepository
 from src.schemas.internal import UserSession
@@ -258,7 +259,9 @@ def test_media_model_plugin_treats_pdf_as_vision_media():
     assert _is_customer_media(pdf_part) is True
 
 
-def test_attachment_labels_includes_documents():
+def test_attachment_labels_includes_documents(monkeypatch):
+    # A bare path is read in the app bucket: set it here, not only in the CI env (no .env in a worktree).
+    monkeypatch.setattr(settings, "FIREBASE_STORAGE_BUCKET", "test-bucket.firebasestorage.app")
     now = utc_now()
     kitchen = RoomSchema(room_id="r_cucina", label="Cucina", room_type="cucina", created_at=now, updated_at=now)
     ctx = _RestoreContext(

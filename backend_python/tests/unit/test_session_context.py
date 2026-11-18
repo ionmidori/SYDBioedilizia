@@ -150,6 +150,13 @@ def test_the_agent_knows_where_the_house_quote_stands():
     assert "PREVENTIVO DELLA CASA: PRV-2026-0009 · stato: inviato al cliente · rev. 3" in block
 
 
+def test_the_house_quote_keeps_its_delivery_for_the_step():
+    """A sent quote whose email is still queued is with the team (quote_step)."""
+    view = QuoteStatusView(status="sent", delivery_status="queued", quote_number="PRV-2026-0009", version=3,
+                           sent_before=True)
+    assert house_quote_entry(view)["delivery_status"] == "queued"
+
+
 def test_a_house_without_a_quote_says_so():
     block = session_context_instruction(_with_quote(house_quote_entry(None)))
     assert "PREVENTIVO DELLA CASA: nessuno" in block

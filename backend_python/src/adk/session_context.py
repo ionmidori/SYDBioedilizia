@@ -50,6 +50,10 @@ ACTIVE_ROOM_STATE_KEY = "syd_active_room_id"
 # Where the house quote stands ({} = no quote); None (or absent) when unknown:
 # it could not be read this turn, or the user is a guest.
 HOUSE_QUOTE_STATE_KEY = "syd_house_quote"
+# Whether the confirmation card of the draft still asks the client something, read
+# before the turn (no tool has written yet); None without a draft or when unread.
+# Not shown to the model: the quote step reads it (src/adk/quote_facts.py).
+CARD_PENDING_STATE_KEY = "syd_card_pending"
 
 _ROOM_TEXT_MAX = 120
 
@@ -105,7 +109,13 @@ def house_quote_entry(view: QuoteStatusView | None) -> dict[str, Any]:
     """The house quote as kept in the session state ({} when there is none)."""
     if view is None:
         return {}
-    return {"quote_number": view.quote_number, "status": view.status, "version": view.version}
+    return {
+        "quote_number": view.quote_number,
+        "status": view.status,
+        "version": view.version,
+        # Not shown to the model: a sent quote still in the mail is with the team (quote_step).
+        "delivery_status": view.delivery_status,
+    }
 
 
 def house_quote_line(entry: dict[str, Any]) -> str:

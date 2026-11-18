@@ -10,7 +10,7 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
@@ -33,6 +33,7 @@ from src.adk.filters import MASKED_REPLY, StreamingOutputGuard, filter_agent_out
 from src.adk.session import get_artifact_service, get_session_service
 from src.adk.session_context import (
     ACTIVE_ROOM_STATE_KEY,
+    CARD_PENDING_STATE_KEY,
     HOUSE_QUOTE_STATE_KEY,
     ROOMS_STATE_KEY,
     house_quote_entry,
@@ -49,12 +50,15 @@ from src.adk.video_attachments import (
 )
 from src.core.chat_timing import current_turn
 from src.core.context import bind_session
+from src.core.exceptions import AppException
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import get_conversation_repository
 from src.repositories.room_repository import get_room_repository
 from src.schemas.room import RoomSchema
 from src.services.base_orchestrator import BaseOrchestrator
+from src.services.confirmation_service import confirmation_state
 from src.services.quote_drafts import read_quote_status
+from src.services.quote_state import QuoteStatus
 from src.services.room_brief import BriefTurn, schedule_room_brief_refresh
 from src.services.room_mentions import room_named_by
 from src.tools.room_tools import brief_lines, media_label, room_of
@@ -84,6 +88,9 @@ _RUN_CONFIG = RunConfig(streaming_mode=StreamingMode.SSE)
 
 # data-notice code for attached videos the model could not use (frontend: ChatWidget)
 VIDEO_SKIPPED_NOTICE = "VIDEO_SKIPPED"
+
+# Longest wait for the card of a draft before the turn (`_card_pending`): it only feeds a log.
+_CARD_READ_TIMEOUT_S = 1.0
 
 
 @dataclass(frozen=True)
@@ -346,6 +353,28 @@ async def _house_quote(session_id: str) -> dict[str, Any] | None:
         return None
 
 
+async def _card_pending(session_id: str, house_quote: Awaitable[dict[str, Any] | None]) -> bool | None:
+    """Whether the confirmation card of the draft still asks the client something,
+    for the quote step (session state, `CARD_PENDING_STATE_KEY`). Read before the
+    turn, alongside its other reads: no tool of the turn has written the card yet,
+    and nothing of it runs while the reply streams. None without a draft, or when
+    it cannot be read in time. Never fails the turn: the value only feeds a log."""
+    entry = await house_quote
+    if not entry or entry.get("status") != QuoteStatus.DRAFT:
+        return None
+    try:
+        async with asyncio.timeout(_CARD_READ_TIMEOUT_S):
+            card = await confirmation_state(session_id)
+    # Slow; Firestore down; no credentials; a malformed spec (ValueError); the store's errors.
+    except (TimeoutError, GoogleAPIError, GoogleAuthError, ValueError, AppException) as e:
+        logger.warning(f"[ADK] Could not read the confirmation card: {type(e).__name__}")
+        return None
+    except Exception:  # noqa: BLE001 - a bug here must not fail the turn; logged with its trace
+        logger.error("[ADK] Confirmation card read failed", exc_info=True)
+        return None
+    return any(section.pending for section in card.sections)
+
+
 async def _media_label_part(ref: str, file_type: str, session_id: str, room_labels: dict[str, str]) -> types.Part:
     """`[Foto <file_id> · <stanza>]` before a media of the turn: the model knows
     which file and which room it is looking at, and passes the id to the room
@@ -543,6 +572,8 @@ class ADKOrchestrator(BaseOrchestrator):
         rooms_task = asyncio.create_task(_project_rooms(session_id))
         # The house quote (status, PRV, revision) for a registered user: a guest has none.
         quote_task = None if is_guest else asyncio.create_task(_house_quote(session_id))
+        # The card of a draft, for the quote step: read once the quote is known, before the turn.
+        card_task = None if quote_task is None else asyncio.create_task(_card_pending(session_id, quote_task))
         # Check if phone is already on file (avoids asking again in quote flow)
         phone_on_file = False
         if not is_guest:
@@ -679,6 +710,8 @@ class ADKOrchestrator(BaseOrchestrator):
 
             if turn is not None:
                 turn.mark("adk_session_ready")
+            # Read alongside media and session; None (no draft, a guest) clears last turn's value.
+            context_delta[CARD_PENDING_STATE_KEY] = await card_task if card_task is not None else None
             turn_text = _TurnText(stream=settings.OUTPUT_GUARDRAIL_STREAMING)
             pending_saves: list[asyncio.Task[bool]] = []
             accumulated_tool_calls = []
