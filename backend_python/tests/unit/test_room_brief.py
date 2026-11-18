@@ -381,3 +381,34 @@ async def test_turn_ending_right_after_a_refresh_starts_a_new_one():
         await second
     assert backend.generate.await_count == 2
     assert not room_brief._dirty and not room_brief._running
+
+
+async def test_the_refresh_waits_for_the_user_message_of_the_turn():
+    """The turn ends before its user message is in Firestore: the refresh reads the
+    chat only once it is, so "il bagno è 9 mq" reaches the brief (and is not left
+    behind the watermark, which moves to the reply after it)."""
+    history = [{"id": "m2", "role": "assistant", "content": "Annotato.", "room_id": "r_bagno"}]
+    saved = asyncio.get_running_loop().create_future()
+    with _Backend(_room(), history) as backend:
+        task = schedule_room_brief_refresh(
+            BriefTurn(project_id="p1", session_id="s1", room_id="r_bagno", is_guest=False, user_message_saved=saved)
+        )
+        assert task is not None
+        # Long enough for a refresh that does not wait to read the chat and finish.
+        done, _ = await asyncio.wait({task}, timeout=0.2)
+        assert not done
+        backend.conversations.get_context.assert_not_awaited()
+        history.insert(0, {"id": "m1", "role": "user", "content": "Il bagno è 9 mq", "room_id": "r_bagno"})
+        saved.set_result(None)
+        await task
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert "Il bagno è 9 mq" in prompt
+    assert room_brief._watermark[("s1", "r_bagno")] == "m2"
+
+
+async def test_a_failed_user_message_save_still_refreshes_the_brief():
+    saved = asyncio.get_running_loop().create_future()
+    saved.set_exception(RuntimeError("firestore down"))
+    with _Backend(_room(), BATH_TALK) as backend:
+        await _run(BriefTurn(project_id="p1", session_id="s1", room_id="r_bagno", is_guest=False, user_message_saved=saved))
+    backend.generate.assert_awaited_once()

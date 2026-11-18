@@ -7,6 +7,7 @@
   verified session's project;
 - a render starts from a photo of the active room, never from another room's.
 """
+import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -249,7 +250,7 @@ async def _iter(items):
         yield item
 
 
-async def _run_turn(request, events, room_repo, *, quote=None, is_guest=False):
+async def _run_turn(request, events, room_repo, *, quote=None, is_guest=False, user_message_saved=None):
     orch = adk_orchestrator.ADKOrchestrator.__new__(adk_orchestrator.ADKOrchestrator)
     orch.runner = MagicMock()
     orch.runner.run_async = MagicMock(return_value=_iter(events))
@@ -266,7 +267,11 @@ async def _run_turn(request, events, room_repo, *, quote=None, is_guest=False):
          patch.object(adk_orchestrator, "get_async_firestore_client"), \
          patch.object(adk_orchestrator, "download_session_media", new=AsyncMock(return_value=(b"jpg", "image/jpeg"))), \
          patch.object(adk_orchestrator, "session_media_path", side_effect=lambda ref, sid: f"user-uploads/{sid}/x.jpg"):
-        chunks = [c async for c in orch._stream_events(request, user, assistant_msg_id="a1")]
+        chunks = [
+            c async for c in orch._stream_events(
+                request, user, assistant_msg_id="a1", user_message_saved=user_message_saved
+            )
+        ]
     return chunks, orch.runner.run_async.call_args.kwargs, conv_repo
 
 
@@ -448,6 +453,17 @@ async def test_a_turn_without_chip_naming_a_room_also_refreshes_that_room():
     # First the turn's own room (the session's active one, a mock here), then the bathroom.
     assert len(schedule.call_args_list) == 2
     assert schedule.call_args_list[1].args[0].room_id == "r_bagno"
+
+
+async def test_every_brief_refresh_waits_for_the_user_message_of_the_turn():
+    repo = _repo(list_rooms=[KITCHEN, BATH], find_file_by_storage_path=None)
+    schedule = MagicMock(return_value=None)
+    saved = asyncio.get_running_loop().create_future()
+    saved.set_result(None)
+    request = _request(messages=[MagicMock(content="il bagno è 9 metri quadri")])
+    with patch.object(adk_orchestrator, "schedule_room_brief_refresh", schedule):
+        await _run_turn(request, [_make_text_event("Annotato.")], repo, user_message_saved=saved)
+    assert [call.args[0].user_message_saved for call in schedule.call_args_list] == [saved, saved]
 
 
 async def test_a_turn_naming_its_own_room_refreshes_it_once():

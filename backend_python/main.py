@@ -16,6 +16,7 @@ from google.api_core.exceptions import GoogleAPICallError
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from src.adk.background import run_in_background
 from src.auth.jwt_handler import verify_token
 from src.core.chat_timing import start_turn
 from src.core.config import settings
@@ -843,13 +844,15 @@ async def chat_stream(
         except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to pre-persist user message in route: {e}")
 
-    background_tasks.add_task(_persist_user_message)
+    # Started now, not after the stream (a BackgroundTask): the room briefs are
+    # scheduled when the reply is saved and must read this message.
+    user_message_saved = run_in_background(_persist_user_message(), name="persist_user_message")
 
     # Directly pass the async iterator to StreamingResponse.
     # The orchestrator emits the AI SDK v6 UI Message Stream protocol (SSE),
     # which @ai-sdk/react parses via x-vercel-ai-ui-message-stream: v1.
     return StreamingResponse(
-        orchestrator.stream_chat(body, user_session, background_tasks),
+        orchestrator.stream_chat(body, user_session, background_tasks, user_message_saved=user_message_saved),
         media_type="text/event-stream; charset=utf-8",
         headers={
             # No "Connection: close": the Next.js proxy keeps its connection to

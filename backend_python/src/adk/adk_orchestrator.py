@@ -448,6 +448,7 @@ class ADKOrchestrator(BaseOrchestrator):
         request: Any,       # ChatRequest
         user_session: Any,  # UserSession
         background_tasks: Any = None,  # FastAPI BackgroundTasks (unused here, required by BaseOrchestrator)
+        user_message_saved: asyncio.Future[None] | None = None,  # /chat/stream's save of the user message
     ) -> AsyncIterator[str]:
         """
         Public streaming entry point.
@@ -468,7 +469,9 @@ class ADKOrchestrator(BaseOrchestrator):
         outcome = "ok"
         try:
             async for sse in to_ui_message_stream(
-                self._stream_events(request, user_session, background_tasks, assistant_msg_id),
+                self._stream_events(
+                    request, user_session, background_tasks, assistant_msg_id, user_message_saved=user_message_saved
+                ),
                 message_id=assistant_msg_id,
             ):
                 if turn is not None:
@@ -493,6 +496,7 @@ class ADKOrchestrator(BaseOrchestrator):
         user_session: Any,  # UserSession
         background_tasks: Any = None,  # FastAPI BackgroundTasks (unused here, required by BaseOrchestrator)
         assistant_msg_id: str | None = None,  # stable id shared with start.messageId + Firestore doc id
+        user_message_saved: asyncio.Future[None] | None = None,  # the room briefs read the chat after it
     ) -> AsyncIterator[dict]:
         """
         Main streaming chat method for Vertex AI Agent Builder.
@@ -1085,6 +1089,7 @@ class ADKOrchestrator(BaseOrchestrator):
                             brief_room = room_id or (getattr(session, "state", None) or {}).get(ACTIVE_ROOM_STATE_KEY)
                             schedule_room_brief_refresh(BriefTurn(
                                 project_id=session_id, session_id=session_id, room_id=brief_room, is_guest=is_guest,
+                                user_message_saved=user_message_saved,
                             ))
                             # "Il bagno è 8 mq" with no chip is the bathroom's talk too (the chip
                             # the turn was sent with: room_id moves with select_room).
@@ -1093,6 +1098,7 @@ class ADKOrchestrator(BaseOrchestrator):
                             if named is not None and named != brief_room:
                                 schedule_room_brief_refresh(BriefTurn(
                                     project_id=session_id, session_id=session_id, room_id=named, is_guest=is_guest,
+                                    user_message_saved=user_message_saved,
                                 ))
                         logger.info("[Repo] Saved assistant message")
                     except Exception as e:  # noqa: BLE001

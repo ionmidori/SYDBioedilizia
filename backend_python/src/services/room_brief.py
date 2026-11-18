@@ -99,6 +99,9 @@ class BriefTurn:
     session_id: str
     room_id: str | None  # active room at the end of the turn (None: no room chosen)
     is_guest: bool
+    # The save of the turn's user message: /chat/stream writes it while the reply
+    # streams, so the turn can end first. The refresh reads the chat after it.
+    user_message_saved: asyncio.Future[None] | None = None
 
 
 def schedule_room_brief_refresh(turn: BriefTurn) -> asyncio.Task[None] | None:
@@ -117,6 +120,10 @@ def schedule_room_brief_refresh(turn: BriefTurn) -> asyncio.Task[None] | None:
 
 async def _refresh_until_clean(turn: BriefTurn, key: _Key) -> None:
     try:
+        if turn.user_message_saved is not None:
+            # Waited, never raised (a failed save is logged where it fails), and bounded:
+            # read too early, the message would sit behind the watermark (the reply) for good.
+            await asyncio.wait({turn.user_message_saved}, timeout=settings.ROOM_BRIEF_TIMEOUT_SECONDS)
         while True:
             _dirty.discard(key)
             await _refresh(turn.project_id, *key)

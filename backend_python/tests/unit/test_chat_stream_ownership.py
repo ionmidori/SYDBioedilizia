@@ -172,3 +172,25 @@ def test_chat_request_has_no_project_id():
 
     assert "project_id" not in ChatRequest.model_fields
     assert body.session_id == "victim-session"
+
+
+@pytest.mark.asyncio
+async def test_the_stream_can_wait_for_the_user_message_to_be_saved(_overrides, db):
+    """The room brief reads the chat at the end of the turn: the user message is
+    saved while the reply streams (not after it), and the orchestrator can wait for it."""
+    db.put("users", REGISTERED.uid, {"chat_id": "my-chat"})
+    repo = _repo()
+    saved_before_the_stream_ended: list[bool] = []
+
+    async def stream(*_args, **kwargs):
+        await kwargs["user_message_saved"]
+        saved_before_the_stream_ended.append(repo.save_message.await_count == 1)
+        yield ""
+
+    _overrides.stream_chat = MagicMock(side_effect=stream)
+
+    resp = await _post(repo, {**_BODY, "sessionId": "my-chat"})
+
+    assert resp.status_code == 200
+    assert saved_before_the_stream_ended == [True]
+    assert repo.save_message.await_args.kwargs["role"] == "user"
