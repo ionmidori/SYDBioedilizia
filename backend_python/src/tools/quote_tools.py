@@ -664,13 +664,15 @@ async def _room_unit(
 ) -> _QuoteUnit:
     """One room: its messages (and the ones from other chips that name only this
     room, `named`), its photos, measures and render delta of its own media. A
-    message of its chip that names another room is that room's (`rooms`)."""
+    message of its chip that names another room is that room's (`rooms`), when that
+    room can see it (it is in the chat window, `order`)."""
     tagged, room_files = await asyncio.gather(
         ConversationRepository().get_context(session_id, limit=_ROOM_HISTORY_MESSAGES, room_id=room.room_id),
         get_room_repository().files_for_room(project_id, room.room_id),  # newest first
     )
     owner = message_rooms(tagged, rooms)
-    tagged = [m for m in tagged if owner[id(m)] == room.room_id]
+    seen = order or {}
+    tagged = [m for m in tagged if owner[id(m)] == room.room_id or (m.get("id") or "") not in seen]
     room_messages = _in_chat_order(tagged, named, order or {})
     own = {id(m) for m in named}
     general = [m for m in general if id(m) not in own]
@@ -729,8 +731,9 @@ async def _rooms_to_quote(
     tagged = {m["room_id"] for m in history if m.get("room_id") not in (None, DEFAULT_ROOM_ID)}
     if not tagged:
         return [], rooms, {}
-    # A room named only from other chips ("in cucina il top in quarzo" typed in Generale) has talk too.
-    used = tagged | set(message_rooms(history, rooms).values()) | {
+    # The rooms with talk of their own: a room named only from other chips ("in cucina il
+    # top in quarzo" typed in Generale) has some, one whose messages all name another has none.
+    used = set(message_rooms(history, rooms).values()) | {
         room_of(f) for f in files if f.get("type") in _ROOM_MEDIA_TYPES
     }
     to_quote = [r for r in rooms if r.room_id != DEFAULT_ROOM_ID and r.room_id in used]
@@ -1119,7 +1122,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 # "Il bagno è 8 mq" is the bathroom's talk whatever chip it was typed in.
                 owner = message_rooms(history, all_rooms)
                 general = [m for m in history if owner[id(m)] in (None, DEFAULT_ROOM_ID)]
-                named: dict[object, list[dict[str, Any]]] = {}
+                named: dict[str | None, list[dict[str, Any]]] = {}
                 for m in history:
                     if owner[id(m)] != m.get("room_id"):
                         named.setdefault(owner[id(m)], []).append(m)

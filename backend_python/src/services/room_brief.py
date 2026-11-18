@@ -239,14 +239,16 @@ async def _room_history(project_id: str, session_id: str, room_id: str) -> _Talk
         get_room_repository().list_rooms(project_id),
         _no_messages() if general else repo.get_context(session_id, limit=limit, room_id=room_id),
     )
-    in_window = {m.get("id") for m in window}
-    # Tagged messages older than the window come first; then the window, in its order.
-    read = [*(m for m in tagged if m.get("id") not in in_window), *window]
-    owner = message_rooms(read, rooms)
+    owner = message_rooms(window, rooms)
     if general:
-        talk = [m for m in read if owner[id(m)] in (None, DEFAULT_ROOM_ID)]
+        talk = [m for m in window if owner[id(m)] in (None, DEFAULT_ROOM_ID)]
         return _Talk(talk[-limit:], _ids(window))
-    return _Talk([m for m in read if owner[id(m)] == room_id][-limit:], _ids(read))
+    in_window = {m.get("id") for m in window}
+    # Tagged messages older than the window come first, all the room's: the room they
+    # name reads only the window, so there they would reach no room. Then the window.
+    older = [m for m in tagged if m.get("id") not in in_window]
+    recent = [m for m in window if owner[id(m)] == room_id]
+    return _Talk([*older, *recent][-limit:], _ids([*older, *window]))
 
 
 async def _ask_model(room: RoomSchema, messages: list[dict[str, Any]]) -> _BriefUpdate:

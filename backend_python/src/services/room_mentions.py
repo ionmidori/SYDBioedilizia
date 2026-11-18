@@ -74,11 +74,16 @@ def messages_naming_one_room(
 
 def message_rooms(
     messages: Sequence[Mapping[str, object]], rooms: Sequence[RoomSchema]
-) -> dict[int, object]:
+) -> dict[int, str | None]:
     """The room each message belongs to, by `id(message)`: the one room a user message
     names, else the room it was sent with (`room_id`, None for none)."""
     named = {id(m): room_id for room_id, found in messages_naming_one_room(messages, rooms).items() for m in found}
-    return {id(m): named.get(id(m), m.get("room_id")) for m in messages}
+    return {id(m): named.get(id(m), _chip(m)) for m in messages}
+
+
+def _chip(message: Mapping[str, object]) -> str | None:
+    room_id = message.get("room_id")
+    return room_id if isinstance(room_id, str) else None
 
 
 def room_named_by(text: str, rooms: Sequence[RoomSchema]) -> str | None:

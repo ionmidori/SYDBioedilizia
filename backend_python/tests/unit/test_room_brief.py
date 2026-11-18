@@ -333,6 +333,20 @@ async def test_a_room_s_old_tagged_messages_outside_the_recent_window_still_coun
     assert prompt.index("doccia walk-in") < prompt.index("il bagno è 8 metri quadri")
 
 
+async def test_an_old_room_message_naming_another_room_outside_the_window_stays_with_its_room(monkeypatch):
+    """The named room reads only the recent window: an older message it cannot see stays where it was typed."""
+    monkeypatch.setattr(settings, "ROOM_BRIEF_HISTORY_MESSAGES", 2)
+    cucina = _typed_room("r_cucina", "Cucina", "cucina")
+    talk = [
+        {"id": "m1", "role": "user", "content": "in cucina il top in quarzo", "room_id": "r_bagno"},
+        *({"id": f"x{i}", "role": "user", "content": f"corridoio nota {i}"} for i in range(6)),
+        {"id": "m9", "role": "user", "content": "doccia walk-in", "room_id": "r_bagno"},
+    ]
+    with _Backend(BAGNO, talk, rooms=[GENERALE, BAGNO, cucina]) as backend:
+        await _run(_turn(room_id="r_bagno"))
+    assert "top in quarzo" in backend.generate.await_args.kwargs["contents"]
+
+
 async def test_missing_room_skips_the_model():
     """No "Generale" room in the project: nothing is created (no new chip in the client)."""
     with _Backend(None, BATH_TALK) as backend:
