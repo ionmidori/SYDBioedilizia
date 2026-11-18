@@ -36,12 +36,55 @@ _END_TRIGGER = MODE_B_SURVEYOR.split("<end>")[1].split("</trigger>")[0]
 _START = MODE_B_SURVEYOR.split("<start>")[1].split("</start>")[0]
 
 
-def test_the_measures_are_not_collected_in_words_before_the_tool():
-    """The card asks them after suggest_quote_items: asking first made the client
-    type them twice, and the tool was called only after the measures (PR 1 · C)."""
-    assert "misure in modo naturale" not in _MIDDLE
-    assert "Non chiedere le misure" in _MIDDLE and "scheda di conferma" in _MIDDLE
-    assert "Metriche" not in _END_TRIGGER and "Scope" in _END_TRIGGER
+_GATE = MODE_B_SURVEYOR.split("<completeness_gate>")[1].split("</completeness_gate>")[0]
+_METRICS = MODE_B_SURVEYOR.split('<pillar name="metrics"')[1].split("</pillar>")[0]
+
+
+def test_the_floor_area_is_asked_once_per_room_before_the_tool():
+    """Test chat of 18/11: nobody asked how big the bedroom was and the card showed
+    SYD's estimate as if it were the client's. One question, the floor only."""
+    assert "UNA volta per stanza" in _MIDDLE and "m² del pavimento" in _MIDDLE
+    assert "Non chiedere le misure" not in _MIDDLE
+
+
+def test_the_floor_area_is_not_asked_when_known_and_never_blocks():
+    """Asking every measure first made the client type them twice and held the tool
+    back (Phase 140, PR 1 · C): a known value is not asked, an unknown one does not wait."""
+    assert "se li conosci già" in _MIDDLE and "scheda stanza" in _MIDDLE
+    assert "non li sa" in _MIDDLE and "li stima SYD" in _MIDDLE
+
+
+def test_an_explicit_request_to_prepare_the_quote_does_not_wait_for_the_floor_area():
+    """"Prepara pure la richiesta" registers at once (eval measures_on_card)."""
+    assert "chiede esplicitamente di preparare" in _MIDDLE and "non fermarti per i m²" in _MIDDLE
+    assert "richiesta esplicita" in _END_TRIGGER
+
+
+def test_an_unknown_floor_area_is_said_to_be_an_estimate():
+    """The original complaint: the card showed SYD's estimate as if it were the client's."""
+    assert "userai una stima" in _MIDDLE
+
+
+def test_the_floor_area_is_one_question_for_all_rooms_never_repeated():
+    assert "una sola domanda per tutte le stanze" in _MIDDLE
+    assert "non richiederli" in _MIDDLE  # the client answered something else
+    assert "il comune del cantiere e i m² del pavimento" in _MIDDLE  # the exceptions to "non COME"
+
+
+def test_a_change_for_the_team_is_relayed_without_the_floor_area():
+    relay = next(line for line in MODE_B_SURVEYOR.splitlines() if line.startswith('- Stato "inviato al team"'))
+    assert "nemmeno i m² del pavimento" in relay
+
+
+def test_the_other_measures_stay_on_the_card():
+    for section in (_MIDDLE, _GATE, _METRICS):
+        assert "m² del pavimento" in section and "scheda di conferma" in section
+    assert "pareti, metri lineari" in _MIDDLE
+
+
+def test_the_end_waits_for_the_floor_area_or_the_client_not_knowing_it():
+    assert "Scope" in _END_TRIGGER and "m² del pavimento" in _END_TRIGGER and "non li sa" in _END_TRIGGER
+    assert "Metriche" not in _END_TRIGGER
     assert "conferme sulle misure" not in _START
 
 

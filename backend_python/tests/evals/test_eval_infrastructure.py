@@ -224,6 +224,58 @@ class TestMultiRoomLongChatEval:
         assert len(problems) == 2 and "bathroom floor 5 mq" in problems[1]
 
 
+class TestFloorAreaAskedEval:
+    """18 Nov test chat: a bedroom without its size gets one floor-area question, no quote yet."""
+
+    SET = EVALS_DIR / "multi_room" / "floor_area_asked.test.json"
+
+    ASKED = "Ottimo. Più o meno quanti metri quadri è la camera?"
+    ESTIMATED = "Nessun problema: userò una stima da correggere nella scheda. Preparo la richiesta di preventivo?"
+
+    @staticmethod
+    def _run(replies: list[str], tools: list[list[str]]):
+        from types import SimpleNamespace
+
+        from tests.evals.multi_room.fakes import ResponseRecorder
+
+        responses = ResponseRecorder()
+        responses.texts = {f"inv{i}": [reply] for i, reply in enumerate(replies)}
+        return SimpleNamespace(
+            responses=responses,
+            tool_calls=SimpleNamespace(turns=lambda: [[(f"inv{i}", t) for t in turn] for i, turn in enumerate(tools)]),
+            submissions=SimpleNamespace(problems=lambda expected: []),
+        )
+
+    def test_loads_without_a_size_or_a_request_to_prepare(self) -> None:
+        case = EvalSet.model_validate_json(self.SET.read_text(encoding="utf-8")).eval_cases[0]
+        text = case.conversation[0].user_content.parts[0].text.lower()
+        assert "camera" in text and "mq" not in text and "metri" not in text and "prepara" not in text
+        assert "non lo so" in case.conversation[1].user_content.parts[0].text.lower()
+
+    def test_check_passes_on_one_question_then_the_estimate(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        run = self._run([self.ASKED, self.ESTIMATED], [["select_room"], []])
+        assert BACKEND_CHECKS["floor_area_asked.test.json"](run) == []
+
+    def test_check_reports_the_tool_called_without_asking(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        run = self._run(["Preparo la richiesta.", self.ESTIMATED], [["select_room", "suggest_quote_items"], []])
+        problems = BACKEND_CHECKS["floor_area_asked.test.json"](run)
+        assert len(problems) == 2 and "before the floor area" in problems[0] and "turn 1" in problems[1]
+
+    def test_check_reports_a_wall_question_and_the_area_asked_twice(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        run = self._run(["Quanti mq di pareti vuoi dipingere?", "Mi dici almeno i metri quadri della camera?"], [[], []])
+        problems = BACKEND_CHECKS["floor_area_asked.test.json"](run)
+        assert [p.split(":")[0] for p in problems] == [
+            "turn 1 does not ask the floor area", "turn 2 asks the floor area again",
+            "turn 2 does not say the area will be estimated",
+        ]
+
+
 class TestMultiRoomQuoteEval:
     """Phase 138, PR-3: the quote set runs the real suggest_quote_items on the in-memory backend."""
 
