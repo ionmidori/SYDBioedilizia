@@ -11,6 +11,7 @@ quantities, not amounts: prices stay with `src/core/money.py` downstream.
 from __future__ import annotations
 
 import ast
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
@@ -115,6 +116,22 @@ class ExpansionWarning:
 def _values_text(values: Sequence[Decimal]) -> str:
     texts = [f"{value.normalize():f}" for value in values]
     return ", ".join(texts[:-1]) + " e " + texts[-1] if len(texts) > 1 else "".join(texts)
+
+
+def conflict_check(name: str, values: Sequence[Decimal]) -> str:
+    """The team's check for a measure the model gave several values for (not used)."""
+    return f"Valori diversi per {name} ({_values_text(values)}): forse stanze diverse, misura non usata"
+
+
+def repeated_packages(analysis: InsightAnalysis, library: AssemblyLibrary) -> dict[str, str]:
+    """The team's check for each known package the model chose more than once, by id:
+    computed once (a stored spec keeps it once, so only the analysis tells)."""
+    times = Counter(choice.assembly_id for choice in analysis.packages)
+    return {
+        assembly.id: f"{assembly.name} scelto più volte: calcolato una volta sola, verificare se le stanze sono più di una"
+        for assembly in library.assemblies
+        if times[assembly.id] > 1
+    }
 
 
 @dataclass(frozen=True)
@@ -562,21 +579,17 @@ def expand(
     draft = _Draft()
     conflicts = conflicting_measures(analysis)
     for name, values in conflicts.items():
-        draft.warnings.append(ExpansionWarning(
-            "admin_check", f"Valori diversi per {name} ({_values_text(values)}): forse stanze diverse, misura non usata",
-        ))
+        draft.warnings.append(ExpansionWarning("admin_check", conflict_check(name, values)))
     by_id = {assembly.id: assembly for assembly in library.assemblies}
     chosen: list[Assembly] = []
-    times = [choice.assembly_id for choice in analysis.packages]
+    repeated = repeated_packages(analysis, library)
     for assembly_id, conditions in _merged_choices(analysis.packages).items():
         assembly = by_id.get(assembly_id)
         if assembly is None:
             draft.warnings.append(ExpansionWarning("unknown_package", f"Pacchetto sconosciuto ignorato: {assembly_id}"))
             continue
-        if times.count(assembly_id) > 1:
-            draft.warnings.append(ExpansionWarning(
-                "admin_check", f"{assembly.name} scelto più volte: calcolato una volta sola, verificare se le stanze sono più di una",
-            ))
+        if assembly_id in repeated:
+            draft.warnings.append(ExpansionWarning("admin_check", repeated[assembly_id]))
         chosen.append(assembly)
         _expand_package(assembly, conditions, measures, draft)
     covered = {line.sku for line in draft.lines}

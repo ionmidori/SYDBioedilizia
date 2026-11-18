@@ -47,7 +47,7 @@ from src.services.quote_build import BuiltDraft, UnitBuild, build_draft, price_b
 from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, QuoteStatusView, read_quote_status, save_ai_draft
 from src.services.quote_state import ai_draft_action
-from src.services.spec_confirmation import analysis_from_spec, confirm, proposal_checks, spec_measures
+from src.services.spec_confirmation import analysis_from_spec, confirm, spec_measures, team_checks
 from src.utils.datetime_utils import utc_now
 
 logger = get_logger(__name__)
@@ -99,9 +99,10 @@ def _editable(status: QuoteStatusView | None) -> bool:
 
 def _expansion(spec: RoomInterventionSpec, library: AssemblyLibrary, units: dict[str, str]) -> Expansion:
     """The section's lines, computed by code from its stored spec, with the team's
-    checks on the proposals still open."""
+    checks the spec keeps (`team_checks`), once each."""
     expansion = expand(analysis_from_spec(spec, ""), library, units, spec_measures(spec))
-    checks = [ExpansionWarning("admin_check", note) for note in proposal_checks(spec)]
+    shown = {w.message for w in expansion.warnings if w.kind == "admin_check"}
+    checks = [ExpansionWarning("admin_check", note) for note in dict.fromkeys(team_checks(spec)) if note not in shown]
     return replace(expansion, warnings=[*expansion.warnings, *checks])
 
 

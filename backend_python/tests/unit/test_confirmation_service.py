@@ -12,7 +12,13 @@ from src.core.exceptions import AppException
 from src.repositories.spec_store import CHAT_SPEC_KEY
 from src.schemas.assembly_library import MEASURE_LABELS, ElementAction
 from src.schemas.confirmation import ConfirmationUpdate, ElementChoiceState, ElementOption, MeasureState
-from src.schemas.intervention_spec import RoomInterventionSpec, StoredElementChoice, StoredMeasure, StoredPackage
+from src.schemas.intervention_spec import (
+    RoomInterventionSpec,
+    StoredAdminCheck,
+    StoredElementChoice,
+    StoredMeasure,
+    StoredPackage,
+)
 from src.schemas.quote import RevisionRoomSpec
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
 from src.services import confirmation_service
@@ -265,6 +271,36 @@ async def test_the_team_keeps_its_checks_on_the_open_proposals() -> None:
     request = mocks["saved"].await_args.args[3]
     checks = [w for w in request.ai_warnings if w.kind == "admin_check" and "confermato 12" in w.message]
     assert len(checks) == 1 and checks[0].room_id == "cucina1"
+
+
+async def test_the_card_keeps_the_team_checks_of_the_last_analysis() -> None:
+    """Recomputed without the model, the draft still carries the checks the analysis
+    left in the spec, once each, on their room."""
+    kitchen = _spec(PENSILI, StoredMeasure(name="mq", value=12, source="confirmed"), package="ASM-CUCINA-FULL")
+    kitchen = kitchen.model_copy(update={"admin_checks": [
+        StoredAdminCheck(message="Cucina completa scelto più volte: calcolato una volta sola"),
+        StoredAdminCheck(message="mq: il cliente ha confermato 12, la nuova analisi indica più valori (10, 14)",
+                         measure="mq"),
+    ]})
+    with _project({"bagno1": BAGNO, "cucina1": kitchen}, _draft()) as mocks:
+        await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
+
+    request = mocks["saved"].await_args.args[3]
+    kept = [w for w in request.ai_warnings if w.message in {c.message for c in kitchen.admin_checks}]
+    assert len(kept) == 2 and {w.room_id for w in kept} == {"cucina1"}
+
+
+async def test_confirming_the_measure_drops_its_check_from_the_draft() -> None:
+    bath = BAGNO.model_copy(update={"admin_checks": [
+        StoredAdminCheck(message="mq: il cliente ha confermato 6, la nuova analisi indica più valori (5, 7)",
+                         measure="mq"),
+    ]})
+    with _project({"bagno1": bath}, _draft()) as mocks:
+        await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
+
+    assert mocks["stored"]["bagno1"].admin_checks == []
+    request = mocks["saved"].await_args.args[3]
+    assert not [w for w in request.ai_warnings if "più valori (5, 7)" in w.message]
 
 
 async def test_a_room_deleted_meanwhile_is_404() -> None:

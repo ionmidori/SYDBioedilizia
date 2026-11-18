@@ -66,6 +66,23 @@ class StoredExtraItem(BaseModel):
     qty: float = Field(ge=0)
 
 
+# Bounds of the team's checks kept on a spec (`capped_checks` keeps a write within them:
+# a spec that does not read is ignored and never overwritten).
+ADMIN_CHECKS_MAX = 20
+ADMIN_CHECK_MAX_CHARS = 500
+
+
+class StoredAdminCheck(BaseModel):
+    """A team's check of the last analysis that the card cannot rebuild without it
+    (several values for a confirmed measure, a confirmed choice the model contradicts,
+    a package chosen twice). Confirming its measure or element answers it."""
+    model_config = ConfigDict(extra="forbid")
+
+    message: str = Field(max_length=ADMIN_CHECK_MAX_CHARS)
+    measure: str | None = None
+    element: str | None = None
+
+
 class RoomInterventionSpec(BaseModel):
     """The spec the room's quote was expanded from."""
     model_config = ConfigDict(extra="forbid")
@@ -79,5 +96,7 @@ class RoomInterventionSpec(BaseModel):
     missing_measures: list[str] = Field(default_factory=list)
     # Measure → the different values the model gave for it (several rooms in one unit?).
     conflicts: dict[str, list[MeasureValue]] = Field(default_factory=dict)
+    # The team's checks a recalculation from the card keeps (it has no analysis).
+    admin_checks: list[StoredAdminCheck] = Field(default_factory=list, max_length=ADMIN_CHECKS_MAX)
     library_version: str
     generated_at: datetime

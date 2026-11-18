@@ -903,6 +903,37 @@ async def test_conflicting_new_values_for_a_confirmed_measure_reach_the_team():
     assert any(w.kind == "admin_check" and "più valori (6, 9)" in w.message for w in request.ai_warnings)
 
 
+async def test_the_spec_keeps_the_team_checks_the_card_cannot_rebuild():
+    """Several values for a confirmed measure, a confirmed choice the model contradicts,
+    a package chosen twice: the card recomputes the draft without the analysis, so
+    these checks live in the spec, each with what answers it."""
+    stored = _stored(
+        measures=[{"name": "mq", "value": 8, "source": "confirmed"}],
+        element_choices=[{"element": "sanitari", "action": "keep", "confirmed": True}],
+    )
+    analysis = _bathroom(
+        packages=[PackageChoice(assembly_id="ASM-BAGNO-FULL"), PackageChoice(assembly_id="ASM-BAGNO-FULL")],
+        measures=[SpecMeasure(name="mq", value=6, source="declared"), SpecMeasure(name="mq", value=9, source="declared")],
+        element_choices=[ElementChoice(element="sanitari", action="replace")],
+    )
+    with _project(analyses={**ANALYSES, "Bagno": analysis}, specs={"bagno1": stored}) as mocks:
+        await _quote()
+
+    checks = {(c.measure, c.element): c.message for c in _saved_specs(mocks["store"])["bagno1"].admin_checks}
+    assert "più valori (6, 9)" in checks[("mq", None)]
+    assert "sanitari" in checks[(None, "sanitari")]
+    assert "scelto più volte" in checks[(None, None)]
+    assert len(checks) == 3
+
+
+async def test_the_spec_keeps_no_proposal_check():
+    """An open proposal is rebuilt from the measure (`proposal_checks`): not stored twice."""
+    stored = _stored(measures=[{"name": "mq", "value": 8, "source": "confirmed"}])
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}, specs={"bagno1": stored}) as mocks:
+        await _quote()
+    assert _saved_specs(mocks["store"])["bagno1"].admin_checks == []
+
+
 async def test_a_whole_chat_unit_is_not_on_the_card_once_rooms_have_specs():
     """The tool falls back to the whole chat while rooms have specs: the card shows
     the rooms, not the chat, so the measure is asked in words."""

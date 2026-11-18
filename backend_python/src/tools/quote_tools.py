@@ -18,7 +18,7 @@ from src.repositories.conversation_repository import ConversationRepository
 from src.repositories.room_repository import get_room_repository
 from src.repositories.spec_store import CHAT_SPEC_KEY, chat_on_card, get_spec_store
 from src.schemas.assembly_library import AssemblyLibrary
-from src.schemas.intervention_spec import RoomInterventionSpec
+from src.schemas.intervention_spec import RoomInterventionSpec, StoredAdminCheck
 from src.schemas.quote import ManualWorkItem, QuoteAiWarning, QuoteRequest
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
 from src.services.assembly_library import load_library
@@ -31,6 +31,7 @@ from src.services.intervention_expansion import (
     ExpansionWarning,
     conflicting_measures,
     expand,
+    repeated_packages,
     resolve_measures,
     spec_from_analysis,
 )
@@ -44,6 +45,8 @@ from src.services.room_aggregation import load_rules
 from src.services.room_mentions import messages_naming_one_room
 from src.services.spec_confirmation import (
     apply_confirmations,
+    capped_checks,
+    choice_check_items,
     choice_checks,
     confirmations_only,
     expansion_inputs,
@@ -787,19 +790,33 @@ def _build_spec(
         return None
     # The model's own conflicts, confirmed measures included: the merge turns those into team checks.
     conflicts = {name: [float(value) for value in values] for name, values in conflicting_measures(analysis).items()}
-    return fresh.model_copy(update={"missing_measures": list(expansion.missing_measures), "conflicts": conflicts})
+    # A package chosen twice is stored once: only this analysis can tell the team.
+    repeated = [StoredAdminCheck(message=message) for message in repeated_packages(analysis, library).values()]
+    return fresh.model_copy(update={
+        "missing_measures": list(expansion.missing_measures), "conflicts": conflicts,
+        "admin_checks": capped_checks(repeated),
+    })
 
 
 async def _save_spec(
-    project_id: str, section_key: str, fresh: RoomInterventionSpec, read: RoomInterventionSpec | None
+    project_id: str,
+    section_key: str,
+    fresh: RoomInterventionSpec,
+    read: RoomInterventionSpec | None,
+    analysis: InsightAnalysis,
 ) -> RoomInterventionSpec | None:
     """Store the unit's spec with the confirmations stored at the time of the write
     (one made during the analysis included); `read`, the ones read before the
-    analysis, when none is stored yet (those inherited from the chat). The spec
-    written, or None. Best-effort: a deleted room, a Firestore error only log a warning."""
+    analysis, when none is stored yet (those inherited from the chat), and the
+    team's checks on the confirmed choices the `analysis` contradicts (the card
+    recomputes without it). The spec written, or None. Best-effort: a deleted
+    room, a Firestore error only log a warning."""
 
     def change(current: RoomInterventionSpec | None) -> RoomInterventionSpec:
-        return apply_confirmations(fresh, current if current is not None else read)[0]
+        confirmed = current if current is not None else read
+        merged = apply_confirmations(fresh, confirmed)[0]
+        checks = capped_checks([*merged.admin_checks, *choice_check_items(analysis, confirmed)])
+        return merged.model_copy(update={"admin_checks": checks})
 
     try:
         return await get_spec_store().update(project_id, section_key, change)
@@ -849,7 +866,7 @@ async def _analyse(
     fresh = _build_spec(unit, validated, measures, library, expansion)
     spec: RoomInterventionSpec | None = None
     if fresh is not None and stored_specs is not None:
-        spec = await _save_spec(project_id, unit.spec_key, fresh, stored)
+        spec = await _save_spec(project_id, unit.spec_key, fresh, stored, validated)
         if spec is not None and not same_confirmations(spec, stored):
             # The client confirmed on the card during the analysis: the lines follow it.
             stored = spec
