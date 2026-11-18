@@ -501,7 +501,7 @@ async def list_project_files(session_id: str, tool_context, room_id: str = "") -
 # model is told to carry on without them (re-checked here, not only in the prompt).
 _ROOMS_LOGIN_REQUIRED = {
     "status": "error",
-    "message": "Le stanze sono disponibili solo agli utenti registrati: prosegui senza select_room.",
+    "message": "Le stanze sono disponibili solo agli utenti registrati: prosegui senza i tool delle stanze.",
 }
 
 @instrumented_tool("select_room")
@@ -524,9 +524,35 @@ async def select_room(name: str, room_type: str, session_id: str, tool_context) 
     result, rooms = await room_tools.select_room(project_id, name, room_type)
     if result["status"] == "success":
         tool_context.state[ACTIVE_ROOM_STATE_KEY] = result["room_id"]
-        tool_context.state[ROOMS_STATE_KEY] = [
-            room_index_entry(r.room_id, r.label, r.room_type, r.summary) for r in rooms
-        ]
+        tool_context.state[ROOMS_STATE_KEY] = _room_index(rooms)
+    return result
+
+
+def _room_index(rooms) -> list[dict[str, str]]:
+    return [room_index_entry(r.room_id, r.label, r.room_type, r.summary) for r in rooms]
+
+
+@instrumented_tool("rename_room")
+async def rename_room(room_id: str, name: str, room_type: str, session_id: str, tool_context) -> dict:
+    """Renames a room of the project and changes its type, keeping its photos and brief.
+
+    Use it when the user corrects the room you gave to a photo ("non è il soggiorno,
+    è lo studio"). For "sono due stanze diverse" create the second room with
+    select_room and move its photos with assign_media_to_room instead.
+
+    Args:
+        room_id: Id of the room to rename, from STANZE DEL PROGETTO.
+        name: The new name as the user says it (e.g. 'Studio').
+        room_type: One of 'cucina', 'soggiorno', 'camera', 'bagno', 'corridoio', 'altro'.
+        session_id: The current session identifier.
+        tool_context: ADK ToolContext injected automatically by the runner.
+    """
+    project_id = _trusted_session_id(tool_context, session_id)
+    if await _is_guest(tool_context):
+        return dict(_ROOMS_LOGIN_REQUIRED)
+    result, rooms = await room_tools.rename_room(project_id, room_id, name, room_type)
+    if result["status"] == "success":
+        tool_context.state[ROOMS_STATE_KEY] = _room_index(rooms)
     return result
 
 
@@ -708,6 +734,7 @@ list_project_files_adk = FunctionTool(list_project_files)
 suggest_quote_items_adk = FunctionTool(suggest_quote_items)
 select_room_adk = FunctionTool(select_room)
 assign_media_to_room_adk = FunctionTool(assign_media_to_room)
+rename_room_adk = FunctionTool(rename_room)
 get_room_context_adk = FunctionTool(get_room_context)
 request_login_adk = FunctionTool(request_login)
 retrieve_knowledge_adk = FunctionTool(retrieve_knowledge)

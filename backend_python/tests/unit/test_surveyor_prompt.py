@@ -72,9 +72,18 @@ def test_the_floor_area_is_one_question_for_all_rooms_never_repeated():
     assert "il comune del cantiere e i m² del pavimento" in _MIDDLE  # the exceptions to "non COME"
 
 
-def test_a_change_for_the_team_is_relayed_without_the_floor_area():
+def test_a_change_for_the_team_asks_the_floor_area_of_a_new_room_first():
+    """Test chat of 19/11: the salone went to the team with no m², and the quote
+    the team had was not for that room. The m² are asked even then, once."""
     relay = next(line for line in MODE_B_SURVEYOR.splitlines() if line.startswith('- Stato "inviato al team"'))
-    assert "nemmeno i m² del pavimento" in relay
+    assert "nemmeno i m² del pavimento" not in relay
+    assert "m² del pavimento" in relay and "se non li conosci già" in relay
+    assert "suggest_quote_items" in relay and "submit_quote_request" in relay
+
+
+def test_floor_area_that_does_not_fit_the_photo_is_checked_once():
+    assert "dalla foto" in _MIDDLE and "chiedi conferma una volta" in _MIDDLE
+    assert "vale il valore del cliente" in _MIDDLE
 
 
 def test_the_other_measures_stay_on_the_card():
@@ -102,3 +111,8 @@ def test_step_1_relays_the_rooms_left_out_of_the_quote():
     assert "non ho lavori da quotare per questa stanza" in _STEP_1
     assert "non citarle nel riepilogo" in _STEP_1
     assert "non chiedere di nuovo i lavori di quella stanza" in _STEP_1
+
+
+def test_the_relay_waits_for_the_floor_area_answer():
+    relay = next(line for line in MODE_B_SURVEYOR.splitlines() if line.startswith('- Stato "inviato al team"'))
+    assert "FERMATI" in relay and "nel turno della risposta" in relay

@@ -30,6 +30,7 @@ from src.adk.tools import (
     list_project_files_adk,
     market_prices_adk,
     pricing_engine_tool_adk,
+    rename_room_adk,
     request_login_adk,
     retrieve_knowledge_adk,
     retrieve_price_by_code_adk,
@@ -105,12 +106,16 @@ E senza contesto preventivo già attivo nella chat history:
 Dimmi 1, 2 o 3."
 
 Dopo che l'utente risponde, instrada all'agente corretto (1→`design`, 2→`triage` poi `quote`, 3→`triage`).
+Con due o più foto o video nello stesso messaggio, in quel turno rispondi con l'elenco delle stanze
+e chiedi da quale stanza partire (regola 2bis PIÙ FOTO INSIEME), senza la domanda 1/2/3: la fai dopo che il cliente ha scelto la stanza.
 
 ### Regola Contesto Preventivo su Upload
 Se nella chat history esiste già una discussione attiva su preventivo, lavorazioni o costi,
 E l'utente carica un'immagine senza specificare rendering:
 → Instrada direttamente a `triage` per l'analisi visiva di contesto.
 → Il triage NON riproporrà la scelta preventivo/rendering (è istruito per farlo).
+→ Con due o più foto nello stesso messaggio vale prima la regola 2bis PIÙ FOTO INSIEME: in quel turno il triage fa solo
+  l'elenco delle stanze e la domanda da quale stanza partire; l'analisi della stanza solo dopo la scelta.
 
 ### Regola di Disambiguazione Testuale (Mandatoria)
 Se l'utente descrive un progetto solo a parole (senza file) senza specificare il tipo di servizio:
@@ -195,7 +200,10 @@ Questa analisi rimane in chat history e viene usata dagli agenti design e quote 
 
 ### Analisi Nativa (ADK Vision) — FORMATO OBBLIGATORIO
 
-Quando ricevi un'immagine, scrivi TUTTO in chat usando questo formato esatto per la parte di analisi:
+Quando ricevi un'immagine, scrivi TUTTO in chat usando questo formato esatto per la parte di analisi.
+Eccezione: con due o più foto nello stesso messaggio vale prima la regola 2bis PIÙ FOTO INSIEME: in quel turno solo
+l'elenco delle stanze e la domanda da quale stanza partire, senza questa analisi e senza la Conclusione Adattiva;
+l'analisi (una stanza alla volta) arriva dopo la scelta del cliente.
 
 "Ho analizzato la tua foto. Ecco quello che vedo:
 
@@ -324,6 +332,7 @@ triage_agent = Agent(
         retrieve_knowledge_adk,
         select_room_adk,
         assign_media_to_room_adk,
+        rename_room_adk,
         get_room_context_adk,
         get_company_info_adk,
         check_service_area_adk,
@@ -348,6 +357,8 @@ design_agent = Agent(
         request_login_adk,
         retrieve_knowledge_adk,
         select_room_adk,
+        assign_media_to_room_adk,
+        rename_room_adk,
         get_room_context_adk,
         get_company_info_adk,
         check_service_area_adk,
@@ -376,6 +387,8 @@ quote_agent = Agent(
         retrieve_price_by_code_adk,
         save_contact_phone_adk,
         select_room_adk,
+        assign_media_to_room_adk,
+        rename_room_adk,
         get_room_context_adk,
         get_company_info_adk,
         check_service_area_adk,
@@ -398,6 +411,7 @@ syd_orchestrator = Agent(
         retrieve_price_by_code_adk,
         select_room_adk,
         assign_media_to_room_adk,
+        rename_room_adk,
         get_company_info_adk,
         check_service_area_adk,
     ],
