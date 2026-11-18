@@ -36,6 +36,7 @@ from src.adk.turn_reading import (
     plain_yes,
     sentences,
     turn_calls,
+    without_courtesies,
 )
 from src.services.quote_state import ai_draft_action
 
@@ -71,25 +72,33 @@ class QuoteFacts:
     client_words: str
 
 
-# "Preparo la richiesta di preventivo?", "Vuoi che prepari il preventivo?", "Registro la richiesta?".
-_REGISTER_WORD = re.compile(r"\b(prepar\w*|registr\w*)\b", re.IGNORECASE)
-_QUOTE_OBJECT = re.compile(r"\b(preventivo|richiesta)\b", re.IGNORECASE)
-# The client asks for it: "prepara il preventivo", "registra la richiesta", "fammi il preventivo".
-_REGISTER_REQUEST = re.compile(
-    r"\b(prepar\w*|registr\w*|fa(?:i|mmi|re|te|temi)|crea\w*)\b[^.!?\n]{0,30}?\b(preventivo|richiesta)\b",
+# The assistant offers to do it, at the start of the sentence: "Preparo la richiesta di preventivo?",
+# "Vuoi che prepari il preventivo?", "Registro la richiesta?". Not "Per prepararti il preventivo, …?"
+# nor "Preferisci registrare un video …?": collecting questions that name the quote.
+_REGISTER_OFFER = re.compile(
+    r"^\W*(?:(?:allora|ok|bene|perfetto),?\s+)?(?:vuoi che (?:io )?|posso |procedo a )?(?:ti |la |lo )?"
+    r"(?:prepar(?:o|i|are)|registr(?:o|i|are))\b",
     re.IGNORECASE,
 )
-_NOT = re.compile(r"\bnon\b", re.IGNORECASE)
-# More or different work: the request is not the one registered.
-_CHANGE = re.compile(
-    r"\b(aggiung\w*|cambi\w*|modific\w*|togli\w*|sostitu\w*|rifa\w*|anche|invece)\b", re.IGNORECASE
+_QUOTE_OBJECT = re.compile(r"\b(preventivo|richiesta)\b", re.IGNORECASE)
+# The client asks for it, as a request (never a question): "prepara il preventivo", "registra la
+# richiesta", "fammi il preventivo". "Non preparare…" uses the infinitive: no match.
+_REGISTER_REQUEST = re.compile(
+    r"(?<!non )\b(prepara(?:mi|lo|la)?|registra(?:mi|lo|la)?|fammi|fatemi|crea(?:mi)?)\b"
+    r"[^.!?\n]{0,30}?\b(preventivo|richiesta)\b",
+    re.IGNORECASE,
 )
+# More or different work: the request is not the one registered ("anche" alone is a thank-you too).
+_CHANGE = re.compile(r"\b(aggiung\w*|cambi\w*|modific\w*|togli\w*|sostitu\w*|rifa\w*|invece)\b", re.IGNORECASE)
 # The phone question ("Vuoi ricevere aggiornamenti anche su WhatsApp?"); "numero" alone is any number.
 _PHONE = re.compile(r"\b(whatsapp|telefono|cellulare)\b", re.IGNORECASE)
+# The login message of the quote (modes.py, STEP AUTH_GATE): the trace of the login when the
+# session was rebuilt from Firestore, whose history keeps no tool calls.
+_LOGIN_TEXT = re.compile(r"account gratuito|accedi qui", re.IGNORECASE)
 
 
 def _names_registration(sentence: str) -> bool:
-    return bool(_REGISTER_WORD.search(sentence)) and bool(_QUOTE_OBJECT.search(sentence)) and not names_send(sentence)
+    return bool(_REGISTER_OFFER.search(sentence)) and bool(_QUOTE_OBJECT.search(sentence)) and not names_send(sentence)
 
 
 def asked_to_register(reply: str) -> bool:
@@ -105,8 +114,8 @@ def asked_to_register(reply: str) -> bool:
 
 
 def asks_to_register(words: str) -> bool:
-    """The client asks to prepare or register the quote, with no "non"."""
-    return bool(_REGISTER_REQUEST.search(words)) and not _NOT.search(words)
+    """The client asks to prepare or register the quote (a request, not a question)."""
+    return "?" not in words and bool(_REGISTER_REQUEST.search(words))
 
 
 def _asked_phone(reply: str) -> bool:
@@ -114,12 +123,15 @@ def _asked_phone(reply: str) -> bool:
 
 
 def _asks_change(words: str) -> bool:
-    return bool(_CHANGE.search(words))
+    """"Non ho altro da aggiungere" closes the request: no change."""
+    return bool(_CHANGE.search(without_courtesies(words)))
 
 
 def _quote_login(f: QuoteFacts) -> bool:
-    """The login card of the last turn was for the quote (a render asks it too)."""
-    return _LOGIN_TOOL in f.last_turn_calls and bool(_QUOTE_OBJECT.search(f.last_reply))
+    """The login card of the last turn was for the quote (a render asks it too). A
+    rebuilt session has no tool calls: the login message itself counts."""
+    asked = _LOGIN_TOOL in f.last_turn_calls or bool(_LOGIN_TEXT.search(f.last_reply))
+    return asked and bool(_QUOTE_OBJECT.search(f.last_reply))
 
 
 def _confirmed(f: QuoteFacts) -> QuoteStep:
@@ -147,6 +159,8 @@ def _with_team(f: QuoteFacts) -> QuoteStep:
 def _on_draft(f: QuoteFacts) -> QuoteStep:
     if asks_to_register(f.client_words):
         return QuoteStep.REGISTRA  # the phone was asked at the first registration
+    if _asks_change(f.client_words):
+        return QuoteStep.RACCOLTA  # new work, at the card or anywhere: modifiche -> R
     if f.card_pending:
         return QuoteStep.SCHEDA
     if asked_to_send(f.last_reply):
@@ -155,7 +169,7 @@ def _on_draft(f: QuoteFacts) -> QuoteStep:
 
 
 def _without_draft(f: QuoteFacts) -> QuoteStep:
-    if _asked_phone(f.last_reply):
+    if not f.is_guest and not f.phone_on_file and _asked_phone(f.last_reply):
         return QuoteStep.REGISTRA  # asked once, whatever the answer
     if _quote_login(f):
         return _confirmed(f)  # still a guest: still the login; signed in: the confirmation holds

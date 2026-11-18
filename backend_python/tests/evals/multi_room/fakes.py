@@ -693,6 +693,8 @@ def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
         # Never send a request to the team or write the phone number from an eval.
         stack.enter_context(patch("src.adk.tools.submit_quote_request_wrapper", new=run.submissions.submit))
         stack.enter_context(patch("src.db.firebase_client.get_async_firestore_client", new=MagicMock()))
+        # The step log of a draft (room_correction) reads the card: unknown here, never Firestore.
+        stack.enter_context(patch("src.adk.quote_step_plugin._card_pending", new=AsyncMock(return_value=None)))
         stack.enter_context(patch.object(
             LlmEventSummarizer, "maybe_summarize_events",
             new=run.compactions.wrap(LlmEventSummarizer.maybe_summarize_events),

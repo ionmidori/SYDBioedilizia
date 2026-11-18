@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from google.api_core.exceptions import ServiceUnavailable
 from src.adk import quote_step_plugin
 from src.adk.quote_step_plugin import QuoteStepPlugin
 from src.adk.session_context import HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY
@@ -63,6 +64,24 @@ async def test_the_step_is_logged_once_without_ids(caplog):
     assert "proj-1" not in record.getMessage() and "proj-1" not in str(record.__dict__)
 
 
+@pytest.mark.parametrize(("quote", "read"), [({}, True), (None, False)])
+async def test_the_line_says_whether_the_house_quote_was_read(caplog, quote, read):
+    """An unreadable quote (None in state) is computed as no quote: the line says so."""
+    caplog.set_level(logging.INFO)
+    state = _signed_in()
+    state[HOUSE_QUOTE_STATE_KEY] = quote
+    await QuoteStepPlugin().before_run_callback(invocation_context=_context(state))
+    [record] = _steps(caplog)
+    assert record.quote_read is read
+
+
+async def test_an_unexpected_card_error_is_not_hidden():
+    """Only read errors become "card unknown"; a bug surfaces (background task log)."""
+    with patch.object(quote_step_plugin, "confirmation_state", AsyncMock(side_effect=KeyError("bug"))), \
+            pytest.raises(KeyError):
+        await quote_step_plugin._card_pending("proj-1")
+
+
 async def test_a_turn_without_session_facts_is_not_logged(caplog):
     caplog.set_level(logging.INFO)
     await QuoteStepPlugin().before_run_callback(invocation_context=_context({}))
@@ -93,7 +112,7 @@ async def test_a_confirmed_card_asks_to_send(caplog):
 async def test_an_unreadable_card_logs_the_step_anyway(caplog):
     caplog.set_level(logging.INFO)
     state = _signed_in({"status": "draft", "version": 1})
-    with patch.object(quote_step_plugin, "confirmation_state", AsyncMock(side_effect=RuntimeError("down"))):
+    with patch.object(quote_step_plugin, "confirmation_state", AsyncMock(side_effect=ServiceUnavailable("down"))):
         await QuoteStepPlugin().before_run_callback(invocation_context=_context(state, words="fatto"))
         await _drain()
     [record] = _steps(caplog)

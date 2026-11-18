@@ -89,12 +89,53 @@ def test_a_request_with_a_no_is_no_request():
     assert _step(client_words="non preparare ancora il preventivo") is QuoteStep.RACCOLTA
 
 
+def test_a_negative_request_is_no_request():
+    assert _step(client_words="non fatemi ancora il preventivo") is QuoteStep.RACCOLTA
+
+
+def test_a_request_asked_as_a_question_is_no_request():
+    assert _step(client_words="Registra la richiesta anche per la cucina?") is QuoteStep.RACCOLTA
+
+
+def test_a_question_with_a_change_at_the_registration_question_goes_back_to_collecting():
+    assert _step(last_reply=REGISTER_ASK, client_words="si può aggiungere la cucina?") is QuoteStep.RACCOLTA
+
+
+def test_an_offer_that_also_sends_is_the_send_question():
+    """Registering and sending in one question is never the registration alone."""
+    assert _step(last_reply="Registro la richiesta e la invio al team?", client_words="sì") is QuoteStep.RACCOLTA
+
+
+def test_a_no_elsewhere_in_the_message_keeps_the_request():
+    assert _step(client_words="prepara il preventivo, non serve altro") is QuoteStep.REGISTRA
+
+
+@pytest.mark.parametrize("words", [
+    "Posso registrare un video per il preventivo?",
+    "Cosa devo preparare per il preventivo?",
+    "Quando mi fate avere il preventivo",
+])
+def test_a_question_about_the_quote_is_no_request(words):
+    assert _step(is_guest=True, client_words=words) is QuoteStep.RACCOLTA
+
+
+@pytest.mark.parametrize("ask", [
+    "Per prepararti il preventivo, mi dici se i sanitari li sostituiamo tutti?",
+    "Preferisci registrare un video o caricare foto per il preventivo?",
+])
+def test_a_collecting_question_naming_the_quote_is_not_the_registration_question(ask):
+    assert _step(is_guest=True, last_reply=ask, client_words="sì, tutti") is QuoteStep.RACCOLTA
+
+
 def test_a_guest_who_confirms_goes_to_the_login():
     """G (sì) -> L."""
     assert _step(is_guest=True, last_reply=REGISTER_ASK, client_words="sì") is QuoteStep.ACCESSO
 
 
-LOGIN_ASK = "Per registrare la richiesta di preventivo serve un account gratuito. Accedi qui sotto e riprendo subito da qui."
+LOGIN_ASK = (  # modes.py, STEP AUTH_GATE
+    "Per registrare la richiesta di preventivo serve un account gratuito — bastano pochi secondi! "
+    "Accedi qui sotto e riprendo subito da qui."
+)
 RENDER_LOGIN = "Per creare il rendering serve un account gratuito. Accedi qui sotto e riprendo subito da qui."
 
 
@@ -122,6 +163,16 @@ def test_after_the_login_without_a_phone_asks_the_phone():
     assert _step(phone_on_file=False, last_reply=LOGIN_ASK, last_turn_calls=("request_login",)) is QuoteStep.TELEFONO
 
 
+def test_a_session_rebuilt_after_the_login_reads_the_login_message():
+    """History restored from Firestore keeps no tool calls (a guest who logs in
+    to an existing account gets a new session): the message is the trace."""
+    assert _step(phone_on_file=False, last_reply=LOGIN_ASK, client_words="fatto") is QuoteStep.TELEFONO
+
+
+def test_a_rebuilt_session_after_a_render_login_is_no_quote_step():
+    assert _step(last_reply=RENDER_LOGIN, client_words="fatto") is QuoteStep.RACCOLTA
+
+
 # ── TELEFONO ──────────────────────────────────────────────────────────────────
 
 def test_a_registration_without_a_phone_asks_the_phone():
@@ -133,6 +184,16 @@ def test_a_registration_without_a_phone_asks_the_phone():
 def test_the_phone_is_asked_once(answer):
     """T -> S whatever the answer."""
     assert _step(phone_on_file=False, last_reply=PHONE_ASK, client_words=answer) is QuoteStep.REGISTRA
+
+
+def test_a_call_from_the_technician_is_not_the_phone_question():
+    ask = "Vuoi che il tecnico ti chiami al telefono per un sopralluogo?"
+    assert _step(last_reply=ask, client_words="sì") is QuoteStep.RACCOLTA
+
+
+def test_a_guest_is_never_asked_the_phone():
+    step = _step(is_guest=True, phone_on_file=False, last_reply=PHONE_ASK, client_words="3331234567")
+    assert step is QuoteStep.RACCOLTA
 
 
 def test_a_question_about_a_number_is_not_the_phone_question():
@@ -152,6 +213,13 @@ def test_the_registration_in_this_turn_leads_to_the_card():
 
 def test_a_draft_with_measures_to_confirm_is_at_the_card():
     assert _step(quote_status="draft", card_pending=True, client_words="ok") is QuoteStep.SCHEDA
+
+
+@pytest.mark.parametrize("card_pending", [True, False])
+def test_more_work_on_a_draft_goes_back_to_collecting(card_pending):
+    """Not only at the send question: new work is a new request (modifiche -> R)."""
+    step = _step(quote_status="draft", card_pending=card_pending, client_words="aggiungi anche la cucina")
+    assert step is QuoteStep.RACCOLTA
 
 
 # ── DOMANDA INVIO / INVIO ─────────────────────────────────────────────────────
@@ -213,6 +281,11 @@ def test_new_requests_with_the_team_are_relayed(words):
 
 def test_a_no_with_the_team_is_no_new_request():
     assert _step(quote_status="in_review", client_words="no grazie, aspetto") is QuoteStep.AL_TEAM
+
+
+@pytest.mark.parametrize("words", ["Grazie anche a te!", "Quando mi fate avere il preventivo?"])
+def test_thanks_or_a_question_with_the_team_is_no_new_request(words):
+    assert _step(quote_status="in_review", client_words=words) is QuoteStep.AL_TEAM
 
 
 def test_the_relay_in_this_turn_is_the_relay_step():

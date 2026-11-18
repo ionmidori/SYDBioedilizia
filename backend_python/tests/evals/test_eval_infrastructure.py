@@ -277,6 +277,19 @@ class TestMultiRoomQuoteEval:
         assert relayed is not None and relayed.status == "in_review"
         assert BACKEND_CHECKS["quote_with_team.test.json"](run) == []
 
+    async def test_the_quote_step_log_reads_no_card_from_firestore(self) -> None:
+        """room_correction starts on a draft: the step log must not read the real card."""
+        from unittest.mock import AsyncMock, patch
+
+        from src.adk import quote_step_plugin
+        from tests.evals.multi_room.fakes import multi_room_backend
+
+        real = AsyncMock(side_effect=AssertionError("real card read"))
+        with patch.object(quote_step_plugin, "confirmation_state", real), \
+                multi_room_backend("room_correction.test.json"):
+            assert await quote_step_plugin._card_pending("eval") is None
+        real.assert_not_awaited()
+
     def test_every_multi_room_set_has_a_backend_check(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS
 

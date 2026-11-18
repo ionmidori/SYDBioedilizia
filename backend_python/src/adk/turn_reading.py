@@ -48,7 +48,7 @@ _COURTESY = re.compile(
 )
 
 
-def _without_courtesies(text: str) -> str:
+def without_courtesies(text: str) -> str:
     return ", ".join(c for c in (c.strip() for c in _CLAUSE.split(text)) if c and not _COURTESY.fullmatch(c))
 
 
@@ -126,7 +126,7 @@ def asked_to_send(reply: str) -> bool:
 
 def plain_yes(message: str) -> bool:
     """A yes with no change, doubt or question ("sì, non ho altro da aggiungere" is one)."""
-    text = _without_courtesies(message.strip().strip("#").strip())
+    text = without_courtesies(message.strip().strip("#").strip())
     return bool(_YES.search(text)) and not _HOLD.search(text)
 
 

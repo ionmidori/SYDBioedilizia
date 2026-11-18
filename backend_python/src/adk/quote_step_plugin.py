@@ -17,10 +17,13 @@ from dataclasses import replace
 
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.plugins.base_plugin import BasePlugin
+from google.api_core.exceptions import GoogleAPIError
+from google.auth.exceptions import GoogleAuthError
 from google.genai import types
 
 from src.adk.background import run_in_background
-from src.adk.session_context import SESSION_CONTEXT_STATE_KEY
+from src.adk.session_context import HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY
+from src.core.exceptions import AppException
 from src.core.logger import get_logger
 from src.services.confirmation_service import confirmation_state
 from src.services.quote_state import QuoteStatus
@@ -29,7 +32,9 @@ from src.services.quote_step import QuoteFacts, quote_facts, quote_step
 logger = get_logger(__name__)
 
 
-def _log(facts: QuoteFacts) -> None:
+def _log(facts: QuoteFacts, *, quote_read: bool) -> None:
+    """`quote_read` False: the house quote could not be read (or a guest), so the
+    step was computed as if there were none."""
     logger.info(
         "[QuoteStep] Step of the turn",
         extra={
@@ -37,6 +42,7 @@ def _log(facts: QuoteFacts) -> None:
             "quote_step": quote_step(facts).value,
             "quote_status": facts.quote_status,
             "card_pending": facts.card_pending,
+            "quote_read": quote_read,
             "is_guest": facts.is_guest,
         },
     )
@@ -46,7 +52,9 @@ async def _card_pending(project_id: str) -> bool | None:
     """The card still asks the client something; None when it cannot be read."""
     try:
         state = await confirmation_state(project_id)
-    except Exception as e:  # noqa: BLE001 - a log line must never fail
+    # Firestore down (GoogleAPIError), no credentials (GoogleAuthError), a malformed
+    # spec (ValidationError is a ValueError), the store's own errors (AppException).
+    except (GoogleAPIError, GoogleAuthError, ValueError, AppException) as e:
         logger.warning(f"[QuoteStep] Could not read the card: {type(e).__name__}")
         return None
     return any(section.pending for section in state.sections)
@@ -54,7 +62,7 @@ async def _card_pending(project_id: str) -> bool | None:
 
 async def _log_with_card(facts: QuoteFacts, project_id: str) -> None:
     pending = await _card_pending(project_id)
-    _log(replace(facts, card_pending=pending))
+    _log(replace(facts, card_pending=pending), quote_read=True)
 
 
 class QuoteStepPlugin(BasePlugin):
@@ -74,7 +82,7 @@ class QuoteStepPlugin(BasePlugin):
                 # The chat session id is the project id.
                 run_in_background(_log_with_card(facts, session.id), name="quote_step_log")
             else:
-                _log(facts)
+                _log(facts, quote_read=session.state.get(HOUSE_QUOTE_STATE_KEY) is not None)
         except Exception as e:  # noqa: BLE001 - a log line must never stop the turn
             logger.warning(f"[QuoteStep] Step not computed: {type(e).__name__}")
         return None
