@@ -77,6 +77,7 @@ def _clean_state(monkeypatch):
     room_brief._watermark.clear()
     room_brief._running.clear()
     room_brief._dirty.clear()
+    room_brief._saves.clear()
     yield
 
 
@@ -381,3 +382,78 @@ async def test_turn_ending_right_after_a_refresh_starts_a_new_one():
         await second
     assert backend.generate.await_count == 2
     assert not room_brief._dirty and not room_brief._running
+
+
+async def test_the_refresh_waits_for_the_user_message_of_the_turn():
+    """The turn ends before its user message is in Firestore: the refresh reads the
+    chat only once it is, so "il bagno è 9 mq" reaches the brief (and is not left
+    behind the watermark, which moves to the reply after it)."""
+    history = [{"id": "m2", "role": "assistant", "content": "Annotato.", "room_id": "r_bagno"}]
+    saved = asyncio.get_running_loop().create_future()
+    with _Backend(_room(), history) as backend:
+        task = schedule_room_brief_refresh(
+            BriefTurn(project_id="p1", session_id="s1", room_id="r_bagno", is_guest=False, user_message_saved=saved)
+        )
+        assert task is not None
+        # Long enough for a refresh that does not wait to read the chat and finish.
+        done, _ = await asyncio.wait({task}, timeout=0.2)
+        assert not done
+        backend.conversations.get_context.assert_not_awaited()
+        history.insert(0, {"id": "m1", "role": "user", "content": "Il bagno è 9 mq", "room_id": "r_bagno"})
+        saved.set_result(None)
+        await task
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert "Il bagno è 9 mq" in prompt
+    assert room_brief._watermark[("s1", "r_bagno")] == "m2"
+
+
+async def test_a_failed_user_message_save_still_refreshes_the_brief():
+    saved = asyncio.get_running_loop().create_future()
+    saved.set_exception(RuntimeError("firestore down"))
+    with _Backend(_room(), BATH_TALK) as backend:
+        await _run(BriefTurn(project_id="p1", session_id="s1", room_id="r_bagno", is_guest=False, user_message_saved=saved))
+    backend.generate.assert_awaited_once()
+    assert isinstance(saved.exception(), RuntimeError)
+
+
+async def test_a_save_that_never_ends_holds_the_refresh_only_for_a_while(monkeypatch):
+    monkeypatch.setattr(settings, "ROOM_BRIEF_TIMEOUT_SECONDS", 0.05)
+    never = asyncio.get_running_loop().create_future()
+    with _Backend(_room(), BATH_TALK) as backend:
+        await asyncio.wait_for(
+            _run(BriefTurn(project_id="p1", session_id="s1", room_id="r_bagno", is_guest=False, user_message_saved=never)),
+            timeout=1,
+        )
+    backend.generate.assert_awaited_once()
+    assert not room_brief._saves
+
+
+async def test_a_turn_ending_during_a_refresh_is_read_after_its_own_user_message():
+    """The running refresh goes again for the second turn, and waits for that
+    turn's user message too, not only the first one's."""
+    release = asyncio.Event()
+    summarizing = asyncio.Event()
+
+    async def slow_reply(**_: Any) -> SimpleNamespace:
+        summarizing.set()
+        await release.wait()
+        return _reply()
+
+    history = list(BATH_TALK)
+    second_saved = asyncio.get_running_loop().create_future()
+    with _Backend(_room(), history) as backend:
+        backend.generate.side_effect = slow_reply
+        first = schedule_room_brief_refresh(_turn())
+        await asyncio.wait_for(summarizing.wait(), timeout=1)
+        history.append({"id": "m4", "role": "assistant", "content": "Va bene.", "room_id": "r_bagno"})
+        assert schedule_room_brief_refresh(
+            BriefTurn(project_id="p1", session_id="s1", room_id="r_bagno", is_guest=False, user_message_saved=second_saved)
+        ) is None
+        release.set()
+        assert first is not None
+        done, _ = await asyncio.wait({first}, timeout=0.2)
+        assert not done
+        history.insert(2, {"id": "m3", "role": "user", "content": "Il bagno è 9 mq", "room_id": "r_bagno"})
+        second_saved.set_result(None)
+        await first
+    assert "Il bagno è 9 mq" in backend.generate.await_args.kwargs["contents"]

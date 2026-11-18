@@ -825,8 +825,15 @@ async def chat_stream(
         body.room_id = None
     turn.mark("session_ready")
 
+    # Resolved once the user message below is written (or failed): the room briefs,
+    # scheduled when the reply is saved inside the stream, read the chat after it.
+    user_message_saved: asyncio.Future[None] = asyncio.get_running_loop().create_future()
+
     async def _persist_user_message():
-        """Background: persist user message to Firestore without blocking the stream."""
+        """Background: persist user message to Firestore without blocking the stream.
+
+        After the stream, like before: the history the turn restores never holds
+        this message twice."""
         try:
             await repo.save_message(
                 session_id=body.session_id,
@@ -842,6 +849,9 @@ async def chat_stream(
             logger.info("[Anchor] User message persisted")
         except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to pre-persist user message in route: {e}")
+        finally:
+            if not user_message_saved.done():
+                user_message_saved.set_result(None)
 
     background_tasks.add_task(_persist_user_message)
 
@@ -849,7 +859,7 @@ async def chat_stream(
     # The orchestrator emits the AI SDK v6 UI Message Stream protocol (SSE),
     # which @ai-sdk/react parses via x-vercel-ai-ui-message-stream: v1.
     return StreamingResponse(
-        orchestrator.stream_chat(body, user_session, background_tasks),
+        orchestrator.stream_chat(body, user_session, background_tasks, user_message_saved=user_message_saved),
         media_type="text/event-stream; charset=utf-8",
         headers={
             # No "Connection: close": the Next.js proxy keeps its connection to

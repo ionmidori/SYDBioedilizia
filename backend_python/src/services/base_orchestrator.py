@@ -7,6 +7,7 @@ The sole concrete implementation is ADKOrchestrator (Vertex AI Agent Builder).
 OrchestratorFactory returns the ADKOrchestrator singleton directly.
 """
 
+import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from typing import Any
@@ -31,6 +32,7 @@ class BaseOrchestrator(ABC):
         request: Any,        # ChatRequest (typed in concrete implementations)
         user_session: Any,   # UserSession (typed in concrete implementations)
         background_tasks: Any = None, # FastAPI BackgroundTasks
+        user_message_saved: asyncio.Future[None] | None = None,  # save of the turn's user message, under way
     ) -> AsyncIterator[str]:
         """
         Main streaming chat method — yields Vercel AI protocol chunks.

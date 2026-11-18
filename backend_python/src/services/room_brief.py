@@ -66,6 +66,8 @@ _watermark: OrderedDict[_Key, str] = OrderedDict()
 # Rooms being summarized, and those that got new turns meanwhile.
 _running: dict[_Key, asyncio.Task[None]] = {}
 _dirty: set[_Key] = set()
+# The save of the newest turn's user message, per room, until a refresh waited for it.
+_saves: dict[_Key, asyncio.Future[None]] = {}
 
 
 class _BriefDraft(BaseModel):
@@ -99,6 +101,9 @@ class BriefTurn:
     session_id: str
     room_id: str | None  # active room at the end of the turn (None: no room chosen)
     is_guest: bool
+    # The save of the turn's user message: /chat/stream writes it once the reply has
+    # streamed, after the turn ends. The refresh reads the chat after it.
+    user_message_saved: asyncio.Future[None] | None = None
 
 
 def schedule_room_brief_refresh(turn: BriefTurn) -> asyncio.Task[None] | None:
@@ -107,6 +112,9 @@ def schedule_room_brief_refresh(turn: BriefTurn) -> asyncio.Task[None] | None:
     if turn.is_guest or not settings.ROOM_BRIEF_ENABLED:
         return None
     key = (turn.session_id, turn.room_id or DEFAULT_ROOM_ID)
+    if turn.user_message_saved is not None:
+        # The newest turn's: a turn ending during a refresh is read by the next round.
+        _saves[key] = turn.user_message_saved
     if key in _running:
         _dirty.add(key)
         return None
@@ -119,6 +127,11 @@ async def _refresh_until_clean(turn: BriefTurn, key: _Key) -> None:
     try:
         while True:
             _dirty.discard(key)
+            saved = _saves.pop(key, None)
+            if saved is not None:
+                # Waited, never raised (a failed save is logged where it fails), and bounded:
+                # read too early, the message would sit behind the watermark (the reply) for good.
+                await asyncio.wait({saved}, timeout=settings.ROOM_BRIEF_TIMEOUT_SECONDS)
             await _refresh(turn.project_id, *key)
             if key not in _dirty:
                 return
@@ -126,6 +139,7 @@ async def _refresh_until_clean(turn: BriefTurn, key: _Key) -> None:
         # Same loop step as the dirty check (no await in between): a turn that
         # ends now either starts a new task or is summarized by this one.
         _running.pop(key, None)
+        _saves.pop(key, None)
 
 
 def _remember(key: _Key, message_id: str) -> None:
