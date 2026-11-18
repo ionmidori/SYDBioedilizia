@@ -5,13 +5,17 @@ One test per arrow of the diagram in the analysis ("I passi nella strada B"),
 then the edge cases: session rebuilt without history, yes with a courtesy,
 turn run again without an unreadable video.
 """
+import ast
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 from google.adk.events import Event
 from google.genai import types
+from src.adk.quote_facts import quote_facts
 from src.adk.video_attachments import skipped_model_note
-from src.services.quote_step import QuoteFacts, QuoteStep, quote_facts, quote_step
+from src.services import quote_step as quote_step_module
+from src.services.quote_step import QuoteFacts, QuoteStep, quote_step
 from tests.unit.send_consent_fakes import TURN, text_event, user_message
 
 REGISTER_ASK = "Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"
@@ -36,6 +40,15 @@ BASE = QuoteFacts(
 
 def _step(**changes) -> QuoteStep:
     return quote_step(replace(BASE, **changes))
+
+
+def test_the_step_is_a_service_without_adk():
+    """The services layer does not import the ADK layer: the facts are read from the
+    session in src/adk/quote_facts.py, the step is computed here."""
+    tree = ast.parse(Path(quote_step_module.__file__).read_text(encoding="utf-8"))
+    imported = [n.module or "" for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)]
+    imported += [a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names]
+    assert not [m for m in imported if m.startswith(("src.adk", "google.adk"))]
 
 
 # ── RACCOLTA ──────────────────────────────────────────────────────────────────

@@ -10,8 +10,8 @@ conversation itself before sending:
 - the client's message is a plain yes, with no change, doubt or question.
 
 A wrong refusal costs one more question; a wrong send reaches the team.
-The readers of the conversation live in `src/adk/turn_reading.py`, shared with
-the step of the quote (`src/services/quote_step.py`).
+The readers of the conversation live in `src/adk/turn_reading.py` and
+`src/services/reply_reading.py`, shared with the step of the quote.
 """
 from __future__ import annotations
 
@@ -19,7 +19,8 @@ from collections.abc import Sequence
 
 from google.adk.events import Event
 from google.genai import types
-from src.adk.turn_reading import asked_to_send, client_words, last_reply, plain_yes, turn_calls
+from src.adk.turn_reading import client_words, last_reply, turn_calls
+from src.services.reply_reading import asked_to_send, plain_yes
 from src.tools.quote_submit_tools import NOT_SENT_PREFIX
 
 _QUOTE_TOOL = "suggest_quote_items"

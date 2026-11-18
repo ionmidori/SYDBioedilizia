@@ -7,7 +7,7 @@ agent, and the model gets it wrong. This module computes the step from facts
 the code already knows: guest or not, the stored house quote and its card, the
 phone on file, the reply the client saw before this turn, the tools called and
 the client's words (the same readers as the explicit yes of the send,
-`src/adk/turn_reading.py`). The model will read the step, not choose it.
+`src/services/reply_reading.py`). The model will read the step, not choose it.
 
 Passo 1 only logs the step once per turn (`QuoteStepPlugin`): no behaviour
 changes. The arrows are the diagram "I passi nella strada B" of the analysis
@@ -17,28 +17,18 @@ one more question once the tools check it (passo 2).
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
 
-from google.adk.events import Event
-from google.genai import types
-
-from src.adk.session_context import HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY
-from src.adk.turn_reading import (
+from src.services.quote_state import ai_draft_action
+from src.services.reply_reading import (
     asked_to_send,
-    client_words,
     is_bare_confirm,
-    last_reply,
-    last_turn_calls,
     names_send,
     plain_yes,
     sentences,
-    turn_calls,
     without_courtesies,
 )
-from src.services.quote_state import ai_draft_action
 
 _REGISTER_TOOL = "suggest_quote_items"
 _LOGIN_TOOL = "request_login"
@@ -194,28 +184,3 @@ def quote_step(f: QuoteFacts) -> QuoteStep:
     if action == "update":
         return _on_draft(f)
     return _without_draft(f)  # no quote, or a sent/rejected one: the next revision is a new request
-
-
-def quote_facts(
-    events: Sequence[Event],
-    invocation_id: str,
-    user_content: types.Content | None,
-    state: Mapping[str, Any],
-    *,
-    card_pending: bool | None,
-) -> QuoteFacts:
-    """The facts of this turn, from the ADK session and its state (the session
-    block the orchestrator writes: `session_context.py`)."""
-    session = state.get(SESSION_CONTEXT_STATE_KEY) or {}
-    quote = state.get(HOUSE_QUOTE_STATE_KEY) or {}
-    return QuoteFacts(
-        is_guest=bool(session.get("is_guest", True)),
-        phone_on_file=bool(session.get("phone_on_file")),
-        quote_status=quote.get("status"),
-        delivery_status=quote.get("delivery_status"),
-        card_pending=card_pending,
-        last_reply=last_reply(events, invocation_id),
-        last_turn_calls=tuple(last_turn_calls(events, invocation_id)),
-        turn_calls=tuple(turn_calls(events, invocation_id)),
-        client_words=client_words(events, invocation_id, user_content),
-    )

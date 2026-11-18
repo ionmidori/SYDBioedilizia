@@ -22,12 +22,13 @@ from google.auth.exceptions import GoogleAuthError
 from google.genai import types
 
 from src.adk.background import run_in_background
+from src.adk.quote_facts import quote_facts
 from src.adk.session_context import HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY
 from src.core.exceptions import AppException
 from src.core.logger import get_logger
 from src.services.confirmation_service import confirmation_state
 from src.services.quote_state import QuoteStatus
-from src.services.quote_step import QuoteFacts, quote_facts, quote_step
+from src.services.quote_step import QuoteFacts, quote_step
 
 logger = get_logger(__name__)
 

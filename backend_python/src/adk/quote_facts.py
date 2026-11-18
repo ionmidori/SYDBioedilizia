@@ -1,0 +1,40 @@
+"""
+The facts of the quote step (`src/services/quote_step.py`), read from the ADK
+session: its events and the state the orchestrator writes (`session_context.py`).
+"""
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+from google.adk.events import Event
+from google.genai import types
+
+from src.adk.session_context import HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY
+from src.adk.turn_reading import client_words, last_reply, last_turn_calls, turn_calls
+from src.services.quote_step import QuoteFacts
+
+
+def quote_facts(
+    events: Sequence[Event],
+    invocation_id: str,
+    user_content: types.Content | None,
+    state: Mapping[str, Any],
+    *,
+    card_pending: bool | None,
+) -> QuoteFacts:
+    """The facts of this turn, from the ADK session and its state (the session
+    block the orchestrator writes: `session_context.py`)."""
+    session = state.get(SESSION_CONTEXT_STATE_KEY) or {}
+    quote = state.get(HOUSE_QUOTE_STATE_KEY) or {}
+    return QuoteFacts(
+        is_guest=bool(session.get("is_guest", True)),
+        phone_on_file=bool(session.get("phone_on_file")),
+        quote_status=quote.get("status"),
+        delivery_status=quote.get("delivery_status"),
+        card_pending=card_pending,
+        last_reply=last_reply(events, invocation_id),
+        last_turn_calls=tuple(last_turn_calls(events, invocation_id)),
+        turn_calls=tuple(turn_calls(events, invocation_id)),
+        client_words=client_words(events, invocation_id, user_content),
+    )
