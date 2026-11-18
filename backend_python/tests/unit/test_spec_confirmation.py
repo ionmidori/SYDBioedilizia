@@ -336,3 +336,44 @@ def test_confirmations_only_leaves_the_checks_behind() -> None:
 def test_stored_checks_are_capped() -> None:
     checks = capped_checks([StoredAdminCheck(message=f"c{i}") for i in range(30)] + [StoredAdminCheck(message="c1")])
     assert len(checks) == ADMIN_CHECKS_MAX and len({c.message for c in checks}) == ADMIN_CHECKS_MAX
+
+
+def test_confirming_the_same_value_again_answers_no_check() -> None:
+    """The card sends every value of the section: an unchanged one is no answer."""
+    spec = _spec(
+        [StoredMeasure(name="mq", value=8, source="confirmed")],
+        [StoredElementChoice(element="sanitari", action="keep", confirmed=True)],
+    ).model_copy(update={"admin_checks": [
+        StoredAdminCheck(message="mq: più valori", measure="mq"),
+        StoredAdminCheck(message="sanitari: la nuova analisi indica Sostituisci", element="sanitari"),
+    ]})
+    same = ConfirmationUpdate(
+        measures=[MeasureConfirmation(name="mq", value=8)],
+        element_choices=[ChoiceConfirmation(element="sanitari", action="keep")],
+    )
+    assert confirm(spec, same).admin_checks == spec.admin_checks
+
+    changed = ConfirmationUpdate(
+        measures=[MeasureConfirmation(name="mq", value=9)],
+        element_choices=[ChoiceConfirmation(element="sanitari", action="replace")],
+    )
+    assert confirm(spec, changed).admin_checks == []
+
+
+def test_a_long_note_is_cut_never_an_error() -> None:
+    assert len(StoredAdminCheck(message="x" * 900).message) == 500
+    fresh = _spec([StoredMeasure(name="mq", value=6, source="declared")]).model_copy(
+        update={"conflicts": {"mq": [float(v) for v in range(1, 200)]}}
+    )
+    stored = _spec([StoredMeasure(name="mq", value=8, source="confirmed")])
+    merged = apply_confirmations(fresh, stored)[0]
+    assert len(merged.admin_checks) == 1 and len(merged.admin_checks[0].message) == 500
+    RoomInterventionSpec.model_validate(merged.model_dump())  # reads again
+
+
+def test_a_spec_without_checks_is_stored_without_the_field() -> None:
+    """A backend rolled back past admin_checks (extra="forbid") still reads it."""
+    assert "admin_checks" not in _spec().model_dump()
+    assert _checked(StoredAdminCheck(message="x")).model_dump()["admin_checks"] == [
+        {"message": "x", "measure": None, "element": None}
+    ]

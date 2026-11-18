@@ -14,7 +14,6 @@ from src.core.money import to_decimal
 from src.schemas.assembly_library import MEASURE_LABELS, ElementAction
 from src.schemas.confirmation import ConfirmationUpdate
 from src.schemas.intervention_spec import (
-    ADMIN_CHECK_MAX_CHARS,
     ADMIN_CHECKS_MAX,
     RoomInterventionSpec,
     StoredAdminCheck,
@@ -113,12 +112,12 @@ def proposal_checks(spec: RoomInterventionSpec) -> list[str]:
 
 
 def capped_checks(checks: Iterable[StoredAdminCheck]) -> list[StoredAdminCheck]:
-    """The checks once each (by message), within the spec's bounds: a spec written
-    past them would not read again, and a spec that does not read is never overwritten."""
+    """The checks once each (by message; each already cut by its model), within the
+    spec's bounds: a spec written past them would not read again, and a spec that
+    does not read is never overwritten."""
     kept: dict[str, StoredAdminCheck] = {}
     for check in checks:
-        message = check.message[:ADMIN_CHECK_MAX_CHARS]
-        kept.setdefault(message, check.model_copy(update={"message": message}))
+        kept.setdefault(check.message, check)
     return list(kept.values())[:ADMIN_CHECKS_MAX]
 
 
@@ -262,9 +261,15 @@ def confirm(spec: RoomInterventionSpec, update: ConfirmationUpdate) -> RoomInter
     }
     stored_names = {m.name for m in spec.measures}
     stored_elements = {c.element for c in spec.element_choices}
+    # The card sends every value of the section: only a value the client changed (or
+    # confirmed for the first time) answers a check, not the same one confirmed again.
+    was_measure, was_choice = _confirmed_values(spec)
+    answered_measures = {name for name, m in measures.items() if was_measure.get(name) != m.value}
+    answered_choices = {element for element, c in choices.items() if was_choice.get(element) != c.action}
     return _settled(spec.model_copy(update={
         "admin_checks": [
-            c for c in spec.admin_checks if c.measure not in measures and c.element not in choices
+            c for c in spec.admin_checks
+            if c.measure not in answered_measures and c.element not in answered_choices
         ],
         "measures": [
             *(measures.get(m.name, m) for m in spec.measures),

@@ -15,7 +15,7 @@ every serialization: the client reads it through the confirmation API.
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.schemas.assembly_library import ElementAction
 
@@ -82,6 +82,12 @@ class StoredAdminCheck(BaseModel):
     measure: str | None = None
     element: str | None = None
 
+    @field_validator("message", mode="before")
+    @classmethod
+    def _fit(cls, value: object) -> object:
+        # A long note (many values from the model) is cut, never a failed quote.
+        return value[:ADMIN_CHECK_MAX_CHARS] if isinstance(value, str) else value
+
 
 class RoomInterventionSpec(BaseModel):
     """The spec the room's quote was expanded from."""
@@ -96,7 +102,11 @@ class RoomInterventionSpec(BaseModel):
     missing_measures: list[str] = Field(default_factory=list)
     # Measure → the different values the model gave for it (several rooms in one unit?).
     conflicts: dict[str, list[MeasureValue]] = Field(default_factory=dict)
-    # The team's checks a recalculation from the card keeps (it has no analysis).
-    admin_checks: list[StoredAdminCheck] = Field(default_factory=list, max_length=ADMIN_CHECKS_MAX)
+    # The team's checks a recalculation from the card keeps (it has no analysis). Left
+    # out of a dump when empty: a backend rolled back past this field (extra="forbid")
+    # still reads every spec without checks.
+    admin_checks: list[StoredAdminCheck] = Field(
+        default_factory=list, max_length=ADMIN_CHECKS_MAX, exclude_if=lambda checks: not checks
+    )
     library_version: str
     generated_at: datetime

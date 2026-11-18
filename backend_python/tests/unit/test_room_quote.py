@@ -926,6 +926,14 @@ async def test_the_spec_keeps_the_team_checks_the_card_cannot_rebuild():
     assert len(checks) == 3
 
 
+async def test_a_new_analysis_replaces_the_stored_checks():
+    """A package no longer repeated is no longer a check: checks never pile up."""
+    stored = _stored(admin_checks=[{"message": "Bagno completo scelto più volte"}])
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}, specs={"bagno1": stored}) as mocks:
+        await _quote()
+    assert _saved_specs(mocks["store"])["bagno1"].admin_checks == []
+
+
 async def test_the_spec_keeps_no_proposal_check():
     """An open proposal is rebuilt from the measure (`proposal_checks`): not stored twice."""
     stored = _stored(measures=[{"name": "mq", "value": 8, "source": "confirmed"}])

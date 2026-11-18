@@ -303,6 +303,20 @@ async def test_confirming_the_measure_drops_its_check_from_the_draft() -> None:
     assert not [w for w in request.ai_warnings if "più valori (5, 7)" in w.message]
 
 
+async def test_confirming_a_section_again_unchanged_keeps_its_checks() -> None:
+    """The card sends the whole section: the checks on values the client left as they
+    were reach the recomputed draft of that same section."""
+    bath = _spec(StoredMeasure(name="mq", value=8, source="confirmed")).model_copy(update={"admin_checks": [
+        StoredAdminCheck(message="mq: il cliente ha confermato 8, la nuova analisi indica più valori (6, 9)",
+                         measure="mq"),
+    ]})
+    with _project({"bagno1": bath}, _draft()) as mocks:
+        await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
+
+    request = mocks["saved"].await_args.args[3]
+    assert [w.room_id for w in request.ai_warnings if "più valori (6, 9)" in w.message] == ["bagno1"]
+
+
 async def test_a_room_deleted_meanwhile_is_404() -> None:
     with _project({"bagno1": BAGNO}, _draft()) as mocks, pytest.raises(AppException) as error:
         mocks["store"].update.side_effect = NotFound("room bagno1")

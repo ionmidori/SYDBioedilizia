@@ -798,6 +798,16 @@ def _build_spec(
     })
 
 
+def _merged_spec(
+    fresh: RoomInterventionSpec, confirmed: RoomInterventionSpec | None, analysis: InsightAnalysis
+) -> RoomInterventionSpec:
+    """The model's spec with the client's confirmations and the team's checks on the
+    confirmed choices the analysis contradicts (the card recomputes without it)."""
+    merged = apply_confirmations(fresh, confirmed)[0]
+    checks = capped_checks([*choice_check_items(analysis, confirmed), *merged.admin_checks])
+    return merged.model_copy(update={"admin_checks": checks})
+
+
 async def _save_spec(
     project_id: str,
     section_key: str,
@@ -813,10 +823,7 @@ async def _save_spec(
     room, a Firestore error only log a warning."""
 
     def change(current: RoomInterventionSpec | None) -> RoomInterventionSpec:
-        confirmed = current if current is not None else read
-        merged = apply_confirmations(fresh, confirmed)[0]
-        checks = capped_checks([*merged.admin_checks, *choice_check_items(analysis, confirmed)])
-        return merged.model_copy(update={"admin_checks": checks})
+        return _merged_spec(fresh, current if current is not None else read, analysis)
 
     try:
         return await get_spec_store().update(project_id, section_key, change)
@@ -890,8 +897,8 @@ def _checked(
     notes = choice_checks(analysed.validated, stored)
     spec = written
     if analysed.fresh is not None:
-        merged, measure_notes = apply_confirmations(analysed.fresh, stored)
-        spec = merged if spec is None else spec
+        measure_notes = apply_confirmations(analysed.fresh, stored)[1]
+        spec = _merged_spec(analysed.fresh, stored, analysed.validated) if spec is None else spec
         notes = [*measure_notes, *notes]
     if notes:
         checks = [ExpansionWarning("admin_check", note) for note in notes]
