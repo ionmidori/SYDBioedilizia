@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 # prompt told the agent to always say "Richiesta inviata! ✅" after the call,
 # so a failed submission was announced to the client as sent.
 NOT_SENT_PREFIX = "❌ RICHIESTA NON INVIATA:"
+# The model timing out after a send: the orchestrator streams the reply that starts with it.
+SENT_MARK = "✅"
 
 _LOGIN_REQUIRED_MSG = (
     f"{NOT_SENT_PREFIX} per inviare la richiesta di preventivo devi prima accedere "
@@ -71,10 +73,10 @@ async def submit_quote_request_wrapper(session_id: str, user_id: str) -> str:
     reference = f" (riferimento {result.quote_number})" if result.quote_number else ""
     if result.duplicate:
         return (
-            f"✅ La richiesta di preventivo{reference} era già stata inviata: il nostro team "
+            f"{SENT_MARK} La richiesta di preventivo{reference} era già stata inviata: il nostro team "
             "la sta esaminando e riceverai il preventivo finale via email dopo la revisione."
         )
     return (
-        f"✅ Richiesta di preventivo inviata{reference}. Il nostro team è stato avvisato: "
+        f"{SENT_MARK} Richiesta di preventivo inviata{reference}. Il nostro team è stato avvisato: "
         "riceverai il preventivo finale via email dopo la revisione."
     )
