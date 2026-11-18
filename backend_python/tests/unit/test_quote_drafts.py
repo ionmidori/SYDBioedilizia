@@ -255,6 +255,67 @@ async def test_read_quote_status_is_a_plain_read():
     assert await read_quote_status(db, PID) is None
 
 
+async def test_read_quote_status_in_a_transaction():
+    db = FakeDb()
+    _seed_sent(db)
+    tx = FakeTransaction(db)
+
+    current = await read_quote_status(db, PID, transaction=tx)
+
+    assert current is not None and current.status == "sent"
+    assert tx.reads == [QUOTE_PATH]
+
+
+# ── Phase 140 seguiti T4: a draft never older than the specs ─────────────────
+
+
+@pytest.mark.parametrize("seed_draft", [False, True], ids=["first-draft", "update"])
+async def test_a_draft_computed_from_older_specs_is_never_saved(seed_draft: bool):
+    """The card read the specs, then another confirmation changed one: the guard
+    (a read in the same transaction) says so and nothing is written."""
+    db = FakeDb()
+    if seed_draft:
+        await _save(db)
+    before = db.get_data(*QUOTE_PATH)
+    tx = FakeTransaction(db)
+    guarded: list[int] = []
+
+    async def same_specs(transaction: FakeTransaction) -> bool:
+        guarded.append(len(transaction.writes))
+        return False
+
+    result = await apply_ai_draft(tx, db, PID, _ai_quote(sku="PAV-009"), _request(), NOW, guard=same_specs)
+
+    assert result.outcome is DraftSaveOutcome.STALE
+    assert guarded == [0] and tx.writes == []
+    assert db.get_data(*QUOTE_PATH) == before
+    counter = db.get_data("counters", "quote_2026")
+    assert (counter or {}).get("next") == (2 if seed_draft else None)  # no number burnt
+
+
+async def test_a_draft_of_the_current_specs_is_saved():
+    db = FakeDb()
+
+    async def same_specs(_transaction: FakeTransaction) -> bool:
+        return True
+
+    result = await apply_ai_draft(FakeTransaction(db), db, PID, _ai_quote(), _request(), NOW, guard=same_specs)
+    assert result.outcome is DraftSaveOutcome.CREATED
+
+
+async def test_a_quote_with_the_team_is_not_editable_before_any_stale_check():
+    db = FakeDb()
+    _seed_sent(db, "pending_review")
+
+    async def never(_transaction: FakeTransaction) -> bool:
+        raise AssertionError("no spec read for a quote the card cannot write")
+
+    result = await apply_ai_draft(
+        FakeTransaction(db), db, PID, _ai_quote(), _request(), NOW, editable_only=True, guard=never
+    )
+    assert result.outcome is DraftSaveOutcome.NOT_EDITABLE
+
+
 async def test_a_later_draft_replaces_the_work_quoted_by_hand_and_the_warnings():
     """Phase 140: what the AI could not price reaches the admin, and only the latest draft's."""
     db = FakeDb()

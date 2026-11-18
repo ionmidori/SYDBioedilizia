@@ -63,30 +63,49 @@ def _draft(status: str = "draft", precision: int | None = None) -> QuoteStatusVi
 @contextmanager
 def _project(specs: dict[str, RoomInterventionSpec], status: QuoteStatusView | None = None,
              outcome: DraftSaveOutcome = DraftSaveOutcome.UPDATED) -> Iterator[dict[str, Any]]:
+    """A project whose writers run their guards in a fake transaction: `status_in_transaction`
+    is the quote the guards read (the team may take it after the first read), and each
+    `meanwhile` hook runs just before a draft save (another writer's spec)."""
     stored = dict(specs)
+    transaction = object()
+    mocks: dict[str, Any] = {"stored": stored, "status_in_transaction": status, "meanwhile": []}
     store = MagicMock()
-    store.load_all = AsyncMock(side_effect=lambda pid: dict(stored))
+    store.load_all = AsyncMock(side_effect=lambda pid, transaction=None: dict(stored))
 
-    async def update(project_id, section_key, change):
+    async def update(project_id, section_key, change, *, guard=None):
         assert project_id == PID
+        if guard is not None:
+            await guard(transaction)
         stored[section_key] = change(stored.get(section_key))
         return stored[section_key]
+
+    async def read_status(_db, project_id, *, transaction=None):
+        assert project_id == PID
+        return status if transaction is None else mocks["status_in_transaction"]
+
+    async def save(_db, project_id, quote, request, *, guard, **_kwargs):
+        if mocks["meanwhile"]:
+            mocks["meanwhile"].pop(0)()
+        if not await guard(transaction):
+            return DraftSaveResult(DraftSaveOutcome.STALE, "draft", "PRV-2026-0042", 1)
+        return DraftSaveResult(outcome, "draft", "PRV-2026-0042", 2)
 
     store.update = AsyncMock(side_effect=update)
     repo = MagicMock()
     repo.list_rooms = AsyncMock(return_value=ROOMS)
-    saved = AsyncMock(return_value=DraftSaveResult(outcome, "draft", "PRV-2026-0042", 2))
+    saved = AsyncMock(side_effect=save)
     model = AssertionError("the model must not be called by a confirmation")
     with patch.object(confirmation_service, "get_spec_store", return_value=store), \
          patch.object(confirmation_service, "get_room_repository", return_value=repo), \
-         patch.object(confirmation_service, "read_quote_status", AsyncMock(return_value=status)), \
+         patch.object(confirmation_service, "read_quote_status", AsyncMock(side_effect=read_status)), \
          patch.object(confirmation_service, "save_ai_draft", saved), \
          patch.object(confirmation_service, "gather_dossier_inputs", AsyncMock(return_value=None)), \
          patch.object(confirmation_service, "get_async_firestore_client"), \
          patch.object(PricingService, "ensure_fresh", AsyncMock()), \
          patch("src.services.insight_engine.get_insight_engine", side_effect=model), \
          patch("src.core.models.get_genai_client", side_effect=model):
-        yield {"store": store, "stored": stored, "saved": saved}
+        mocks.update(store=store, saved=saved)
+        yield mocks
 
 
 def _measure(name: str, value: float) -> ConfirmationUpdate:
@@ -251,9 +270,9 @@ async def test_other_sections_are_read_again_after_the_write() -> None:
     with _project({"bagno1": BAGNO, "cucina1": CUCINA_MISSING}, _draft()) as mocks:
         write = mocks["store"].update.side_effect
 
-        async def tool_wrote_meanwhile(project_id, section_key, change):
+        async def tool_wrote_meanwhile(project_id, section_key, change, **kwargs):
             mocks["stored"]["cucina1"] = kitchen_done
-            return await write(project_id, section_key, change)
+            return await write(project_id, section_key, change, **kwargs)
 
         mocks["store"].update.side_effect = tool_wrote_meanwhile
         result = await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
@@ -330,6 +349,72 @@ async def test_the_state_asks_for_every_measure_the_lines_need() -> None:
     with _project({"cucina1": kitchen}, _draft()):
         state = await confirmation_state(PID)
     assert [(m.name, m.value) for m in state.sections[0].measures] == [("ml_pensili", 4), ("mq", None)]
+
+
+# ── Phase 140 seguiti T4: the card's races ────────────────────────────────────
+
+
+async def test_spec_not_written_when_the_team_took_the_quote_meanwhile() -> None:
+    """Read as a draft, then sent by the team before the write: the check in the
+    write's transaction refuses it, the spec stays as it was."""
+    with _project({"bagno1": BAGNO}, _draft()) as mocks, pytest.raises(AppException) as error:
+        mocks["status_in_transaction"] = _draft("sent")
+        await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
+
+    assert (error.value.status_code, error.value.error_code) == (409, "QUOTE_NOT_EDITABLE")
+    assert mocks["stored"]["bagno1"] == BAGNO
+    mocks["saved"].assert_not_awaited()
+
+
+async def test_confirm_recomputes_again_when_another_section_was_confirmed_meanwhile() -> None:
+    """Two confirmations close together: the draft saved is the one of the last specs."""
+    kitchen = _spec(PENSILI, StoredMeasure(name="mq", value=12, source="confirmed"), package="ASM-CUCINA-FULL")
+    kitchen_later = _spec(PENSILI, StoredMeasure(name="mq", value=15, source="confirmed"), package="ASM-CUCINA-FULL")
+    with _project({"bagno1": BAGNO, "cucina1": kitchen}, _draft()) as mocks:
+        mocks["meanwhile"].append(lambda: mocks["stored"].update(cucina1=kitchen_later))
+        result = await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
+
+    assert result.recalculated
+    assert mocks["saved"].await_count == 2
+    specs = mocks["saved"].await_args.kwargs["specs"]
+    assert RevisionRoomSpec(room_id="cucina1", spec=kitchen_later) in specs
+    assert RevisionRoomSpec(room_id="bagno1", spec=mocks["stored"]["bagno1"]) in specs
+
+
+async def test_confirm_gives_up_after_three_stale_attempts(caplog: pytest.LogCaptureFixture) -> None:
+    """The client's confirmation stays stored; the next recalculation brings the draft up."""
+    caplog.set_level(logging.INFO)
+
+    def kitchen(mq: float) -> RoomInterventionSpec:
+        return _spec(PENSILI, StoredMeasure(name="mq", value=mq, source="confirmed"), package="ASM-CUCINA-FULL")
+
+    with _project({"bagno1": BAGNO, "cucina1": kitchen(12)}, _draft()) as mocks:
+        for mq in (13, 14, 15):
+            mocks["meanwhile"].append(lambda mq=mq: mocks["stored"].update(cucina1=kitchen(mq)))
+        result = await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
+
+    assert not result.recalculated and result.blocked_sections == []
+    assert mocks["saved"].await_count == 3
+    assert mocks["stored"]["bagno1"].measures == [StoredMeasure(name="mq", value=8, source="confirmed")]
+    assert "Draft left for the next recalculation" in caplog.text
+    assert all(PID not in str(r.__dict__) for r in caplog.records)
+
+
+async def test_three_confirmations_close_together_leave_the_draft_of_the_last_spec() -> None:
+    """Review Focus 4: each save meets the next confirmation's write; the last draft
+    saved is computed from the last spec stored."""
+    with _project({"bagno1": BAGNO}, _draft()) as mocks:
+        def confirmed(mq: float) -> None:
+            mocks["stored"]["bagno1"] = _spec(StoredMeasure(name="mq", value=mq, source="confirmed"))
+
+        mocks["meanwhile"].extend([lambda: confirmed(9), lambda: None])
+        await confirm_section(PID, UID, "bagno1", _measure("mq", 7))
+        mocks["meanwhile"].extend([lambda: confirmed(10), lambda: None])
+        await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
+
+    last = mocks["saved"].await_args.kwargs["specs"]
+    assert last == [RevisionRoomSpec(room_id="bagno1", spec=mocks["stored"]["bagno1"])]
+    assert mocks["stored"]["bagno1"].measures[0].value == 10
 
 
 async def test_an_update_keeps_the_draft_request() -> None:

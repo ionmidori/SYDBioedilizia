@@ -13,7 +13,7 @@ from google.api_core.exceptions import NotFound
 from src.db import transactions
 from src.repositories import room_repository, spec_store
 from src.repositories.room_repository import RoomRepository
-from src.repositories.spec_store import CHAT_SPEC_KEY, SpecStore
+from src.repositories.spec_store import CHAT_SPEC_KEY, SpecStore, spec_fingerprint
 from src.schemas.intervention_spec import RoomInterventionSpec
 from src.schemas.room import DEFAULT_ROOM_ID, RoomBrief, RoomCreate, RoomUpdate
 from tests.unit.firestore_fakes import FakeDb, FakeTransaction
@@ -194,3 +194,61 @@ async def test_load_all_skips_an_unreadable_spec(
 
 async def test_load_all_of_an_empty_project(db: FakeDb, store: SpecStore) -> None:
     assert await store.load_all(PID) == {}
+
+
+# ── Phase 140 seguiti T4: the card's races ────────────────────────────────────
+
+
+class _QuoteTaken(Exception):
+    pass
+
+
+async def test_a_failing_guard_writes_nothing(db: FakeDb, store: SpecStore) -> None:
+    """The card's check that the quote is still the client's runs in the write's
+    transaction, before the spec is read: when it fails nothing is written."""
+    bagno = await RoomRepository().create_room(PID, RoomCreate(label="Bagno", room_type="bagno"))
+    await _put(store, bagno.room_id, _spec(6))
+    seen: list[FakeTransaction] = []
+
+    async def guard(transaction: FakeTransaction) -> None:
+        seen.append(transaction)
+        raise _QuoteTaken
+
+    with pytest.raises(_QuoteTaken):
+        await store.update(PID, bagno.room_id, lambda _current: _spec(9), guard=guard)
+
+    room = await RoomRepository().get_room(PID, bagno.room_id)
+    assert room is not None and room.intervention_spec == _spec(6)
+    assert len(seen) == 1 and seen[0].writes == []
+
+
+async def test_a_passing_guard_reads_before_the_spec(db: FakeDb, store: SpecStore) -> None:
+    order: list[str] = []
+
+    async def guard(transaction: FakeTransaction) -> None:
+        order.append(f"guard after {len(transaction.reads)} reads")
+
+    await store.update(PID, CHAT_SPEC_KEY, lambda _current: _spec(9), guard=guard)
+    assert order == ["guard after 0 reads"]
+    assert await store.load_all(PID) == {CHAT_SPEC_KEY: _spec(9)}
+
+
+async def test_load_all_reads_in_the_transaction(db: FakeDb, store: SpecStore) -> None:
+    bagno = await RoomRepository().create_room(PID, RoomCreate(label="Bagno", room_type="bagno"))
+    await _put(store, bagno.room_id, _spec(6))
+    await _put(store, CHAT_SPEC_KEY, _spec(40))
+    transaction = FakeTransaction(db)
+
+    specs = await store.load_all(PID, transaction=transaction)
+
+    assert specs == {bagno.room_id: _spec(6), CHAT_SPEC_KEY: _spec(40)}
+    assert set(transaction.reads) == {PROJECT_SPECS, ("projects", PID, "rooms")}
+
+
+def test_the_fingerprint_follows_the_specs_not_their_order() -> None:
+    one = {"bagno1": _spec(6), CHAT_SPEC_KEY: _spec(40)}
+    same = {CHAT_SPEC_KEY: _spec(40), "bagno1": _spec(6)}
+    assert spec_fingerprint(one) == spec_fingerprint(same)
+    assert spec_fingerprint(one) != spec_fingerprint({**one, "bagno1": _spec(7)})
+    assert spec_fingerprint(one) != spec_fingerprint({"bagno1": _spec(6)})
+    assert spec_fingerprint({}) == spec_fingerprint({})

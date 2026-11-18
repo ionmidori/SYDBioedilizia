@@ -26,7 +26,7 @@ transaction (client snapshot, site details, media) is stored with the draft.
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -57,6 +57,9 @@ logger = logging.getLogger(__name__)
 REVISIONS_SUBCOLLECTION = "revisions"
 CLIENT_REVISION_REASON = "Nuova richiesta del cliente in chat"
 
+# Reads in the draft's transaction: False when the draft was computed from older data.
+DraftGuard = Callable[[Any], Awaitable[bool]]
+
 
 class DraftSaveOutcome(StrEnum):
     CREATED = "created"
@@ -66,6 +69,8 @@ class DraftSaveOutcome(StrEnum):
     WITH_THE_TEAM = "with_the_team"
     # Nothing written: `editable_only` and the quote is no draft the client can change.
     NOT_EDITABLE = "not_editable"
+    # Nothing written: the `guard` found the draft computed from older data (the card).
+    STALE = "stale"
 
 
 @dataclass(frozen=True)
@@ -146,12 +151,14 @@ async def apply_ai_draft(
     specs: Sequence[RevisionRoomSpec] = (),
     *,
     editable_only: bool = False,
+    guard: DraftGuard | None = None,
 ) -> DraftSaveResult:
     """Transaction body (reads first, then writes). Separate from the
     `@async_transactional` wrapper so the decision logic is unit-testable.
 
     `specs`: what the AI lines were expanded from, kept on the AI revision.
-    `editable_only`: only create or update a draft (NOT_EDITABLE otherwise)."""
+    `editable_only`: only create or update a draft (NOT_EDITABLE otherwise).
+    `guard`: read in the transaction before any write; False → STALE, nothing written."""
     dossier = dossier or DossierInputs()
     ref = quote_doc_ref(db, project_id)
     snap = await ref.get(transaction=transaction)
@@ -170,6 +177,11 @@ async def apply_ai_draft(
         return DraftSaveResult(
             DraftSaveOutcome.WITH_THE_TEAM, str(current_status), current.get("quote_number"), current_version,
             sent_before,
+        )
+    # Before the quote number is allocated: that is a read and a write too.
+    if guard is not None and not await guard(transaction):
+        return DraftSaveResult(
+            DraftSaveOutcome.STALE, str(current_status), current.get("quote_number"), current_version, sent_before
         )
 
     media = [m.model_dump(exclude_none=True) for m in dossier.media]
@@ -266,9 +278,10 @@ def _revision_updates(current_status: str) -> dict[str, Any]:
     }
 
 
-async def read_quote_status(db: Any, project_id: str) -> QuoteStatusView | None:
-    """The quote of `project_id`, or None when there is none (or it was deleted)."""
-    snap = await quote_doc_ref(db, project_id).get()
+async def read_quote_status(db: Any, project_id: str, *, transaction: Any | None = None) -> QuoteStatusView | None:
+    """The quote of `project_id`, or None when there is none (or it was deleted);
+    with `transaction`, the transaction's read of it."""
+    snap = await quote_doc_ref(db, project_id).get(transaction=transaction)
     data: dict[str, Any] = (snap.to_dict() or {}) if snap.exists else {}
     status = data.get("status")
     if not snap.exists or status == QuoteStatus.DELETED:
@@ -299,6 +312,7 @@ async def save_ai_draft(
     specs: Sequence[RevisionRoomSpec] = (),
     *,
     editable_only: bool = False,
+    guard: DraftGuard | None = None,
 ) -> DraftSaveResult:
     """Create or refresh the AI draft for `project_id` atomically (see `apply_ai_draft`)."""
     when = now or utc_now()
@@ -306,7 +320,8 @@ async def save_ai_draft(
     @async_transactional
     async def _txn(transaction: Any) -> DraftSaveResult:
         return await apply_ai_draft(
-            transaction, db, project_id, quote, request, when, dossier, specs, editable_only=editable_only
+            transaction, db, project_id, quote, request, when, dossier, specs,
+            editable_only=editable_only, guard=guard,
         )
 
     result = await _txn(db.transaction())
