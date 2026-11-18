@@ -571,6 +571,34 @@ def _measures_on_card_problems(run: MultiRoomRun) -> list[str]:
     return found + _card_reply_problems(run) + run.submissions.problems(expected=0)
 
 
+_AREA_WORDS = ("metri quadri", "m²", "mq", "superficie")
+
+
+def _area_questions(reply: str) -> list[str]:
+    """The questions of the reply about the room's size (not the walls')."""
+    questions = re.findall(r"[^.!?\n]*\?", reply.lower())
+    return [q for q in questions if any(word in q for word in _AREA_WORDS) and "paret" not in q]
+
+
+def _floor_area_asked_problems(run: MultiRoomRun) -> list[str]:
+    """A bedroom without its size: the floor area is asked once in words, nothing registered
+    in that turn; "non lo so" gets an estimate and the next step, not the question again."""
+    turns = run.tool_calls.turns()
+    first = {tool for _, tool in turns[0]} if turns else set()
+    found = ["suggest_quote_items was called before the floor area"] if "suggest_quote_items" in first else []
+    replies = run.responses.turns()
+    if len(replies) < 2:
+        return [*found, f"only {len(replies)} of 2 turns answered"]
+    if not _area_questions(replies[0]):
+        found.append(f"turn 1 does not ask the floor area: {replies[0][:200]!r}")
+    second_tools = {tool for _, tool in turns[1]} if len(turns) > 1 else set()
+    if _area_questions(replies[1]):
+        found.append(f"turn 2 asks the floor area again: {replies[1][:200]!r}")
+    if "stima" not in replies[1].lower() and "suggest_quote_items" not in second_tools:
+        found.append(f"turn 2 does not say the area will be estimated: {replies[1][:200]!r}")
+    return found + run.submissions.problems(expected=0)
+
+
 def _room_correction_problems(run: MultiRoomRun) -> list[str]:
     """PR 1 · D/E: the untagged correction reaches the bathroom analysis as a
     proposal next to the confirmed 5 mq, and the reply reports both values."""
@@ -610,6 +638,8 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "quote_with_team.test.json": lambda run: run.quotes.relay_problems() + run.submissions.problems(expected=0),
     # PR 1 · C: a bathroom without measures goes straight to the tool and the card.
     "measures_on_card.test.json": _measures_on_card_problems,
+    # A bedroom without its size: the floor area is asked once before the tool (18 Nov test chat).
+    "floor_area_asked.test.json": _floor_area_asked_problems,
     # PR 1 · D/E: a correction typed with no room chip; the reply reports the values as the tool gives them.
     "room_correction.test.json": _room_correction_problems,
 }
