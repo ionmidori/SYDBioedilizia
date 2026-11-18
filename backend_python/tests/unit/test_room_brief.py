@@ -268,15 +268,38 @@ async def test_with_two_bathrooms_the_bare_type_stays_in_generale():
     assert "il bagno è 8 metri quadri" in backend.generate.await_args.kwargs["contents"]
 
 
-async def test_a_message_sent_with_the_generale_chip_stays_generale_s():
-    """The client chose Generale: the room it names does not take it."""
-    talk = [{"id": "m1", "role": "user", "content": "voglio rifare il bagno entro giugno", "room_id": DEFAULT_ROOM_ID}]
-    with _Backend(GENERALE, talk, rooms=[GENERALE, BAGNO]) as backend:
-        await _run(_turn(room_id=None))
-    assert "rifare il bagno entro giugno" in backend.generate.await_args.kwargs["contents"]
+async def test_a_message_sent_from_generale_naming_one_room_is_that_room_s_talk():
+    """ "Il bagno è 11 mq" typed in Generale: the bathroom's brief takes it, Generale's does not."""
+    talk = [
+        {"id": "m1", "role": "user", "content": "Il bagno è 9mq", "room_id": "r_bagno"},
+        {"id": "m2", "role": "user", "content": "Il bagno è 11 mq", "room_id": DEFAULT_ROOM_ID},
+        {"id": "m3", "role": "user", "content": "rifacciamo il corridoio", "room_id": DEFAULT_ROOM_ID},
+    ]
     with _Backend(BAGNO, talk, rooms=[GENERALE, BAGNO]) as backend:
         await _run(_turn(room_id="r_bagno"))
-    backend.generate.assert_not_awaited()
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert prompt.index("Il bagno è 9mq") < prompt.index("Il bagno è 11 mq")
+    assert "corridoio" not in prompt
+    with _Backend(GENERALE, talk, rooms=[GENERALE, BAGNO]) as backend:
+        await _run(_turn(room_id=None))
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert "corridoio" in prompt and "11 mq" not in prompt
+
+
+async def test_a_message_sent_from_a_room_naming_another_room_is_the_other_room_s_talk():
+    cucina = _typed_room("r_cucina", "Cucina", "cucina")
+    talk = [
+        {"id": "m1", "role": "user", "content": "doccia al posto della vasca", "room_id": "r_bagno"},
+        {"id": "m2", "role": "user", "content": "in cucina il top in quarzo", "room_id": "r_bagno"},
+    ]
+    with _Backend(cucina, talk, rooms=[GENERALE, BAGNO, cucina]) as backend:
+        await _run(_turn(room_id="r_cucina"))
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert "top in quarzo" in prompt and "doccia" not in prompt
+    with _Backend(BAGNO, talk, rooms=[GENERALE, BAGNO, cucina]) as backend:
+        await _run(_turn(room_id="r_bagno"))
+    prompt = backend.generate.await_args.kwargs["contents"]
+    assert "doccia" in prompt and "top in quarzo" not in prompt
 
 
 async def test_a_watermark_on_a_message_now_named_elsewhere_reads_only_what_follows():
