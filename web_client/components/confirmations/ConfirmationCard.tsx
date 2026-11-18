@@ -3,19 +3,30 @@
 import { useState } from 'react';
 import { useConfirmationMutation, useConfirmations } from '@/hooks/use-confirmations';
 import { describeApiError } from '@/lib/api-client';
-import type { ConfirmationUpdate, SectionState } from '@/types/confirmation';
+import type { ConfirmationResult, ConfirmationUpdate, SectionState } from '@/types/confirmation';
 import { ConfirmationSection } from './ConfirmationSection';
-import { voiceConfirmed } from './pending';
-
-/** Changes when what the section shows changes: the section starts again from the server values. */
-function sectionSignature(section: SectionState): string {
-  const measures = section.measures.map((m) => `${m.name}=${m.value}/${m.proposed}/${m.source}`);
-  const choices = section.element_choices.map((c) => `${c.element}=${c.action}/${c.confirmed}`);
-  return [section.section_key, ...measures, ...choices].join('|');
-}
+import { type SaveOrigin, voiceConfirmed } from './pending';
 
 /** A confirmed section is worth showing only if there is something in it to change. */
 const hasContent = (section: SectionState) => section.measures.length + section.element_choices.length > 0;
+
+const ROOMS = new Intl.ListFormat('it', { type: 'conjunction' });
+
+/** Why the estimate was not updated: the rooms still missing a measure (none named without rooms). */
+function blockedNote(sections: readonly SectionState[]): string {
+  const rooms = sections.flatMap((section) => (section.label === null ? [] : [section.label]));
+  return rooms.length > 0
+    ? `Stima non aggiornata: manca una misura in ${ROOMS.format(rooms)}.`
+    : 'Stima non aggiornata: manca ancora una misura.';
+}
+
+/** What a screen reader hears once a section is saved. */
+function savedMessage(section: SectionState, result: ConfirmationResult): string {
+  const saved = section.label === null ? 'Confermato.' : `${section.label}: confermato.`;
+  const blocked = result.state.sections.filter((s) => result.blocked_sections.includes(s.section_key));
+  if (result.recalculated) return `${saved} Stima aggiornata.`;
+  return result.blocked_sections.length > 0 ? `${saved} ${blockedNote(blocked)}` : saved;
+}
 
 /** The confirmed voice the client opened to change (one at a time, in the whole card). */
 interface VoiceRef {
@@ -38,6 +49,12 @@ export function ConfirmationCard({ projectId }: { projectId: string }) {
   const [editing, setEditing] = useState<VoiceRef | null>(null);
   // The voice just closed: its "Modifica" gets the focus back.
   const [closed, setClosed] = useState<VoiceRef | null>(null);
+  // Which button saved: only that one says "Salvo…".
+  const [origin, setOrigin] = useState<SaveOrigin | null>(null);
+  // Read by a screen reader: the save, then its result (a failure is the alert below).
+  const [announcement, setAnnouncement] = useState('');
+  // The sections the last save left without a recomputed estimate.
+  const [blocked, setBlocked] = useState<readonly string[]>([]);
 
   if (!data) return null;
   // Once the quote is with the team nothing can be changed here: only what is still pending is shown.
@@ -51,15 +68,25 @@ export function ConfirmationCard({ projectId }: { projectId: string }) {
   // Nothing to confirm or change: the card stays only to say how precise the estimate is.
   if (shown.length === 0 && !(mutation.isSuccess && data.precision !== null)) return null;
 
-  const confirm = (section: SectionState, update: ConfirmationUpdate) => {
+  const saving = mutation.isPending ? origin : null;
+  // Only what still misses a measure: a section confirmed since (from the chat too) drops out.
+  const stillBlocked = data.sections.filter((section) => section.pending && blocked.includes(section.section_key));
+
+  const confirm = (section: SectionState, update: ConfirmationUpdate, voice: string | null) => {
     const finished = open;
+    setOrigin({ section: section.section_key, voice });
+    setAnnouncement('Salvataggio…');
+    setBlocked([]);
     mutation.mutate(
       { sectionKey: section.section_key, update },
       {
-        onSuccess: () => {
+        onSuccess: (result) => {
           setEditing(null);
           setClosed(finished);
+          setBlocked(result.recalculated ? [] : result.blocked_sections);
+          setAnnouncement(savedMessage(section, result));
         },
+        onError: () => setAnnouncement(''),
       },
     );
   };
@@ -79,12 +106,12 @@ export function ConfirmationCard({ projectId }: { projectId: string }) {
       <p className="text-sm font-semibold text-ink">Conferma misure e lavori</p>
       {shown.map((section) => (
         <ConfirmationSection
-          key={sectionSignature(section)}
+          key={section.section_key}
           section={section}
           editable={data.editable}
-          saving={mutation.isPending && mutation.variables?.sectionKey === section.section_key}
+          saving={saving?.section === section.section_key ? saving : null}
           locked={mutation.isPending}
-          onConfirm={(update) => confirm(section, update)}
+          onConfirm={(update, voice) => confirm(section, update, voice)}
           editingVoice={open?.section === section.section_key ? open.voice : null}
           editingElsewhere={open !== null}
           restoreVoice={closed?.section === section.section_key ? closed.voice : null}
@@ -104,11 +131,14 @@ export function ConfirmationCard({ projectId }: { projectId: string }) {
           {describeApiError(mutation.error)}
         </p>
       )}
+      {stillBlocked.length > 0 && <p className="text-xs text-warning-ink">{blockedNote(stillBlocked)}</p>}
       {data.precision !== null && (
-        <p role="status" className="text-sm font-medium text-success-ink">
-          Stima precisa al {data.precision} %
-        </p>
+        <p className="text-sm font-medium text-success-ink">Stima precisa al {data.precision} %</p>
       )}
+      {/* Always mounted: a live region added together with its text is not read. */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
     </section>
   );
 }

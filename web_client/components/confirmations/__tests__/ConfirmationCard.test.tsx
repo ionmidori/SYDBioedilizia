@@ -143,7 +143,7 @@ describe('ConfirmationCard — what the client confirms', () => {
   it('cannot confirm while a measure is still empty', async () => {
     renderCard();
 
-    expect(await confirmButton()).toBeDisabled();
+    expect(await confirmButton()).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('fills a measure from the quick picks when the chat gave different values', async () => {
@@ -265,9 +265,12 @@ describe('ConfirmationCard — one confirmation at a time', () => {
 
     await waitFor(() =>
       expect(
-        screen.getAllByRole('button', { name: /Salvo|Conferma/ }).every((b) => (b as HTMLButtonElement).disabled),
+        screen
+          .getAllByRole('button', { name: /Salvo|Conferma/ })
+          .every((b) => b.getAttribute('aria-disabled') === 'true'),
       ).toBe(true),
     );
+    await user.click(screen.getByRole('button', { name: 'Conferma' }));
     expect(confirm).toHaveBeenCalledTimes(1);
   });
 
@@ -280,7 +283,7 @@ describe('ConfirmationCard — one confirmation at a time', () => {
     await user.type(input, '20000');
     await user.type(screen.getByLabelText('Superficie pareti'), '18');
 
-    expect(await confirmButton()).toBeDisabled();
+    expect(await confirmButton()).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByText('Ogni misura va da 0 a 10.000.')).toBeInTheDocument();
     expect(screen.queryByText('Indica tutte le misure per confermare.')).not.toBeInTheDocument();
   });
@@ -360,7 +363,7 @@ describe('ConfirmationCard — changing one thing of a confirmed section', () =>
 
     expect(screen.getByLabelText('Superficie pavimento')).toHaveValue(12);
     expect(screen.getByLabelText('Superficie pavimento')).toHaveFocus();
-    expect(screen.getByRole('button', { name: 'Conferma' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Conferma' })).not.toHaveAttribute('aria-disabled');
     expect(screen.getByRole('button', { name: 'Annulla' })).toBeEnabled();
     // The other voice stays a summary, and nothing else can be opened meanwhile.
     expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
@@ -463,8 +466,10 @@ describe('ConfirmationCard — changing one thing of a confirmed section', () =>
     await edit(user, 'Superficie pavimento');
     await user.clear(screen.getByLabelText('Superficie pavimento'));
 
-    expect(screen.getByRole('button', { name: 'Conferma' })).toBeDisabled();
-    expect(screen.getByText('Indica tutte le misure per confermare.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Conferma' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Conferma' })).toHaveAccessibleDescription(
+      'Indica tutte le misure per confermare.',
+    );
   });
 
   it('is not offered once the quote is no longer a draft', async () => {
@@ -616,9 +621,9 @@ describe('ConfirmationCard — when the card is read again while the client is c
     await edit(user, 'Superficie pavimento');
 
     const [voiceButton, groupButton] = screen.getAllByRole('button', { name: 'Conferma' });
-    expect(voiceButton).toBeEnabled();
-    expect(groupButton).toBeDisabled();
-    expect(screen.getByText('Chiudi prima la modifica aperta.')).toBeInTheDocument();
+    expect(voiceButton).not.toHaveAttribute('aria-disabled');
+    expect(groupButton).toHaveAttribute('aria-disabled', 'true');
+    expect(groupButton).toHaveAccessibleDescription('Chiudi prima la modifica aperta.');
   });
 
   it('names the voice being changed, so two "Conferma" can be told apart', async () => {
@@ -629,5 +634,145 @@ describe('ConfirmationCard — when the card is read again while the client is c
     await edit(user, 'Piano cucina');
 
     expect(screen.getByRole('group', { name: 'Modifica Piano cucina' })).toBeInTheDocument();
+  });
+
+  it('keeps what the client is typing; the fields not touched take the new server value', async () => {
+    const user = userEvent.setup();
+    const { client } = renderCard();
+
+    await user.type(await screen.findByLabelText('Superficie pareti'), '18');
+    const moved = bagno().measures.map((m) => (m.name === 'mq' ? { ...m, value: 7 } : m));
+    getState.mockResolvedValue(state({ sections: [bagno({ measures: moved })] }));
+    await readAgain(client);
+
+    await waitFor(() => expect(screen.getByLabelText('Superficie pavimento')).toHaveValue(7));
+    expect(screen.getByLabelText('Superficie pareti')).toHaveValue(18);
+  });
+
+  it('keeps the element the client chose when the card is read again', async () => {
+    const user = userEvent.setup();
+    const { client } = renderCard();
+
+    await user.click(await screen.findByRole('radio', { name: 'Lascia in posa' }));
+    getState.mockResolvedValue(state({ sections: [bagno()], precision: 40 }));
+    await readAgain(client);
+
+    await screen.findByText('Stima precisa al 40 %');
+    expect(screen.getByRole('radio', { name: 'Lascia in posa' })).toBeChecked();
+  });
+
+  it('closes the open voice when the quote stops being a draft, other sections still shown', async () => {
+    getState.mockResolvedValue(state({ sections: [cucina(), bagno()] }));
+    const user = userEvent.setup();
+    const { client } = renderCard();
+
+    await edit(user, 'Superficie pavimento');
+    getState.mockResolvedValue(state({ editable: false, sections: [cucina(), bagno()] }));
+    await readAgain(client);
+
+    expect(await screen.findByText('Per cambiare qualcosa scrivi in chat.')).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /Modifica/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Bagno' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['its value now comes from the chat', withMeasure({ source: 'declared' }), 'Superficie pavimento'],
+    [
+      'its choice is no longer confirmed',
+      cucina({ element_choices: cucina().element_choices.map((c) => ({ ...c, confirmed: false })) }),
+      'Piano cucina',
+    ],
+  ])('closes the open voice when %s: it is a field to confirm again', async (_, changed, voice) => {
+    getState.mockResolvedValue(state({ sections: [cucina()] }));
+    const user = userEvent.setup();
+    const { client } = renderCard();
+
+    await edit(user, voice);
+    getState.mockResolvedValue(state({ sections: [changed] }));
+    await readAgain(client);
+
+    await waitFor(() => expect(screen.queryByRole('group', { name: `Modifica ${voice}` })).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Conferma' })).toBeInTheDocument();
+  });
+});
+
+describe('ConfirmationCard — while saving and after', () => {
+  const deferred = () => {
+    let resolve: (value: unknown) => void = () => undefined;
+    const promise = new Promise((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  };
+  const half = () =>
+    bagno({
+      measures: [
+        { name: 'mq', label: 'Superficie pavimento', value: 8, source: 'confirmed', proposed: null, candidates: [] },
+        { name: 'mq_pareti', label: 'Superficie pareti', value: 18, source: 'estimated', proposed: null, candidates: [] },
+      ],
+      element_choices: [],
+    });
+
+  it('shows "Salvo…" only on the button that saved', async () => {
+    getState.mockResolvedValue(state({ sections: [half()] }));
+    confirm.mockReturnValue(new Promise(() => undefined));
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await screen.findByRole('button', { name: 'Modifica Superficie pavimento' }));
+    const editor = screen.getByRole('group', { name: 'Modifica Superficie pavimento' });
+    await user.click(within(editor).getByRole('button', { name: 'Conferma' }));
+
+    await waitFor(() => expect(within(editor).getByRole('button', { name: 'Salvo…' })).toBeInTheDocument());
+    expect(screen.getAllByText('Salvo…')).toHaveLength(1);
+  });
+
+  it('keeps the focus on the button that saves, marked as not available', async () => {
+    getState.mockResolvedValue(state({ sections: [half()] }));
+    confirm.mockReturnValue(new Promise(() => undefined));
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await confirmButton());
+
+    const saving = await screen.findByRole('button', { name: 'Salvo…' });
+    expect(saving).toHaveFocus();
+    expect(saving).toHaveAttribute('aria-disabled', 'true');
+    await user.click(saving);
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('announces the save and its result in a live region', async () => {
+    getState.mockResolvedValue(state({ sections: [half()] }));
+    const reply = deferred();
+    confirm.mockReturnValue(reply.promise);
+    const user = userEvent.setup();
+    renderCard();
+
+    const status = await screen.findByRole('status');
+    expect(status).toHaveTextContent('');
+    await user.click(await confirmButton());
+    await waitFor(() => expect(status).toHaveTextContent('Salvataggio…'));
+
+    await act(async () => reply.resolve({ recalculated: true, blocked_sections: [], state: state({ sections: [], precision: 80 }) }));
+    await waitFor(() => expect(status).toHaveTextContent('Bagno: confermato. Stima aggiornata.'));
+  });
+
+  it('tells which rooms still miss a measure when the estimate could not be updated', async () => {
+    const cucinaPending = bagno({ section_key: 'cucina1', label: 'Cucina', element_choices: [] });
+    getState.mockResolvedValue(state({ sections: [half(), cucinaPending] }));
+    confirm.mockResolvedValue({
+      recalculated: false,
+      blocked_sections: ['cucina1'],
+      state: state({ sections: [cucinaPending] }),
+    });
+    const user = userEvent.setup();
+    renderCard();
+
+    const [bagnoConfirm] = await screen.findAllByRole('button', { name: 'Conferma' });
+    await user.click(bagnoConfirm);
+
+    expect(await screen.findByText('Stima non aggiornata: manca una misura in Cucina.')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Bagno: confermato. Stima non aggiornata: manca una misura in Cucina.');
   });
 });

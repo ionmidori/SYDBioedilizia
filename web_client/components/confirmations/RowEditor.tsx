@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ConfirmationUpdate, ElementAction, ElementChoiceState, MeasureState } from '@/types/confirmation';
 import { PROBLEM_HINT, buildDraft } from './draft';
@@ -22,6 +22,9 @@ interface EditorFrameProps {
 /** The field being changed with its own Conferma and Annulla. Nothing is sent on Enter: only the button saves. */
 function EditorFrame({ children, label, canSave, saving, locked, hint, onSave, onCancel }: EditorFrameProps) {
   const frame = useRef<HTMLDivElement>(null);
+  const hintId = useId();
+  // Not `disabled`: the button keeps the focus while it saves, and its hint is read with it.
+  const unavailable = !canSave || locked;
   // Opened by the client: the focus goes to the field (the chosen action for a choice).
   useEffect(() => {
     const root = frame.current;
@@ -37,14 +40,25 @@ function EditorFrame({ children, label, canSave, saving, locked, hint, onSave, o
     >
       {children}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" className="h-11 md:h-9" disabled={!canSave || locked} onClick={onSave}>
+        <Button
+          type="button"
+          size="sm"
+          className="h-11 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 md:h-9"
+          aria-disabled={unavailable || undefined}
+          aria-describedby={hint ? hintId : undefined}
+          onClick={() => !unavailable && onSave()}
+        >
           {saving ? 'Salvo…' : 'Conferma'}
         </Button>
         <Button type="button" variant="ghost" size="sm" className="h-11 md:h-9" disabled={locked} onClick={onCancel}>
           Annulla
         </Button>
       </div>
-      {hint && <p className="text-xs text-ink-muted">{hint}</p>}
+      {hint && (
+        <p id={hintId} className="text-xs text-ink-muted">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
