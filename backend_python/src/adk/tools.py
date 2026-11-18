@@ -526,8 +526,10 @@ async def select_room(name: str, room_type: str, session_id: str, tool_context) 
     if result["status"] == "success":
         tool_context.state[ACTIVE_ROOM_STATE_KEY] = result["room_id"]
         tool_context.state[ROOMS_STATE_KEY] = _room_index(rooms)
-        # The room the client works on now: its photos are measured meanwhile.
-        schedule_room_vision(project_id, result["room_id"])
+        # The room the client works on now: its photos are measured meanwhile
+        # (a room just created has none yet: rule 2bis files them afterwards).
+        if not result.get("created"):
+            schedule_room_vision(project_id, result["room_id"])
     return result
 
 

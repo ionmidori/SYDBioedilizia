@@ -585,7 +585,7 @@ async def _single_unit(history: list[dict[str, Any]], session_id: str) -> _Quote
 
 def _brief_block(room: RoomSchema) -> str:
     """The room's brief (scheda stanza) as context, empty when nothing is known."""
-    lines = brief_lines(room)
+    lines = brief_lines(room, photo_estimate=False)
     return "\n\n## Scheda stanza\n" + "\n".join(lines) if lines else ""
 
 

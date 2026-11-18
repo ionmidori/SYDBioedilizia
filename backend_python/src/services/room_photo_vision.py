@@ -35,8 +35,10 @@ from src.vision.photo_difference import photo_difference
 logger = logging.getLogger(__name__)
 
 _Key = tuple[str, str]  # (project_id, room_id)
-# Rooms being measured: a second pick of the same room meanwhile starts nothing.
+# Rooms being measured, and those picked again meanwhile (their photos may have
+# changed: the running task measures them once more when it ends).
 _running: dict[_Key, asyncio.Task[None]] = {}
+_again: set[_Key] = set()
 
 _Photo = tuple[bytes, str, str]  # (content, mime type, sha256 of the content)
 
@@ -49,18 +51,27 @@ def schedule_room_vision(project_id: str, room_id: str) -> asyncio.Task[None] | 
         return None
     key = (project_id, room_id)
     if key in _running:
+        _again.add(key)
         return None
-    task = run_in_background(_run(project_id, room_id), name="room_photo_vision")
+    task = run_in_background(_run(key), name="room_photo_vision")
     _running[key] = task
-    task.add_done_callback(lambda _: _running.pop(key, None))
     return task
 
 
-async def _run(project_id: str, room_id: str) -> None:
-    outcome = await estimate_room(project_id, room_id)
-    (logger.info if not outcome.startswith("error") else logger.warning)(
-        "[RoomVision] Estimate", extra={"event": "room_photo_vision", "outcome": outcome, "room_id": room_id}
-    )
+async def _run(key: _Key) -> None:
+    try:
+        while True:
+            _again.discard(key)
+            outcome = await estimate_room(*key)
+            (logger.info if not outcome.startswith("error") else logger.warning)(
+                "[RoomVision] Estimate", extra={"event": "room_photo_vision", "outcome": outcome, "room_id": key[1]}
+            )
+            if key not in _again:
+                return
+    finally:
+        # Same loop step as the check above (no await in between).
+        _running.pop(key, None)
+        _again.discard(key)
 
 
 async def estimate_room(project_id: str, room_id: str) -> str:
@@ -84,6 +95,8 @@ async def _estimate(project_id: str, room_id: str) -> str:
     images.sort(key=lambda f: f["id"] != room.reference_photo_id)  # stable: the reference first
     photos = await _read_photos(project_id, images)
     if not photos:
+        if room.photo_estimate is not None:
+            await repo.update_photo_estimate(project_id, room_id, None)
         return "no_photos"
     source_hash = hashlib.sha256(b"".join(bytes.fromhex(p[2]) for p in photos)).hexdigest()
     if room.photo_estimate is not None and room.photo_estimate.source_hash == source_hash:

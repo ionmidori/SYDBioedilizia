@@ -330,3 +330,62 @@ async def test_the_estimate_is_stored_on_the_room_and_read_back():
         await repo.update_photo_estimate(PROJECT, room.room_id, estimate)
         stored = await repo.get_room(PROJECT, room.room_id)
     assert stored is not None and stored.photo_estimate == estimate and stored.label == "Soggiorno"
+
+
+# ── Review fixes: a stale estimate, a pick while measuring ─────────────────
+
+async def test_a_room_left_without_photos_loses_its_estimate(env):
+    calls = env(_room(estimate=_estimate("0" * 64)), [])
+    assert await vision.estimate_room(PROJECT, ROOM) == "no_photos"
+    calls.repo.update_photo_estimate.assert_awaited_once_with(PROJECT, ROOM, None)
+
+
+async def test_moving_a_photo_clears_the_estimate_of_both_rooms():
+    db = FakeDb()
+    with patch.object(room_repository, "get_async_firestore_client", return_value=db):
+        repo = RoomRepository()
+        living = await repo.create_room(PROJECT, RoomCreate(label="Soggiorno", room_type="soggiorno"))
+        bath = await repo.create_room(PROJECT, RoomCreate(label="Bagno", room_type="bagno"))
+        for room in (living, bath):
+            await repo.update_photo_estimate(PROJECT, room.room_id, _estimate("0" * 64))
+        db.put("projects", PROJECT, "files", "f1", {"type": "image", "roomId": bath.room_id})
+        await repo.assign_file_to_room(PROJECT, "f1", living.room_id)
+        rooms = [await repo.get_room(PROJECT, r.room_id) for r in (living, bath)]
+    assert [r.photo_estimate for r in rooms if r is not None] == [None, None]
+
+
+async def test_the_quote_brief_leaves_the_estimate_to_the_measures_block():
+    """The quote reads the estimate only through _run_measurement_vision (same photo):
+    in its brief an outdated one would contradict the new measurement."""
+    block = quote_tools._brief_block(_room(estimate=_estimate("0" * 64)))
+    assert "Stima da foto" not in block
+
+
+async def test_a_new_room_is_not_measured_when_created():
+    """Rule 2bis creates the rooms in the listing turn, before their photos are filed."""
+    ok = {"status": "success", "room_id": ROOM, "label": "Soggiorno", "room_type": "soggiorno", "created": True}
+    with patch.object(tools, "is_anonymous_user", new=AsyncMock(return_value=False)), \
+         patch.object(tools.room_tools, "select_room", new=AsyncMock(return_value=(ok, [_room()]))), \
+         patch.object(tools, "schedule_room_vision") as schedule:
+        await tools.select_room(name="Soggiorno", room_type="soggiorno", session_id=PROJECT, tool_context=_ctx())
+    schedule.assert_not_called()
+
+
+async def test_a_pick_while_measuring_measures_again_afterwards(monkeypatch):
+    gate = asyncio.Event()
+    runs: list[int] = []
+
+    async def slow(*_args):
+        runs.append(1)
+        if len(runs) == 1:
+            await gate.wait()
+        return "ok"
+
+    monkeypatch.setattr(vision, "estimate_room", slow)
+    task = vision.schedule_room_vision(PROJECT, ROOM)
+    assert task is not None
+    await asyncio.sleep(0)
+    assert vision.schedule_room_vision(PROJECT, ROOM) is None  # photos filed meanwhile
+    gate.set()
+    await task
+    assert len(runs) == 2

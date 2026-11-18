@@ -44,9 +44,10 @@ def media_label(file_type: str | None, file_id: str | None, room_label: str | No
     return f"[{head} · {room_label or NO_ROOM}]"
 
 
-def brief_lines(room: RoomSchema, *, open_questions: bool = False) -> list[str]:
+def brief_lines(room: RoomSchema, *, open_questions: bool = False, photo_estimate: bool = True) -> list[str]:
     """The room's brief (scheda stanza) as "- Label: value" lines, only what is
-    known. Shared by the quote, the room brief updater and the session restore."""
+    known. Shared by the quote, the room brief updater and the session restore.
+    `photo_estimate=False`: the quote reads the estimate with the photo it measures."""
     brief = room.brief
     fields: list[tuple[str, object]] = [
         ("Sintesi", room.summary),
@@ -60,7 +61,7 @@ def brief_lines(room: RoomSchema, *, open_questions: bool = False) -> list[str]:
         ("Decisioni prese", "; ".join(brief.decisions)),
     ]
     estimate = room.photo_estimate
-    if estimate is not None:
+    if estimate is not None and photo_estimate:
         # SYD's estimate, kept apart from the measures the client gave.
         m = estimate.measurements
         fields.append((

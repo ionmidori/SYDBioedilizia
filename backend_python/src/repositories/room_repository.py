@@ -118,11 +118,11 @@ class RoomRepository:
         await self._project(project_id).collection(ROOMS).document(room_id).update(changes)
         return room.model_copy(update=changes)
 
-    async def update_photo_estimate(self, project_id: str, room_id: str, estimate: PhotoEstimate) -> None:
-        """Store the measures estimated from the room's photos, leaving every other
-        field alone; NotFound (a GoogleAPIError) if the room was deleted meanwhile."""
+    async def update_photo_estimate(self, project_id: str, room_id: str, estimate: PhotoEstimate | None) -> None:
+        """Store (None: clear) the measures estimated from the room's photos, leaving every
+        other field alone; NotFound (a GoogleAPIError) if the room was deleted meanwhile."""
         await self._project(project_id).collection(ROOMS).document(room_id).update(
-            {"photo_estimate": estimate.model_dump()}
+            {"photo_estimate": estimate.model_dump() if estimate is not None else None}
         )
 
     async def ensure_default_room(self, project_id: str) -> RoomSchema:
@@ -219,9 +219,16 @@ class RoomRepository:
         """Move a project file to a room of the same project (404 if either is missing)."""
         await self.require_room(project_id, room_id)
         file_ref = self._project(project_id).collection(FILES).document(file_id)
-        if not (await file_ref.get()).exists:
+        snap = await file_ref.get()
+        if not snap.exists:
             raise ProjectFileNotFoundError(project_id, file_id)
         await file_ref.update({FILE_ROOM_FIELD: room_id})
+        # Both rooms have other photos now: their photo estimates no longer hold
+        # (the next pick of the room measures it again).
+        previous = (snap.to_dict() or {}).get(FILE_ROOM_FIELD)
+        for changed in {room_id, previous} - {None} if previous != room_id else ():
+            if await self.get_room(project_id, changed) is not None:
+                await self.update_photo_estimate(project_id, changed, None)
         logger.info("[Rooms] File assigned", extra={"file_id": file_id, "room_id": room_id})
 
 
