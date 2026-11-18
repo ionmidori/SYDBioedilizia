@@ -18,6 +18,7 @@ Frontend -> Backend -> ADK Orchestrator is the ONLY flow. Never bypass tiers.
 - `src/adk/app_factory.py` — the one ADK App (plugins, history compaction, optional explicit context cache), shared by the orchestrator and the multi-room evals; history compaction only after a turn (`PostTurnCompactionPlugin` turns off ADK's compaction before each model call, which would delay the first token and could summarize away the current user message) and `SydRunner` runs it in the background (`src/adk/compaction.py`, summary organized by room)
 - `src/adk/session_context.py` — agents' prompts are `static_instruction` (stable prefix for Gemini's cache); the "CONTESTO SESSIONE" block is their `instruction`, sent by ADK as the last content before the user turn. Guardrails and plugins read the turn's message from `callback_context.user_content`, never "the last user content"
 - `src/services/room_brief.py` — room brief (scheda stanza) refreshed in the background after a turn with new facts (`ModelRole.SUMMARIZER`); never on the reply path
+- `src/services/room_photo_vision.py` — when `select_room` makes a room active, its reference photo is measured and each other photo compared with it (one call each), in the background; stored as `RoomSchema.photo_estimate` (backend-only), reused by the quote for the same photo and shown in the brief as "stima da foto"
 
 ## Middleware Stack (outermost → innermost)
 Registered in ONE block in `main.py` ("Middleware stack"); `add_middleware()` is LIFO.

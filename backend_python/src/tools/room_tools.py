@@ -59,6 +59,14 @@ def brief_lines(room: RoomSchema, *, open_questions: bool = False) -> list[str]:
         ("Criticità", "; ".join(brief.criticalities)),
         ("Decisioni prese", "; ".join(brief.decisions)),
     ]
+    estimate = room.photo_estimate
+    if estimate is not None:
+        # SYD's estimate, kept apart from the measures the client gave.
+        m = estimate.measurements
+        fields.append((
+            "Stima da foto, non confermata dal cliente",
+            f"pavimento circa {m.estimated_floor_mq:.0f} mq, pareti circa {m.estimated_walls_mq:.0f} mq",
+        ))
     if open_questions:
         fields.append(("Domande aperte", "; ".join(brief.open_questions)))
     return [f"- {label}: {value}" for label, value in fields if value]

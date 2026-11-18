@@ -17,7 +17,15 @@ from src.core.logger import get_logger
 from src.db.batching import BatchWriter
 from src.db.firebase_client import get_async_firestore_client
 from src.db.projects.constants import FILE_ROOM_FIELD
-from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomBrief, RoomCreate, RoomSchema, RoomUpdate
+from src.schemas.room import (
+    DEFAULT_ROOM_ID,
+    DEFAULT_ROOM_LABEL,
+    PhotoEstimate,
+    RoomBrief,
+    RoomCreate,
+    RoomSchema,
+    RoomUpdate,
+)
 from src.utils.datetime_utils import utc_now
 
 logger = get_logger(__name__)
@@ -109,6 +117,13 @@ class RoomRepository:
         changes["updated_at"] = utc_now()
         await self._project(project_id).collection(ROOMS).document(room_id).update(changes)
         return room.model_copy(update=changes)
+
+    async def update_photo_estimate(self, project_id: str, room_id: str, estimate: PhotoEstimate) -> None:
+        """Store the measures estimated from the room's photos, leaving every other
+        field alone; NotFound (a GoogleAPIError) if the room was deleted meanwhile."""
+        await self._project(project_id).collection(ROOMS).document(room_id).update(
+            {"photo_estimate": estimate.model_dump()}
+        )
 
     async def ensure_default_room(self, project_id: str) -> RoomSchema:
         """The "Generale" room, created on first access, holding every file without a room.

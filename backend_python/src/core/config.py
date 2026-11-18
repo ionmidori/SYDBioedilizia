@@ -251,6 +251,12 @@ class Settings(BaseSettings):
     # Gemini + code execution: observed 40–143 s in production; the tool is
     # best-effort (defaults are used without it), so cap the tail latency.
     MEASURE_ROOM_TIMEOUT_SECONDS: float = Field(default=60.0, gt=0)
+    # Photos of a room measured when the client picks it (services/room_photo_vision.py)
+    ROOM_VISION_ENABLED: bool = Field(default=True)
+    ROOM_VISION_MAX_PHOTOS: int = Field(
+        default=4, ge=1, description="Photos read per room: the reference one and the others compared with it."
+    )
+    PHOTO_DIFF_TIMEOUT_SECONDS: float = Field(default=45.0, gt=0)
 
     # Admin area (/admin): role=admin custom claim, optionally with a second factor
     ADMIN_REQUIRE_MFA: bool = Field(
