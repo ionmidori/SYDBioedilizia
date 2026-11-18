@@ -56,6 +56,7 @@ from src.services.spec_confirmation import (
     same_confirmations,
     unassigned_note,
 )
+from src.tools.quote_rounds import LastRound, gate_line, last_round
 from src.tools.room_tools import brief_lines, room_of
 from src.utils.datetime_utils import utc_now
 from src.utils.download import MediaUnavailableError, download_session_media, session_media_path
@@ -997,7 +998,7 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
     gated = [r for r in results if r.needs_info]
     if gated:
         logger.info("[QuoteTool] Completeness gate triggered.", extra={"rooms": [_room_label(r) for r in gated]})
-        questions = "\n".join(f"**{_room_label(r)}**: {' '.join(r.questions)}" for r in gated if r.questions)
+        questions = "\n".join(gate_line(_room_label(r), " ".join(r.questions)) for r in gated if r.questions)
         return (
             f"Prima di prepararti un preventivo accurato per tutta la casa {NEEDS_DETAILS}.\n\n" + _blocks(questions, _CARD_MEASURES_NOTE if any(r.asks_card for r in gated) else "")
         )
@@ -1024,6 +1025,46 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
         "Ho difficoltà a identificare le lavorazioni specifiche da quotare. "
         "Puoi dirmi, stanza per stanza, quali lavori hai in mente?"
     )
+
+
+# True both for a room never talked about again and for one asked once whose
+# answer still gave no work: the client is asked the works, never blocked.
+_IDLE_ROOM_NOTE = (
+    "non ho lavori da quotare per questa stanza, quindi non l'ho inclusa nel preventivo. "
+    "Dimmi cosa vuoi fare (per esempio pavimento o pittura) se vuoi aggiungerla."
+)
+
+
+def _without_idle_rooms(
+    results: list[_UnitResult], round_: LastRound | None
+) -> tuple[list[_UnitResult], list[str]]:
+    """(the results to quote, labels of the rooms left out). A room that proposes no
+    work is left out when the client has not talked about it since the last quote
+    call, or that call already asked about it (asked once: the answer gave no work
+    either): an old room without works must not stop the home quote turn after turn
+    (18/11, "Soggiorno"). A room named now and never asked keeps the gate: SYD asks
+    its works. Nothing is left out when no other room has lines: the gate asks."""
+    if round_ is None:
+        return results, []
+
+    def idle(r: _UnitResult) -> bool:
+        room = r.unit.room
+        return (
+            room is not None and not r.proposed_lines and not r.expansion.manual_work
+            and (room.room_id not in round_.talked or room.label in round_.asked)
+        )
+
+    kept = [r for r in results if not idle(r)]
+    if len(kept) == len(results) or not any(r.lines for r in kept):
+        return results, []
+    left_out = [_room_label(r) for r in results if idle(r)]
+    logger.info("[QuoteTool] Rooms without works left out.", extra={"rooms": left_out})
+    return kept, left_out
+
+
+def _left_out_note(labels: list[str]) -> str:
+    """One line per room left out; a gate line, so the next call reads it as asked."""
+    return "".join(f"\n\n{gate_line(label, _IDLE_ROOM_NOTE)}" for label in labels)
 
 
 def _section_label(result: _UnitResult) -> str | None:
@@ -1141,10 +1182,12 @@ async def suggest_quote_items_wrapper(
         # home quote: the other rooms are cancelled, no partial quote is saved.
         failure: BaseExceptionGroup | None = None
         results: list[_UnitResult] = []
+        round_: LastRound | None = None
         try:
             if to_quote:
                 # "Il bagno è 8 mq" is the bathroom's talk whatever chip it was typed in.
                 owner = message_rooms(history, all_rooms)
+                round_ = last_round(history, owner)
                 general = [m for m in history if owner[id(m)] in (None, DEFAULT_ROOM_ID)]
                 named: dict[str | None, list[dict[str, Any]]] = {}
                 for m in history:
@@ -1191,9 +1234,10 @@ async def suggest_quote_items_wrapper(
                 "Ti chiedo di descrivermi le lavorazioni previste e ti fornirò un preventivo manuale."
             )
         results = await _with_late_confirmations(results, target_project_id)
+        results, left_out = _without_idle_rooms(results, round_)
         refusal = _rooms_reply(results) if to_quote else _single_unit_reply(results[0])
         if refusal is not None:
-            return _measures_block(results) + refusal
+            return _measures_block(results) + refusal + _left_out_note(left_out)
 
         # 8. Prices, one quote for the home (project-wide lines once, in "Generale"),
         # totals and price range: the pipeline the confirmation card uses too.
@@ -1244,7 +1288,7 @@ async def suggest_quote_items_wrapper(
         # deliberately NOT shown to the client: the admin reviews and adjusts
         # it first in the dashboard, then the client receives the final quote
         # by email after approval. Only the works summary is disclosed.
-        headline += _manual_work_note(built.manual_work)
+        headline += _manual_work_note(built.manual_work) + _left_out_note(left_out)
         room_labels = ", ".join(room.room_label for room in quote.rooms)
         sections = f" in {len(quote.rooms)} sezioni ({room_labels})" if len(quote.rooms) > 1 else ""
         if saved.outcome is DraftSaveOutcome.REVISED:
