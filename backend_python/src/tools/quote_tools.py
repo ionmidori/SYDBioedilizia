@@ -1079,7 +1079,25 @@ def _relayed_reply(relayed: FollowupResult) -> str:
     )
 
 
-async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = None, user_id: str | None = None) -> str:
+def with_turn_message(history: list[dict[str, Any]], turn_message: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """The history with the client's message of this turn at the end. /chat/stream
+    saves it after the stream, so while the turn runs Firestore does not hold it;
+    once saved (same id) it is not added twice. Only the id proves it: a "sì" like
+    an earlier one is a new message."""
+    if not turn_message or not turn_message.get("content"):
+        return history
+    turn_id = turn_message.get("id")
+    if turn_id and any(m.get("id") == turn_id for m in history):
+        return history
+    return [*history, turn_message]
+
+
+async def suggest_quote_items_wrapper(
+    session_id: str,
+    project_id: str | None = None,
+    user_id: str | None = None,
+    turn_message: dict[str, Any] | None = None,
+) -> str:
     """
     Analyzes the current chat session and suggests a list of quote items based on the Master Price Book.
     Use this when the user asks for a preliminary quote, cost estimation, or 'what needs to be done'.
@@ -1090,6 +1108,8 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
     The rest of the home (messages without a room, places never created as a
     room, the "generale" brief) is one more unit, quoted in "Generale" without
     the rooms already quoted.
+
+    `turn_message`: the client's message of this turn (see `with_turn_message`).
     """
     target_project_id = project_id or session_id
     try:
@@ -1105,7 +1125,9 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
 
         # 1. Load context (wide window: the original photo analysis and every room discussed)
         repo = ConversationRepository()
-        history = await repo.get_context(session_id, limit=_QUOTE_HISTORY_MESSAGES)
+        history = with_turn_message(
+            await repo.get_context(session_id, limit=_QUOTE_HISTORY_MESSAGES), turn_message
+        )
         (to_quote, all_rooms, project_files), stored_specs = await asyncio.gather(
             _rooms_to_quote(target_project_id, history), _stored_specs(target_project_id)
         )

@@ -36,9 +36,11 @@ from src.adk.session_context import (
     CARD_PENDING_STATE_KEY,
     HOUSE_QUOTE_STATE_KEY,
     ROOMS_STATE_KEY,
+    TURN_MESSAGE_STATE_KEY,
     house_quote_entry,
     room_index_entry,
     session_context_delta,
+    turn_message_entry,
 )
 from src.adk.video_attachments import (
     UNREADABLE_VIDEOS_STATE_KEY,
@@ -604,6 +606,11 @@ class ADKOrchestrator(BaseOrchestrator):
             ]
         if room_id:
             context_delta[ACTIVE_ROOM_STATE_KEY] = room_id
+        # Not yet in Firestore while the turn runs (saved after the stream): the
+        # quote tool adds it to the history it reads.
+        context_delta[TURN_MESSAGE_STATE_KEY] = turn_message_entry(
+            request.messages[-1].id if getattr(request, "messages", None) else None, room_id
+        )
         if quote_task is not None:
             # None when unreadable: written anyway, so last turn's status does not linger.
             context_delta[HOUSE_QUOTE_STATE_KEY] = await quote_task

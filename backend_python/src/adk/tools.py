@@ -17,7 +17,13 @@ from google.adk.tools import FunctionTool
 from google.api_core.exceptions import GoogleAPIError
 from pydantic import ValidationError
 
-from src.adk.session_context import ACTIVE_ROOM_STATE_KEY, ROOMS_STATE_KEY, room_index_entry
+from src.adk.session_context import (
+    ACTIVE_ROOM_STATE_KEY,
+    ROOMS_STATE_KEY,
+    TURN_MESSAGE_STATE_KEY,
+    room_index_entry,
+)
+from src.adk.turn_reading import client_words
 from src.auth.user_lookup import is_anonymous_user
 from src.core.config import settings
 from src.core.money import line_total, to_json_number
@@ -581,7 +587,29 @@ async def suggest_quote_items(session_id: str, tool_context) -> str:
         session_id=session_id,
         project_id=session_id,
         user_id=tool_context.user_id,
+        turn_message=_turn_message(tool_context),
     )
+
+
+_SANDWICH = re.compile(r"###\n(.*?)\n###", re.DOTALL)
+
+
+def _turn_message(tool_context: Any) -> dict[str, Any] | None:
+    """The client's message of this turn, shaped like a history message (None when
+    it has no words): Firestore gets it only after the stream."""
+    text = client_words(tool_context.session.events, tool_context.invocation_id, tool_context.user_content)
+    # Only what the orchestrator wraps in the "###" sandwich: the media labels
+    # ("[Foto f_1 · Bagno]") and system notes after it are not the client's words.
+    sandwich = _SANDWICH.search(text)
+    words = sandwich.group(1).strip() if sandwich else ""
+    if not words:
+        return None
+    entry = tool_context.state.get(TURN_MESSAGE_STATE_KEY)
+    entry = entry if isinstance(entry, dict) else {}
+    message: dict[str, Any] = {"id": entry.get("id"), "role": "user", "content": words}
+    if isinstance(entry.get("room_id"), str):
+        message["room_id"] = entry["room_id"]
+    return message
 
 
 # ─── Auth / Login ────────────────────────────────────────────────────────────
