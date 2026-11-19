@@ -7,9 +7,9 @@ Two independent Playwright suites.
 | Public smoke | `playwright.config.ts` | nothing | job `smoke` |
 | Authenticated | `playwright.emulator.config.ts` | Firebase emulators + JDK | job `authed` |
 
-## Public smoke (`e2e/smoke.spec.ts`)
+## Public smoke (`e2e/smoke.spec.ts`, `e2e/blog.spec.ts`, `e2e/theme/theme.spec.ts`)
 
-Assertion-light merge gate over the static public routes. Fast, no secrets.
+Merge gate over the public routes, including blog pages and a blocking `axe-core` WCAG 2.2 AA accessibility check across public pages and states (`e2e/theme/`). Fast, no secrets.
 
 ```bash
 cd web_client
@@ -20,7 +20,10 @@ npm run test:e2e
 ## Authenticated suite (`e2e/authed/**`)
 
 Covers the flows that unit tests structurally cannot: chat history
-reconciliation across a reload, the quotes area, and chat attachment upload.
+reconciliation across a reload, guest-to-registered claim and login resume, the
+house dashboard and quote confirmation cards, chat attachment upload, the admin
+console (`admin-quotes.spec.ts`, `admin-content.spec.ts`, `admin-console.spec.ts`)
+and the WCAG 2.2 AA audit on authenticated and admin routes (`authed/theme.spec.ts`).
 These are the seams that produced #125/#127/#128, #231, #232 and #239.
 
 ### Admin console (`e2e/authed/admin-quotes.spec.ts`)

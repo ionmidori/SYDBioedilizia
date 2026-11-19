@@ -23,7 +23,7 @@ Speed and simplicity of the online quote: from idea to a quote "in a few clicks"
 - Public site: homepage with a project gallery, `/progetti` (portfolio archive), `/chi-siamo`, `/faq`, `/blog`, legal pages, cookie consent.
 - AI chat assistant (triage, design, quote). Premium actions (renders, quotes) require login.
 - Quotes are drafted from the internal price book and the Prezzario Regione Lazio 2023, and are reviewed and approved by a person in the admin console before being delivered as PDF by email.
-- Client area (`/dashboard`: projects, files, renders, quotes) and admin console (`/admin`: quotes, price book, portfolio, testimonials, GDPR tools).
+- Client area (`/dashboard`: single home chat and rooms, files, renders, house quote with confirmation cards and revision history, profile) and admin console (`/admin`: quotes and dossiers, price book, company profile `/admin/company`, portfolio, testimonials, GDPR tools).
 - Stack: Next.js 16 App Router, React 19, Tailwind CSS 4, Framer Motion; FastAPI + Google ADK backend.
 
 ## Capabilities and Constraints

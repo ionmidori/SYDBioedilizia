@@ -9,27 +9,40 @@ services directly.
 ## What the service does
 
 - **Chat streaming**: `POST /chat/stream` runs the ADK `Runner` with token
-  streaming (`StreamingMode.SSE`) and records per-turn latency (`chat_turn_timing`).
+  streaming (`StreamingMode.SSE`), state-machine step tracking (`QuoteStepPlugin` / `quote_step`),
+  and per-turn / per-call / per-tool telemetry (`chat_turn_timing`, `llm_call_timing`, `tool_call_timing`).
 - **Multi-agent orchestration**: the `syd_orchestrator` router delegates to the
   `triage`, `design` and `quote` sub-agents (`src/adk/agents.py`). The agents
-  share 14 async `FunctionTool` functions (`src/adk/tools.py`); every
+  share 19 async `FunctionTool` functions (`src/adk/tools.py`); every
   session-scoped tool takes its user and session from the ADK `tool_context`,
   never from arguments chosen by the model.
-- **Quotes**: draft quotes are built from the internal price book and the
-  Prezzario Regione Lazio 2023 (RAG on Pinecone). An admin reviews and approves
-  each quote; approved quotes are rendered to PDF with ReportLab and delivered
-  by email.
+- **One home chat per user & rooms**: each signed-in user has a single persistent
+  home chat (`users/{uid}.chat_id`) with a `rooms` subcollection, background room
+  brief summaries (`src/services/room_brief.py`), background photo measurement
+  (`src/services/room_photo_vision.py`), and room-aware history compaction (`src/adk/compaction.py`).
+- **Deterministic quote architecture**: the `InsightEngine` compiles a typed room
+  intervention specification (`RoomInterventionSpec`), which `src/services/intervention_expansion.py`
+  expands deterministically in `Decimal` against the assembly library (`renovation_assemblies.json`)
+  and the live price book, supplemented by the Prezzario Regione Lazio 2023 (RAG on Pinecone).
+  Clients confirm measures and works on interactive chat cards (`PUT /api/quote/{id}/confirmation-cards`)
+  that recalculate the draft without calling Gemini; sending to the team is enforced in code (`src/tools/send_consent.py`).
+  An admin reviews and approves each quote in `/admin/quotes` (recording diffs in `learning_ledger`);
+  approved quotes are rendered to PDF with ReportLab (`src/brand/` tokens) and delivered by email.
+- **Company profile (`CompanyInfoService`)**: single source of truth on Firestore (`app_config/company_info`,
+  seeded from `src/data/company_info.seed.json`) for company contacts, hours, 121 served municipalities,
+  supported works, FAQ and policies — injected into the agents' dynamic instructions and served via
+  `/api/content/company-info` and `/api/admin/company-info`.
 - **Vision**: room, floor plan and video analysis with Gemini (`src/vision/`).
-- **Renders**: photorealistic renders with per-user quotas.
+- **Renders**: photorealistic renders with per-user quotas and latency fallback guards.
 - **Transactional email outbox**: notifications and quote delivery are written
   together with the business change and dispatched through Brevo or SMTP, with
   retries, dead-lettering and Brevo delivery events (`src/services/email/`).
   Dispatch is event-driven on Cloud Tasks. A dead-lettered email logs
   `email_dead_letter`, which triggers an alert email to the admin.
-- **Admin API**: quote review, price book, portfolio, testimonials,
-  KPIs and GDPR tools (`src/api/routes/admin_*.py`).
+- **Admin API**: quote review and dossier, price book with assembly SKU guards, company profile,
+  portfolio, testimonials, KPIs and GDPR / account lifecycle tools (`src/api/routes/admin_*.py`).
 - **Guardrails**: always-on input sanitizer plus optional Google Cloud Model
-  Armor on the agents' input and output.
+  Armor on input and output across all four ADK agents.
 
 ## Request flow
 
@@ -49,8 +62,9 @@ Browser → Next.js (/api/chat proxy or /api/py/* rewrite) → FastAPI → ADK R
    error envelope.
 4. `GlobalErrorCatcherMiddleware`: JSON envelope for anything that escapes.
 5. `AppCheckMiddleware`: Firebase App Check on every route except the public
-   ones (health probes, two public read-only content GETs and the internal
-   endpoints, which have their own authentication).
+   ones (health probes, three public read-only content GETs and the internal
+   endpoints, which have their own authentication), with a verified-JWT fallback
+   for a narrow set of owner-checked client-area reads and guest-claim routes.
 6. `IdempotencyMiddleware`: replays cached responses for duplicate
    `Idempotency-Key` POSTs.
 7. `MetricsMiddleware`.
@@ -58,27 +72,28 @@ Browser → Next.js (/api/chat proxy or /api/py/* rewrite) → FastAPI → ADK R
 Two tests pin this order and the error contract:
 `tests/unit/test_middleware_order.py` and `tests/unit/test_api_error_contract.py`.
 
-Health endpoints: `/health`, `/api/health`, `/ready` and `/health/startup`
+Health endpoints: `/health`, `/api/health`, `/ready`, `/api/ready` and `/health/startup`
 (the Cloud Run startup probe, answered after the background warm-up).
 
 ## Tech stack
 
 | Area | Technology |
 | :--- | :--- |
-| Runtime | Python 3.12 or later (the Docker image uses 3.14), managed with [`uv`](https://docs.astral.sh/uv/) |
+| Runtime | Python 3.12 or later (the Docker image and `.python-version` use 3.15), managed with [`uv`](https://docs.astral.sh/uv/) |
 | Framework | FastAPI, Starlette, Pydantic v2, `pydantic-settings`, `slowapi` |
 | AI | Google ADK 2.x, Gemini through `google-genai` |
-| RAG | Pinecone with integrated inference (`multilingual-e5-large`) and reranker (`bge-reranker-v2-m3`) |
+| RAG | Pinecone with integrated inference (`multilingual-e5-large`) and optional reranker (`bge-reranker-v2-m3`) |
 | Data and auth | Firebase Admin (Firestore, Storage, Auth), App Check, WebAuthn passkeys (`fido2`) |
 | Documents and email | ReportLab (PDF), Brevo or SMTP (`aiosmtplib`) |
-| Observability | JSON logs with request IDs, Cloud Trace spans, log-based metrics and alerts |
+| Observability | JSON logs with request IDs and `session_ref` hashes, Cloud Trace spans, log-based metrics, BigQuery sink and Cloud Monitoring alerts/dashboards |
 
 Models are resolved by role in `src/core/models.py` from the settings in
 `src/core/config.py`; no other module may contain a `gemini-` literal (a guard
-test enforces it). Defaults: `gemini-3.5-flash-lite` for the agents,
-`gemini-3.8-flash` for vision and media turns, and
-`gemini-3.1-flash-image-preview` for renders. In production the Gemini backend
-is Vertex AI on the `eu` multi-region (see [`deploy/README.md`](deploy/README.md)).
+test enforces it). Defaults: `gemini-3.5-flash-lite` for chat agents,
+`gemini-3.8-flash` for vision and media turns (`MODEL_QUOTE` and `MODEL_INSIGHT`
+are also set to `gemini-3.8-flash` in production), and
+`gemini-3.1-flash-image-preview` (`gemini-3.1-flash-image` on Vertex AI `eu`) for renders.
+In production the Gemini backend is Vertex AI on the `eu` multi-region (see [`deploy/README.md`](deploy/README.md)).
 
 ## Sessions
 
@@ -108,13 +123,13 @@ Run the commands from `backend_python/` unless noted.
 ## Tests and quality gates
 
 ```bash
-uv run pytest                      # about 1,200 tests, no network or live API
+uv run pytest                      # ~3,500 offline unit & contract tests, no network or live API
 uv run ruff check src/ main.py tests/
 uv run pyright                     # config in pyrightconfig.json
 uv run pip-audit --strict --desc --ignore-vuln CVE-2026-28277
 ```
 
-The ADK agent evaluations call the live Gemini API and need `GOOGLE_API_KEY`:
+The ADK agent evaluations call the live Gemini API and need `GOOGLE_API_KEY` (or Vertex AI ADC):
 `npm run eval:run` from the repository root. See
 [`tests/README.md`](tests/README.md) and [`tests/evals/README.md`](tests/evals/README.md).
 
@@ -124,18 +139,19 @@ The ADK agent evaluations call the live Gemini API and need `GOOGLE_API_KEY`:
 backend_python/
 ├── main.py              # App, middleware stack, router registration
 ├── src/
-│   ├── adk/             # Agents, tools, orchestrator, plugins, session service
-│   ├── api/routes/      # REST routers (chat history, projects, quotes, admin_*, email, ...)
-│   ├── auth/            # Firebase ID token verification
-│   ├── core/            # Settings, model registry, logger, exceptions, tracing
-│   ├── data/            # Seed data (price book)
+│   ├── adk/             # Agents, tools, orchestrator, plugins, session service, compaction
+│   ├── api/routes/      # REST routers (chat history, projects, quotes, admin_*, email, me, ...)
+│   ├── auth/            # Firebase ID token verification, activity tracker
+│   ├── brand/           # Generated brand tokens and logo assets for PDF and emails
+│   ├── core/            # Settings, model registry, logger, money, telemetry, exceptions, tracing
+│   ├── data/            # Seed data (price book, assembly library, company info seed)
 │   ├── db/              # Firestore access (projects, quotes, users, messages)
 │   ├── middleware/      # App Check, idempotency, metrics, security headers
 │   ├── models/          # Domain models
 │   ├── prompts/         # Prompt components composed by adk/agents.py
-│   ├── repositories/    # Repository layer
+│   ├── repositories/    # Repository layer (conversations, rooms, quotes, ...)
 │   ├── schemas/         # Request/response schemas (Golden Sync with web_client/types)
-│   ├── services/        # Pricing, PDF, RAG, quote submission, email outbox, Model Armor, ...
+│   ├── services/        # Pricing, intervention expansion, company info, PDF, RAG, email outbox, Model Armor, ...
 │   ├── storage/         # Cloud Storage helpers
 │   ├── tools/           # Tool implementations used by src/adk/tools.py
 │   ├── utils/           # Sanitizer, download, JSON parsing, stream protocol, ...

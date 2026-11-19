@@ -26,7 +26,8 @@ The frontend deploys separately on Vercel.
 | `cloud-run-config.sh` | Runtime settings of the service: scale to zero, 1 GiB memory, startup CPU boost, startup probe on `/health/startup`, session affinity, concurrency 40. `DRY_RUN=1` prints the command. |
 | `email-outbox.sh` | Infrastructure of the email outbox: Firestore indexes, Cloud Tasks queue, the invoker service account and its IAM, the environment variables, and the Brevo secrets. Subcommands: `indexes`, `tasks`, `sweep`, `status`, `brevo`. |
 | `gemini-vertex-eu.sh` | Switches Gemini from AI Studio to Vertex AI on the `eu` multi-region. Subcommands: `stage`, `promote`, `rollback`. |
-| `observability/apply.sh` | Log-based metrics and alert policies: chat latency (`chat_ttft_ms`, `chat_total_ms`, `chat_llm_ms`, `chat_queued_ms`) with the "Chat TTFT p95 > 3s" alert, and `email_dead_letter` with the "Email dead-letter" alert, `chat_turn_failed` with the "Chat turn failed" alert, the "Cloud Run 5xx" alert and an uptime check on `/health` with its alert. |
+| `observability/apply.sh` | Log-based metrics and alert policies: chat latency (`chat_ttft_ms`, `chat_total_ms`, `chat_llm_ms`, `chat_queued_ms`) with the "Chat TTFT p95 > 3s" alert, `email_dead_letter` with the "Email dead-letter" alert, `app_check_auth_fallback` (metric), `chat_turn_failed` with the "Chat turn failed" alert, the "Cloud Run 5xx" alert and an uptime check on `/health` with its alert. |
+| `../../infra/monitoring/setup_telemetry.ps1` | Agent token, tool and cost telemetry: BigQuery dataset (`syd_telemetry`), Cloud Logging sink (`syd-agent-telemetry-bq` for `chat_turn_timing`, `llm_call_timing` and `tool_call_timing`), deduplicated view `v_events_dedup`, 11 distribution metrics and the Cloud Monitoring dashboard (`infra/monitoring/syd-agents-dashboard.json`). |
 
 > **Warning:** `gemini-vertex-eu.sh rollback` returns to the revision saved by
 > `stage`. The AI Studio key was revoked on October 14, 2026, so a rollback to

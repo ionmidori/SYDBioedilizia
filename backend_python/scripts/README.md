@@ -61,7 +61,7 @@ Gli script che leggono PDF (`extract_prezzario.py`, `pinecone_upload_pdf.py`) us
 
 | Script | Scopo |
 |---|---|
-| `debug_projects.py`, `debug_project_status.py`, `verify_projects_query.py` | Progetti recenti, stato, query per utente |
+| `debug_projects.py`, `debug_project_status.py` | Progetti recenti, stato, query per utente |
 | `debug_sessions.py` | Sessioni chat recenti |
 | `debug_all_files.py`, `debug_file_timestamps.py`, `debug_image_access.py` | File di progetto, timestamp, raggiungibilità delle immagini |
 | `debug_users.py` | Elenco utenti |
