@@ -8,6 +8,7 @@ from typing import Any
 from opentelemetry import trace
 from opentelemetry.trace import StatusCode
 
+from .chat_timing import current_turn
 from .context import get_request_id, get_user_id
 from .logger import _redact
 from .tracing import get_tracer
@@ -127,6 +128,9 @@ def instrumented_tool(tool_name: str | None = None):
                     duration_ms = round((time.perf_counter() - start) * 1000, 2)
                     span.set_attribute("tool.duration_ms", duration_ms)
                     span.set_status(StatusCode.OK)
+                    turn = current_turn()
+                    if turn is not None:
+                        turn.add_tool(name, duration_ms, status="ok")
 
                     logger.info(
                         f"[Tool] {name} completed in {duration_ms}ms",
@@ -146,6 +150,9 @@ def instrumented_tool(tool_name: str | None = None):
                     span.set_attribute("tool.error", str(exc)[:500])
                     span.set_status(StatusCode.ERROR, str(exc)[:200])
                     span.record_exception(exc)
+                    turn = current_turn()
+                    if turn is not None:
+                        turn.add_tool(name, duration_ms, status="error")
 
                     logger.error(
                         f"[Tool] {name} failed after {duration_ms}ms: {exc}",
@@ -177,6 +184,9 @@ def instrumented_tool(tool_name: str | None = None):
                     duration_ms = round((time.perf_counter() - start) * 1000, 2)
                     span.set_attribute("tool.duration_ms", duration_ms)
                     span.set_status(StatusCode.OK)
+                    turn = current_turn()
+                    if turn is not None:
+                        turn.add_tool(name, duration_ms, status="ok")
 
                     logger.info(
                         f"[Tool] {name} completed in {duration_ms}ms",
@@ -195,6 +205,9 @@ def instrumented_tool(tool_name: str | None = None):
                     span.set_attribute("tool.error", str(exc)[:500])
                     span.set_status(StatusCode.ERROR, str(exc)[:200])
                     span.record_exception(exc)
+                    turn = current_turn()
+                    if turn is not None:
+                        turn.add_tool(name, duration_ms, status="error")
 
                     logger.error(
                         f"[Tool] {name} failed after {duration_ms}ms: {exc}",

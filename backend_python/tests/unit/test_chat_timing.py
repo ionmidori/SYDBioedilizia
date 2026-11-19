@@ -133,3 +133,79 @@ def test_guardrail_scan_is_attributed_to_the_open_model_call():
 
 def test_call_key_distinguishes_agents_of_the_same_invocation():
     assert latency_plugin.llm_call_key(_ctx("a")) != latency_plugin.llm_call_key(_ctx("b"))
+
+
+def test_pricing_estimates_vertex_gemini_costs():
+    from src.core.pricing import estimate_llm_cost_usd
+
+    # gemini-2.5-flash: 1000 prompt (800 cached -> 200 uncached @ $0.30/1M, 800 cached @ $0.03/1M),
+    # 100 thoughts + 200 output = 300 @ $2.50/1M
+    cost_flash = estimate_llm_cost_usd(
+        "gemini-2.5-flash",
+        prompt_tokens=1000,
+        cached_tokens=800,
+        thoughts_tokens=100,
+        output_tokens=200,
+    )
+    expected = (200 * 0.30 + 800 * 0.03 + 300 * 2.50) / 1_000_000
+    assert cost_flash == pytest.approx(expected, abs=1e-6)
+
+    # gemini-2.5-flash-lite should be cheaper than flash
+    cost_lite = estimate_llm_cost_usd(
+        "gemini-2.5-flash-lite",
+        prompt_tokens=1000,
+        cached_tokens=0,
+        thoughts_tokens=0,
+        output_tokens=200,
+    )
+    assert cost_lite == pytest.approx((1000 * 0.10 + 200 * 0.40) / 1_000_000, abs=1e-6)
+
+    # Missing usage returns 0.0 safely
+    assert estimate_llm_cost_usd("gemini-2.5-flash", prompt_tokens=None, cached_tokens=None, thoughts_tokens=None, output_tokens=None) == 0.0
+
+
+def test_emit_aggregates_tokens_cost_cache_agent_and_emits_llm_call_timing(caplog):
+    turn = start_turn("s-agg")
+    with caplog.at_level(logging.INFO, logger=chat_timing.__name__):
+        turn.llm_started("k1", agent="syd_orchestrator", model="gemini-2.5-flash-lite")
+        turn.llm_finished("k1", prompt_tokens=1000, cached_tokens=500, thoughts_tokens=0, output_tokens=50)
+        turn.llm_started("k2", agent="quote_agent", model="gemini-2.5-flash")
+        turn.llm_finished("k2", prompt_tokens=3000, cached_tokens=1500, thoughts_tokens=200, output_tokens=400)
+        turn.add_tool("pricing_engine", 145.5, status="ok")
+        turn.emit(outcome="ok")
+
+    llm_records = [r for r in caplog.records if r.getMessage() == "llm_call_timing"]
+    assert len(llm_records) == 2
+    assert llm_records[0].agent == "syd_orchestrator"
+    assert llm_records[0].model == "gemini-2.5-flash-lite"
+    assert llm_records[1].agent == "quote_agent"
+    assert llm_records[1].estimated_cost_usd > 0
+
+    turn_records = [r for r in caplog.records if r.getMessage() == "chat_turn_timing"]
+    assert len(turn_records) == 1
+    rec = turn_records[0]
+    assert rec.prompt_tokens_total == 4000
+    assert rec.cached_tokens_total == 2000
+    assert rec.thoughts_tokens_total == 200
+    assert rec.output_tokens_total == 450
+    assert rec.cache_hit_ratio == pytest.approx(0.5, abs=1e-4)
+    assert rec.estimated_cost_usd > 0
+    assert rec.primary_agent == "quote_agent"
+    assert rec.n_tool_calls == 1
+    assert rec.tool_total_ms == pytest.approx(145.5, abs=0.1)
+    assert rec.tool_names == ["pricing_engine"]
+
+
+async def test_instrumented_tool_records_duration_in_active_turn():
+    from src.core.telemetry import instrumented_tool
+
+    @instrumented_tool("demo_tool")
+    async def _tool() -> str:
+        return "ok"
+
+    turn = start_turn("s-tool")
+    assert await _tool() == "ok"
+    assert len(turn.tool_calls) == 1
+    assert turn.tool_calls[0].name == "demo_tool"
+    assert turn.tool_calls[0].status == "ok"
+    assert turn.tool_total_ms >= 0.0

@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from opentelemetry import trace
 from opentelemetry.trace import Span
 
+from src.core.pricing import estimate_llm_cost_usd
 from src.core.tracing import get_tracer
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,29 @@ _tracer = get_tracer("syd.chat")
 # is flagged so cold and warm latency can be separated in dashboards.
 _PROCESS_START = time.perf_counter()
 _first_turn_served = False
+
+
+@dataclass
+class ToolCallTiming:
+    name: str
+    duration_ms: float
+    status: str = "ok"
+
+    def as_log(self) -> dict[str, str | float]:
+        return {
+            "name": self.name,
+            "duration_ms": round(self.duration_ms, 1),
+            "status": self.status,
+        }
+
+
+def _span_trace_id(span: Span | None) -> str | None:
+    if span is None:
+        return None
+    ctx = span.get_span_context()
+    if ctx is None or not ctx.is_valid or ctx.trace_id == 0:
+        return None
+    return f"{ctx.trace_id:032x}"
 
 
 @dataclass
@@ -56,11 +80,16 @@ class LlmCallTiming:
     cached_tokens: int | None = None
     thoughts_tokens: int | None = None
     output_tokens: int | None = None
+    estimated_cost_usd: float = 0.0
+    trace_id: str | None = None
 
     def as_log(self) -> dict[str, str | int | float | None]:
         model_ms = None
         if self.duration_ms is not None:
             model_ms = round(self.duration_ms - self.guardrail_in_ms, 1)
+        prompt = self.prompt_tokens or 0
+        cached = self.cached_tokens or 0
+        cache_hit_ratio = round(cached / prompt, 4) if prompt > 0 else 0.0
         return {
             "agent": self.agent,
             "model": self.model,
@@ -71,6 +100,8 @@ class LlmCallTiming:
             "cached_tokens": self.cached_tokens,
             "thoughts_tokens": self.thoughts_tokens,
             "output_tokens": self.output_tokens,
+            "cache_hit_ratio": cache_hit_ratio,
+            "estimated_cost_usd": self.estimated_cost_usd,
         }
 
 
@@ -82,9 +113,12 @@ class TurnTiming:
     uptime_ms: float
     marks: dict[str, float] = field(default_factory=dict)
     llm_calls: list[LlmCallTiming] = field(default_factory=list)
+    tool_calls: list[ToolCallTiming] = field(default_factory=list)
     _open_llm_calls: dict[str, LlmCallTiming] = field(default_factory=dict)
     guardrail_ms: float = 0.0
     persist_ms: float = 0.0
+    tool_total_ms: float = 0.0
+    trace_id: str | None = None
     emitted: bool = False
 
     def elapsed_ms(self, since: float | None = None) -> float:
@@ -127,15 +161,34 @@ class TurnTiming:
         call.cached_tokens = cached_tokens
         call.thoughts_tokens = thoughts_tokens
         call.output_tokens = output_tokens
+        call.estimated_cost_usd = estimate_llm_cost_usd(
+            call.model,
+            prompt_tokens=prompt_tokens,
+            cached_tokens=cached_tokens,
+            thoughts_tokens=thoughts_tokens,
+            output_tokens=output_tokens,
+        )
+        call.trace_id = _span_trace_id(call.span) or _span_trace_id(trace.get_current_span())
+        if self.trace_id is None and call.trace_id is not None:
+            self.trace_id = call.trace_id
+        log_payload = call.as_log()
         if call.span is not None:
-            for attr, value in call.as_log().items():
+            for attr, value in log_payload.items():
                 if value is not None:
                     call.span.set_attribute(f"llm.{attr}", value)
             call.span.end()
             call.span = None
         self.llm_calls.append(call)
+        logger.info(
+            "llm_call_timing",
+            extra={
+                "event": "llm_call_timing",
+                "trace_id": call.trace_id,
+                **log_payload,
+            },
+        )
 
-    # ── Guardrails / persistence ─────────────────────────────────────────────
+    # ── Guardrails / persistence / tools ─────────────────────────────────────
     def add_guardrail(self, key: str | None, phase: str, ms: float) -> None:
         self.guardrail_ms += ms
         if phase == "input" and key is not None:
@@ -146,6 +199,18 @@ class TurnTiming:
     def add_persist(self, ms: float) -> None:
         self.persist_ms += ms
 
+    def add_tool(self, name: str, duration_ms: float, *, status: str = "ok") -> None:
+        self.tool_total_ms = round(self.tool_total_ms + duration_ms, 1)
+        self.tool_calls.append(ToolCallTiming(name=name, duration_ms=duration_ms, status=status))
+
+    def _primary_agent(self) -> str:
+        if not self.llm_calls:
+            return "none"
+        for call in reversed(self.llm_calls):
+            if call.agent != "syd_orchestrator":
+                return call.agent
+        return self.llm_calls[-1].agent
+
     # ── Emission ─────────────────────────────────────────────────────────────
     def emit(self, *, outcome: str = "ok") -> None:
         if self.emitted:
@@ -155,11 +220,20 @@ class TurnTiming:
         for call in self._open_llm_calls.values():
             if call.span is not None:
                 call.span.end()
+        if self.trace_id is None:
+            self.trace_id = _span_trace_id(trace.get_current_span())
         total_ms = self.marks.get("finish", self.elapsed_ms())
+        prompt_total = sum(c.prompt_tokens or 0 for c in self.llm_calls)
+        cached_total = sum(c.cached_tokens or 0 for c in self.llm_calls)
+        thoughts_total = sum(c.thoughts_tokens or 0 for c in self.llm_calls)
+        output_total = sum(c.output_tokens or 0 for c in self.llm_calls)
+        cache_hit_ratio = round(cached_total / prompt_total, 4) if prompt_total > 0 else 0.0
+        estimated_cost_usd = round(sum(c.estimated_cost_usd for c in self.llm_calls), 6)
         logger.info(
             "chat_turn_timing",
             extra={
                 "event": "chat_turn_timing",
+                "trace_id": self.trace_id,
                 "outcome": outcome,
                 "cold_start": self.cold_start,
                 "uptime_ms": self.uptime_ms,
@@ -170,6 +244,16 @@ class TurnTiming:
                 "total_ms": total_ms,
                 "n_llm_calls": len(self.llm_calls),
                 "llm_total_ms": round(sum(c.duration_ms or 0 for c in self.llm_calls), 1),
+                "primary_agent": self._primary_agent(),
+                "prompt_tokens_total": prompt_total,
+                "cached_tokens_total": cached_total,
+                "thoughts_tokens_total": thoughts_total,
+                "output_tokens_total": output_total,
+                "cache_hit_ratio": cache_hit_ratio,
+                "estimated_cost_usd": estimated_cost_usd,
+                "n_tool_calls": len(self.tool_calls),
+                "tool_total_ms": round(self.tool_total_ms, 1),
+                "tool_names": [t.name for t in self.tool_calls],
                 "llm_calls": [c.as_log() for c in self.llm_calls],
                 "guardrail_ms": round(self.guardrail_ms, 1),
                 "persist_ms": round(self.persist_ms, 1),
