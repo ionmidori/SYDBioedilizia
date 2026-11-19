@@ -195,24 +195,9 @@
         "width": 4,
         "height": 4,
         "widget": {
-          "title": "Thinking vs Output Tokens (p50)",
+          "title": "Output Tokens per Turno (p50 / p95)",
           "xyChart": {
             "dataSets": [
-              {
-                "legendTemplate": "thoughts p50 (${metric.labels.primary_agent})",
-                "plotType": "LINE",
-                "timeSeriesQuery": {
-                  "timeSeriesFilter": {
-                    "filter": "metric.type=\"logging.googleapis.com/user/chat_thoughts_tokens\" resource.type=\"cloud_run_revision\"",
-                    "aggregation": {
-                      "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_DELTA",
-                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
-                      "groupByFields": ["metric.label.primary_agent"]
-                    }
-                  }
-                }
-              },
               {
                 "legendTemplate": "output p50 (${metric.labels.primary_agent})",
                 "plotType": "LINE",
@@ -223,6 +208,21 @@
                       "alignmentPeriod": "300s",
                       "perSeriesAligner": "ALIGN_DELTA",
                       "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.primary_agent"]
+                    }
+                  }
+                }
+              },
+              {
+                "legendTemplate": "output p95 (${metric.labels.primary_agent})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_output_tokens\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
                       "groupByFields": ["metric.label.primary_agent"]
                     }
                   }
@@ -560,6 +560,53 @@
               }
             ],
             "yAxis": { "label": "USD", "scale": "LINEAR" }
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 23,
+        "width": 12,
+        "height": 4,
+        "widget": {
+          "title": "LLM First-Chunk Latency (pre-streaming / thinking proxy, p50 / p95, ms)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "p50 (${metric.labels.agent}/${metric.labels.model})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/llm_first_chunk_ms\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.agent", "metric.label.model"]
+                    }
+                  }
+                }
+              },
+              {
+                "legendTemplate": "p95 (${metric.labels.agent}/${metric.labels.model})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/llm_first_chunk_ms\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.agent", "metric.label.model"]
+                    }
+                  }
+                }
+              }
+            ],
+            "thresholds": [
+              { "label": "Target p95 (3.0s)", "value": 3000 }
+            ],
+            "yAxis": { "label": "ms", "scale": "LINEAR" }
           }
         }
       }

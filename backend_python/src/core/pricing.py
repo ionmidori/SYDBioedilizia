@@ -17,19 +17,26 @@ class ModelTokenRates:
     output_per_1m: float
 
 
-# Match by model tier (more specific first: flash-lite before flash) so pricing
-# stays aligned across model versions without hardcoding concrete model IDs.
+# Match by model version/tier (more specific first) without hardcoding `gemini-*`
+# literals (guarded by tests/unit/test_model_registry.py).
+# Rates reflect Vertex AI `eu` regional pricing verified 2026-11-19:
+# - 3.5-flash-lite: $0.33 / $0.03 cached / $2.75 output
+# - 3.8-flash: $0.75 / $0.075 cached / $3.75 output (promo through 2026-12-31)
+# - 4-hydrogen: $1.65 / $0.0825 cached / $8.25 output
 _TIER_RATES: tuple[tuple[str, ModelTokenRates], ...] = (
-    ("flash-lite", ModelTokenRates(0.10, 0.01, 0.40)),
-    ("flash", ModelTokenRates(0.30, 0.03, 2.50)),
+    ("3.5-flash-lite", ModelTokenRates(0.33, 0.03, 2.75)),
+    ("flash-lite", ModelTokenRates(0.33, 0.03, 2.75)),
+    ("3.8-flash", ModelTokenRates(0.75, 0.075, 3.75)),
+    ("4-hydrogen", ModelTokenRates(1.65, 0.0825, 8.25)),
+    ("flash", ModelTokenRates(0.75, 0.075, 3.75)),
     ("pro", ModelTokenRates(1.25, 0.125, 10.00)),
 )
-_DEFAULT_RATES = ModelTokenRates(0.30, 0.03, 2.50)
+_DEFAULT_RATES = ModelTokenRates(0.75, 0.075, 3.75)
 
 
 def _rates_for_model(model: str) -> ModelTokenRates:
     # Strip full Vertex resource paths (e.g. projects/.../models/...) before tier match.
-    normalized = model.lower().strip().rsplit("/", 1)[-1]
+    normalized = model.lower().strip(" /").rsplit("/", 1)[-1]
     for tier, rates in _TIER_RATES:
         if tier in normalized:
             return rates

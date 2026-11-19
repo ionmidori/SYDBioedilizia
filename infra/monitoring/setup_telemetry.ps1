@@ -4,7 +4,7 @@ Idempotent GCP telemetry provisioning for SYD ADK agents (chatbotluca-a8a73).
 Creates:
   1. BigQuery dataset `syd_telemetry` (EU, 180-day partition expiration)
   2. Cloud Logging Sink `syd-agent-telemetry-bq` -> BigQuery + writer IAM grant
-  3. 7 Cloud Logging log-based metrics (tokens, cache, thinking, calls, cost)
+  3. 12 Cloud Logging log-based metrics (tokens, cache, thinking, calls, latency, cost)
   4. Cloud Monitoring dashboard `SYD Agents — Latency, Tokens & Cost`
 #>
 param(
@@ -137,6 +137,14 @@ $metrics = @(
         Desc = "Single LLM call pure model duration in ms, broken down by agent and model."
         Filter = 'resource.type="cloud_run_revision" AND resource.labels.service_name="syd-brain" AND jsonPayload.event="llm_call_timing" AND jsonPayload.model_ms>0'
         Extractor = "EXTRACT(jsonPayload.model_ms)"
+        Labels = @{ agent = "EXTRACT(jsonPayload.agent)"; model = "EXTRACT(jsonPayload.model)" }
+        Scale = 50.0; Growth = 1.2; Buckets = 64; Unit = "ms"
+    },
+    @{
+        Name = "llm_first_chunk_ms"
+        Desc = "Time to first chunk (ms) of a single LLM call (pre-streaming / thinking proxy), by agent and model."
+        Filter = 'resource.type="cloud_run_revision" AND resource.labels.service_name="syd-brain" AND jsonPayload.event="llm_call_timing" AND jsonPayload.first_chunk_ms>0'
+        Extractor = "EXTRACT(jsonPayload.first_chunk_ms)"
         Labels = @{ agent = "EXTRACT(jsonPayload.agent)"; model = "EXTRACT(jsonPayload.model)" }
         Scale = 50.0; Growth = 1.2; Buckets = 64; Unit = "ms"
     },

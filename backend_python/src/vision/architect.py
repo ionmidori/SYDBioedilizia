@@ -90,8 +90,8 @@ async def generate_architectural_prompt(
     if keep_elements is None:
         keep_elements = []
 
-    model_name = get_model_id(ModelRole.VISION)
-    logger.info(f"[Architect] Building narrative plan (Style: {target_style}, Keep: {len(keep_elements)})...")
+    model_name = get_model_id(ModelRole.ARCHITECT)
+    logger.info(f"[Architect] Building narrative plan (Style: {target_style}, Keep: {len(keep_elements)}, Model: {model_name})...")
 
     preservation_list = ", ".join(keep_elements) if keep_elements else "None specified (renovate freely)"
 
@@ -197,7 +197,7 @@ Respond with ONLY valid JSON. No markdown, no explanations:
                 config=genai_types.GenerateContentConfig(
                     temperature=0.4,
                     response_mime_type="application/json",
-                    thinking_config=build_thinking_config(ModelRole.VISION),
+                    thinking_config=build_thinking_config(ModelRole.ARCHITECT),
                     http_options=genai_types.HttpOptions(timeout=int(_ARCHITECT_TIMEOUT_SECONDS * 1000)),
                 ),
             ),

@@ -32,7 +32,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 def clean_registry(monkeypatch):
     """Registry settings reset to 'nothing configured' except the fallback."""
     monkeypatch.setattr(settings, "CHAT_MODEL_VERSION", "fallback-model")
-    for role in ("ROUTER", "TRIAGE", "DESIGN", "QUOTE", "VISION", "INSIGHT"):
+    for role in ("ROUTER", "TRIAGE", "DESIGN", "QUOTE", "VISION", "ARCHITECT", "INSIGHT", "SUMMARIZER"):
         monkeypatch.setattr(settings, f"MODEL_{role}", None)
         monkeypatch.setattr(settings, f"THINKING_LEVEL_{role}", None)
     monkeypatch.setattr(settings, "MODEL_IMAGE", "image-model")
@@ -52,6 +52,17 @@ def test_role_override_wins(clean_registry):
     clean_registry.setattr(settings, "MODEL_QUOTE", "quote-model")
     assert get_model_id(ModelRole.QUOTE) == "quote-model"
     assert get_model_id(ModelRole.ROUTER) == "fallback-model"
+
+
+def test_architect_role_defaults_to_chat_model_with_low_thinking():
+    """Production defaults: architect runs on fast CHAT_MODEL_VERSION (3.5 Flash-Lite)
+    with low thinking, decoupled from MODEL_VISION (3.8 Flash)."""
+    profile = get_model_profile(ModelRole.ARCHITECT)
+    assert profile.model == settings.CHAT_MODEL_VERSION
+    assert profile.thinking_level == "low"
+    assert build_thinking_config(ModelRole.ARCHITECT) == types.ThinkingConfig(
+        thinking_level=types.ThinkingLevel.LOW
+    )
 
 
 def test_nothing_configured_means_no_generation_config(clean_registry):
