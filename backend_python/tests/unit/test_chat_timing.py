@@ -242,3 +242,23 @@ async def test_instrumented_tool_records_duration_in_active_turn():
     assert [t.name for t in turn.tool_calls] == ["demo_tool", "sync_tool", "failing_tool"]
     assert [t.status for t in turn.tool_calls] == ["ok", "ok", "error"]
     assert turn.tool_total_ms >= 0.0
+
+
+def test_turn_timing_outcome_override_wins_over_default_ok(caplog):
+    turn = start_turn("sess-timeout")
+    turn.set_outcome("timeout")
+    with caplog.at_level(logging.INFO, logger=chat_timing.__name__):
+        turn.emit(outcome="ok")
+    records = [r for r in caplog.records if r.getMessage() == "chat_turn_timing"]
+    assert len(records) == 1
+    assert records[0].outcome == "timeout"
+
+
+def test_turn_timing_explicit_error_wins_over_override(caplog):
+    turn = start_turn("sess-err")
+    turn.set_outcome("timeout")
+    with caplog.at_level(logging.INFO, logger=chat_timing.__name__):
+        turn.emit(outcome="client_disconnected")
+    records = [r for r in caplog.records if r.getMessage() == "chat_turn_timing"]
+    assert len(records) == 1
+    assert records[0].outcome == "client_disconnected"

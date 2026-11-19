@@ -119,7 +119,12 @@ class TurnTiming:
     persist_ms: float = 0.0
     tool_total_ms: float = 0.0
     trace_id: str | None = None
+    outcome_override: str | None = None
     emitted: bool = False
+
+    def set_outcome(self, outcome: str) -> None:
+        """Record an internal outcome (e.g. 'timeout') when stream closes without raising."""
+        self.outcome_override = outcome
 
     def elapsed_ms(self, since: float | None = None) -> float:
         return round((time.perf_counter() - (since if since is not None else self.arrival)) * 1000, 1)
@@ -229,12 +234,13 @@ class TurnTiming:
         output_total = sum(max(0, c.output_tokens or 0) for c in self.llm_calls)
         cache_hit_ratio = min(1.0, round(cached_total / prompt_total, 4)) if prompt_total > 0 else 0.0
         estimated_cost_usd = round(sum(c.estimated_cost_usd for c in self.llm_calls), 6)
+        effective_outcome = outcome if outcome != "ok" else (self.outcome_override or "ok")
         logger.info(
             "chat_turn_timing",
             extra={
                 "event": "chat_turn_timing",
                 "trace_id": self.trace_id,
-                "outcome": outcome,
+                "outcome": effective_outcome,
                 "cold_start": self.cold_start,
                 "uptime_ms": self.uptime_ms,
                 "queued_ms": self.marks.get("handler"),

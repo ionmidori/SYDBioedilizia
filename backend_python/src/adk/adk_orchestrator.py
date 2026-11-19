@@ -1104,6 +1104,8 @@ class ADKOrchestrator(BaseOrchestrator):
                     await vertex_ai_breaker.on_success()
 
                 except TimeoutError:
+                    if turn is not None:
+                        turn.set_outcome("timeout")
                     await vertex_ai_breaker.on_failure(
                         TimeoutError("run_async timed out after 180s")
                     )
@@ -1121,6 +1123,8 @@ class ADKOrchestrator(BaseOrchestrator):
                     # The quote has left: the client reads the send tool's confirmation, not an error.
                     if sent_confirmation is None:
                         raise
+                    if turn is not None:
+                        turn.set_outcome("fallback_after_error")
                     await vertex_ai_breaker.on_failure(model_exc)
                     logger.error(
                         "[ADK] Model call failed after the send: confirmation streamed from the tool reply.",
