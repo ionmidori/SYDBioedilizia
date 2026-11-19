@@ -32,6 +32,7 @@ from src.db.projects.media import latest_uploaded_photo_url
 from src.repositories.room_repository import get_room_repository
 from src.schemas.room import ROOM_ID_PATTERN
 from src.services.company_info_service import CompanyInfoService
+from src.services.room_photo_vision import schedule_room_vision
 from src.tools import gallery, project_files, room_tools
 from src.tools.company_tools import company_section, service_area
 from src.tools.project_files_view import ProjectFilesView
@@ -525,6 +526,10 @@ async def select_room(name: str, room_type: str, session_id: str, tool_context) 
     if result["status"] == "success":
         tool_context.state[ACTIVE_ROOM_STATE_KEY] = result["room_id"]
         tool_context.state[ROOMS_STATE_KEY] = _room_index(rooms)
+        # The room the client works on now: its photos are measured meanwhile
+        # (a room just created has none yet: rule 2bis files them afterwards).
+        if not result.get("created"):
+            schedule_room_vision(project_id, result["room_id"])
     return result
 
 

@@ -20,7 +20,7 @@ from src.repositories.spec_store import CHAT_SPEC_KEY, chat_on_card, get_spec_st
 from src.schemas.assembly_library import AssemblyLibrary
 from src.schemas.intervention_spec import RoomInterventionSpec, StoredAdminCheck
 from src.schemas.quote import ManualWorkItem, QuoteAiWarning, QuoteRequest
-from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
+from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, PhotoEstimate, RoomSchema
 from src.services.assembly_library import load_library
 from src.services.insight_engine import InsightAnalysis, InsightEngineError, get_insight_engine
 from src.services.intervention_expansion import (
@@ -44,6 +44,7 @@ from src.services.quote_state import QuoteStatus, ai_draft_action
 from src.services.quote_step import NEEDS_DETAILS
 from src.services.room_aggregation import load_rules
 from src.services.room_mentions import message_rooms
+from src.services.room_photo_vision import photo_estimate_block
 from src.services.spec_confirmation import (
     apply_confirmations,
     capped_checks,
@@ -224,9 +225,13 @@ def _is_render_path(path: str) -> bool:
     return path.startswith("renders/")
 
 
-async def _run_measurement_vision(media_urls: list[str], session_id: str) -> str:
+async def _run_measurement_vision(
+    media_urls: list[str], session_id: str, *, stored: PhotoEstimate | None = None
+) -> str:
     """
     Reads the first accessible photo and runs the RoomMeasurementAgent on it.
+    `stored`: the room's estimate from its photos (room_photo_vision), used
+    instead of a new measurement when it was made from this same photo.
 
     Returns a formatted measurements block for injection into InsightEngine context,
     or an empty string on failure (non-fatal — InsightEngine falls back to defaults).
@@ -254,6 +259,9 @@ async def _run_measurement_vision(media_urls: list[str], session_id: str) -> str
             # returned for bytes this session actually holds.
             cache_key = hashlib.sha256(content).hexdigest()
             cached = _cached_measurement(cache_key)
+            if cached is None and stored is not None and stored.reference_hash == cache_key:
+                cached = photo_estimate_block(stored)
+                _remember_measurement(cache_key, cached)
             if cached is not None:
                 logger.info("[MeasureRoom] Reusing the measurement of this photo.")
                 return cached
@@ -577,7 +585,7 @@ async def _single_unit(history: list[dict[str, Any]], session_id: str) -> _Quote
 
 def _brief_block(room: RoomSchema) -> str:
     """The room's brief (scheda stanza) as context, empty when nothing is known."""
-    lines = brief_lines(room)
+    lines = brief_lines(room, photo_estimate=False)
     return "\n\n## Scheda stanza\n" + "\n".join(lines) if lines else ""
 
 
@@ -696,7 +704,8 @@ async def _room_unit(
         return await _structural_delta(_file_ref(source), _file_ref(render), session_id) if source else ""
 
     measurement_context, structural_delta = await asyncio.gather(
-        _run_measurement_vision([_file_ref(f) for f in candidates], session_id), render_delta()
+        _run_measurement_vision([_file_ref(f) for f in candidates], session_id, stored=room.photo_estimate),
+        render_delta(),
     )
 
     general_text = build_chat_summary(general[-_GENERAL_CONTEXT_MESSAGES:])

@@ -6,9 +6,9 @@ carries its `room_id`. Documents are stored as `RoomSchema.model_dump()`
 (snake_case, like the API), written only by the backend.
 
 **Golden Sync**: mirrored by the zod schemas in `web_client/types/room.ts`, except
-`intervention_spec` (Phase 140): excluded from every serialization of the room
-(the client's `roomSchema` is strict); the client reads it through the
-confirmation API (step 3).
+`intervention_spec` (Phase 140) and `photo_estimate`: excluded from every
+serialization of the room (the client's `roomSchema` is strict); the client
+reads the spec through the confirmation API (step 3).
 """
 import re
 from datetime import UTC, datetime
@@ -27,6 +27,7 @@ from pydantic import (
 )
 
 from src.schemas.intervention_spec import RoomInterventionSpec
+from src.vision.measure_room import RoomMeasurements
 
 # Same values as the room picker in the chat gallery (`ROOM_TYPES` in web_client/types/room.ts).
 RoomType = Literal["cucina", "soggiorno", "camera", "bagno", "corridoio", "altro"]
@@ -71,6 +72,21 @@ class RoomBrief(BaseModel):
     open_questions: list[_BriefItem] = Field(default_factory=list, max_length=20)
 
 
+_Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
+
+
+class PhotoEstimate(BaseModel):
+    """What SYD measured from the room's photos when the client picked the room
+    (`services/room_photo_vision.py`): an estimate, never the client's value."""
+    model_config = ConfigDict(extra="forbid")
+
+    source_hash: _Sha256 = Field(description="The photos read, in order: a change measures the room again")
+    reference_hash: _Sha256 = Field(description="Content of the measured photo: the quote reuses the estimate for it")
+    measurements: RoomMeasurements
+    notes: list[_BriefItem] = Field(default_factory=list, max_length=20, description="What each other photo adds")
+    at: datetime
+
+
 class RoomSchema(BaseModel):
     """A room of the project, as stored in Firestore and returned by the API."""
     model_config = ConfigDict(extra="forbid")
@@ -89,12 +105,18 @@ class RoomSchema(BaseModel):
     intervention_spec: RoomInterventionSpec | None = Field(
         default=None, exclude=True, description="What the room's quote was computed from (backend-only)"
     )
+    # Written only by RoomRepository.update_photo_estimate (backend-only, like the spec).
+    photo_estimate: PhotoEstimate | None = Field(
+        default=None, exclude=True, description="Measures estimated from the room's photos (backend-only)"
+    )
 
-    @field_validator("intervention_spec", mode="wrap")
+    @field_validator("intervention_spec", "photo_estimate", mode="wrap")
     @classmethod
-    def _readable_spec(cls, value: object, handler: ValidatorFunctionWrapHandler) -> RoomInterventionSpec | None:
-        """SpecStore owns the spec and skips one it cannot read (a newer format during a
-        rollout): here it reads as None, so it never breaks the room or its listing."""
+    def _readable_backend_field(
+        cls, value: object, handler: ValidatorFunctionWrapHandler
+    ) -> RoomInterventionSpec | PhotoEstimate | None:
+        """A backend field that does not read (a newer format during a rollout) reads as
+        None, so it never breaks the room or its listing (SpecStore skips such a spec)."""
         try:
             return handler(value)
         except ValidationError:
