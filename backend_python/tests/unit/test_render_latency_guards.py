@@ -46,7 +46,7 @@ async def test_triage_does_not_enable_code_execution_or_close_shared_client(samp
 
 @pytest.mark.asyncio
 async def test_architect_bounds_thinking_json_and_times_out_cleanly(sample_image_bytes):
-    from src.core.models import ModelRole, build_thinking_config
+    from src.core.models import ModelRole, build_thinking_config, get_model_id
     from src.vision.architect import generate_architectural_prompt
 
     mock_response = MagicMock()
@@ -67,8 +67,9 @@ async def test_architect_bounds_thinking_json_and_times_out_cleanly(sample_image
         )
 
     _, kwargs = mock_client.aio.models.generate_content.call_args
+    assert kwargs["model"] == get_model_id(ModelRole.ARCHITECT)
     cfg = kwargs["config"]
-    assert cfg.thinking_config == build_thinking_config(ModelRole.VISION)
+    assert cfg.thinking_config == build_thinking_config(ModelRole.ARCHITECT)
     assert cfg.response_mime_type == "application/json"
     assert cfg.max_output_tokens is None
 
@@ -210,3 +211,31 @@ async def test_generate_render_i2i_skips_redundant_triage_call(sample_image_byte
 
     assert out["status"] == "success"
     triage_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_web_architect_uses_architect_role_with_low_thinking(sample_image_bytes):
+    from src.core.models import ModelRole, build_thinking_config, get_model_id
+    from src.vision.web_architect import analyze_web_mockup
+
+    mock_response = MagicMock()
+    mock_response.text = json.dumps({
+        "layout_type": "Bento Grid",
+        "color_palette": ["#ffffff"],
+        "typography_suggested": "Inter",
+        "components_identified": [],
+        "visual_style_notes": "Minimal",
+        "tailwind_globals": [],
+    })
+    mock_client = MagicMock()
+    mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
+
+    with patch("src.vision.web_architect.get_genai_client", return_value=mock_client):
+        res = await analyze_web_mockup(sample_image_bytes)
+
+    assert res.layout_type == "Bento Grid"
+    _, kwargs = mock_client.aio.models.generate_content.call_args
+    assert kwargs["model"] == get_model_id(ModelRole.ARCHITECT)
+    cfg = kwargs["config"]
+    assert cfg.thinking_config == build_thinking_config(ModelRole.ARCHITECT)
+    assert cfg.response_mime_type == "application/json"

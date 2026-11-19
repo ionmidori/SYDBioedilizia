@@ -138,30 +138,54 @@ def test_call_key_distinguishes_agents_of_the_same_invocation():
 def test_pricing_estimates_vertex_gemini_costs():
     from src.core.pricing import estimate_llm_cost_usd
 
-    # gemini-2.5-flash: 1000 prompt (800 cached -> 200 uncached @ $0.30/1M, 800 cached @ $0.03/1M),
-    # 100 thoughts + 200 output = 300 @ $2.50/1M
+    # gemini-3.8-flash (Vertex EU promo through 2026-12-31):
+    # 1000 prompt (800 cached -> 200 uncached @ $0.75/1M, 800 cached @ $0.075/1M),
+    # 100 thoughts + 200 output = 300 @ $3.75/1M
     cost_flash = estimate_llm_cost_usd(
-        "gemini-2.5-flash",
+        "gemini-3.8-flash",
         prompt_tokens=1000,
         cached_tokens=800,
         thoughts_tokens=100,
         output_tokens=200,
     )
-    expected = (200 * 0.30 + 800 * 0.03 + 300 * 2.50) / 1_000_000
+    expected = (200 * 0.75 + 800 * 0.075 + 300 * 3.75) / 1_000_000
     assert cost_flash == pytest.approx(expected, abs=1e-6)
 
-    # gemini-2.5-flash-lite should be cheaper than flash
+    # gemini-3.5-flash-lite (Vertex EU regional): $0.33 input, $0.03 cached, $2.75 output
     cost_lite = estimate_llm_cost_usd(
-        "gemini-2.5-flash-lite",
+        "gemini-3.5-flash-lite",
         prompt_tokens=1000,
         cached_tokens=0,
         thoughts_tokens=0,
         output_tokens=200,
     )
-    assert cost_lite == pytest.approx((1000 * 0.10 + 200 * 0.40) / 1_000_000, abs=1e-6)
+    assert cost_lite == pytest.approx((1000 * 0.33 + 200 * 2.75) / 1_000_000, abs=1e-6)
+    assert cost_lite < cost_flash
+
+    # gemini-3.5-flash (non-lite) must resolve to flash tier, not flash-lite
+    cost_35_flash = estimate_llm_cost_usd(
+        "gemini-3.5-flash",
+        prompt_tokens=1000,
+        cached_tokens=0,
+        thoughts_tokens=0,
+        output_tokens=200,
+    )
+    assert cost_35_flash == pytest.approx((1000 * 0.75 + 200 * 3.75) / 1_000_000, abs=1e-6)
+
+    # gemini-4-hydrogen (Vertex EU regional): $1.65 input, $0.0825 cached, $8.25 output
+    cost_hydrogen = estimate_llm_cost_usd(
+        "gemini-4-hydrogen",
+        prompt_tokens=1000,
+        cached_tokens=500,
+        thoughts_tokens=0,
+        output_tokens=100,
+    )
+    assert cost_hydrogen == pytest.approx(
+        (500 * 1.65 + 500 * 0.0825 + 100 * 8.25) / 1_000_000, abs=1e-6
+    )
 
     # Missing usage returns 0.0 safely
-    assert estimate_llm_cost_usd("gemini-2.5-flash", prompt_tokens=None, cached_tokens=None, thoughts_tokens=None, output_tokens=None) == 0.0
+    assert estimate_llm_cost_usd("gemini-3.8-flash", prompt_tokens=None, cached_tokens=None, thoughts_tokens=None, output_tokens=None) == 0.0
 
     # Resource path containing "projects/" must not false-positive as "pro" tier
     cost_unknown_path = estimate_llm_cost_usd(
@@ -171,8 +195,8 @@ def test_pricing_estimates_vertex_gemini_costs():
         thoughts_tokens=-5,  # clamped to 0
         output_tokens=0,
     )
-    # Default tier (flash): 1000 cached @ $0.03/1M
-    assert cost_unknown_path == pytest.approx((1000 * 0.03) / 1_000_000, abs=1e-6)
+    # Default tier (3.8-flash): 1000 cached @ $0.075/1M
+    assert cost_unknown_path == pytest.approx((1000 * 0.075) / 1_000_000, abs=1e-6)
 
     # Pro tier uses pro rates
     cost_pro = estimate_llm_cost_usd(

@@ -96,8 +96,14 @@ class Settings(BaseSettings):
     MODEL_VISION: str | None = Field(
         default="gemini-3.8-flash",
         description="Analysis of the customer's uploaded photos/videos: vision helpers (triage, video, "
-                    "measurements, CAD, render prompt) and every agent model call whose current user "
-                    "message carries an image or video.",
+                    "measurements, CAD) and every agent model call whose current user message carries "
+                    "an image or video.",
+    )
+    MODEL_ARCHITECT: str | None = Field(
+        default=None,
+        description="Render prompt & web mockup architect (architect.py, web_architect.py). "
+                    "Falls back to CHAT_MODEL_VERSION (gemini-3.5-flash-lite: 8.5x faster than "
+                    "3.8-flash on 1024px JSON prompts, verified 2026-11-19 on Vertex EU).",
     )
     MODEL_INSIGHT: str | None = Field(default=None, description="Quote InsightEngine. Falls back to CHAT_MODEL_VERSION.")
     MODEL_SUMMARIZER: str | None = Field(
@@ -115,6 +121,7 @@ class Settings(BaseSettings):
     THINKING_LEVEL_DESIGN: str | None = Field(default="minimal")
     THINKING_LEVEL_QUOTE: str | None = Field(default="low")
     THINKING_LEVEL_VISION: str | None = Field(default="low")  # 3.8 Flash has no "minimal"
+    THINKING_LEVEL_ARCHITECT: str | None = Field(default="low")
     THINKING_LEVEL_INSIGHT: str | None = Field(default=None)
     THINKING_LEVEL_SUMMARIZER: str | None = Field(default="low")
     # Per-call limits for the chat agents. Unset = SDK defaults (no timeout, no retry).

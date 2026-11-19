@@ -3,7 +3,7 @@ import logging
 
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field
-from src.core.models import ModelRole, get_genai_client, get_model_id
+from src.core.models import ModelRole, build_thinking_config, get_genai_client, get_model_id
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ async def analyze_web_mockup(
     """
     Analyzes a web design mockup and translates it into Shadcn/UI and Tailwind specifications.
     """
-    model_name = get_model_id(ModelRole.VISION)
+    model_name = get_model_id(ModelRole.ARCHITECT)
     logger.info(f"[WebArchitect] Analyzing mockup with {model_name}...")
 
     system_prompt = f"""
@@ -76,7 +76,11 @@ async def analyze_web_mockup(
                     data=image_bytes,
                 )),
             ])],
-            config=genai_types.GenerateContentConfig(temperature=0.2),
+            config=genai_types.GenerateContentConfig(
+                temperature=0.2,
+                response_mime_type="application/json",
+                thinking_config=build_thinking_config(ModelRole.ARCHITECT),
+            ),
         )
 
         raw_output = response.text or ""

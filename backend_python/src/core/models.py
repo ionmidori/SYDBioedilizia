@@ -42,6 +42,7 @@ class ModelRole(StrEnum):
     DESIGN = "design"
     QUOTE = "quote"
     VISION = "vision"
+    ARCHITECT = "architect"
     INSIGHT = "insight"
     SUMMARIZER = "summarizer"
     IMAGE = "image"
