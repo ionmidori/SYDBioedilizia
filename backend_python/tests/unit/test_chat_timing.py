@@ -262,3 +262,25 @@ def test_turn_timing_explicit_error_wins_over_override(caplog):
     records = [r for r in caplog.records if r.getMessage() == "chat_turn_timing"]
     assert len(records) == 1
     assert records[0].outcome == "client_disconnected"
+
+
+def test_add_tool_emits_tool_call_timing_and_sets_has_tools(caplog):
+    turn = start_turn("sess-tool-ev")
+    with caplog.at_level(logging.INFO, logger=chat_timing.__name__):
+        turn.add_tool("generate_render", 32100.44, status="ok")
+        turn.add_tool("market_prices", 68.4, status="error")
+        turn.emit(outcome="ok")
+
+    tool_records = [r for r in caplog.records if r.getMessage() == "tool_call_timing"]
+    assert len(tool_records) == 2
+    assert tool_records[0].tool_name == "generate_render"
+    assert tool_records[0].duration_ms == 32100.4
+    assert tool_records[0].status == "ok"
+    assert not hasattr(tool_records[0], "session_id")
+    assert tool_records[1].tool_name == "market_prices"
+    assert tool_records[1].status == "error"
+
+    turn_records = [r for r in caplog.records if r.getMessage() == "chat_turn_timing"]
+    assert len(turn_records) == 1
+    assert turn_records[0].has_tools is True
+    assert turn_records[0].tool_error_count == 1

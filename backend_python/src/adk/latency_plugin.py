@@ -45,10 +45,16 @@ class LatencyPlugin(BasePlugin):
         if turn is None:
             return None
         key = llm_call_key(callback_context)
-        if llm_response.partial is True:
-            turn.llm_chunk(key)
-            return None
         usage = llm_response.usage_metadata
+        if llm_response.partial is True:
+            turn.llm_chunk(
+                key,
+                prompt_tokens=usage.prompt_token_count if usage else None,
+                cached_tokens=usage.cached_content_token_count if usage else None,
+                thoughts_tokens=usage.thoughts_token_count if usage else None,
+                output_tokens=usage.candidates_token_count if usage else None,
+            )
+            return None
         turn.llm_finished(
             key,
             prompt_tokens=usage.prompt_token_count if usage else None,
