@@ -218,6 +218,31 @@ class QuoteVersionConflictError(AppException):
         )
 
 
+class ProposalNotFoundError(ResourceNotFound):
+    """The quote has no AI revision proposal (or it is not readable)."""
+    error_code = "PROPOSAL_NOT_FOUND"
+
+    def __init__(self, project_id: str) -> None:
+        super().__init__(message="No AI revision proposal for this quote.", detail={"project_id": project_id})
+
+
+class ProposalOutdatedError(AppException):
+    """The AI revision proposal was made on an older version, or is already applied."""
+    status_code = 409
+    error_code = "PROPOSAL_OUTDATED"
+
+    def __init__(self, project_id: str, based_on_version: int, current_version: int, applied: bool) -> None:
+        super().__init__(
+            message="The AI proposal is outdated: the quote changed after it was made.",
+            detail={
+                "project_id": project_id,
+                "based_on_version": based_on_version,
+                "current_version": current_version,
+                "applied": applied,
+            },
+        )
+
+
 class PriceBookConflictError(AppException):
     """The price book changed since the editor read it (optimistic concurrency)."""
     status_code = 409

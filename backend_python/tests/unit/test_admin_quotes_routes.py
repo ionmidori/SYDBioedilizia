@@ -415,3 +415,51 @@ def test_dossier_without_a_proposal(db):
         body = _client().get(f"/api/admin/quotes/{PID}").json()
 
     assert body["proposal"] is None
+
+
+def _seed_proposal(db: FakeDb, based_on_version: int = 2) -> None:
+    db.put("projects", PID, "private_data", "quote_proposal", {
+        "based_on_version": based_on_version, "created_at": T0, "summary": "Aggiunto il bagno",
+        "items": [{"sku": "BAG-RIV-001", "description": "Rivestimento", "unit": "mq", "qty": 10.0,
+                   "unit_price": 40.0, "total": 400.0, "manual_override": False}],
+        "financials": {"subtotal": 400.0, "vat_rate": 0.22, "vat_amount": 88.0, "grand_total": 488.0},
+    })
+
+
+def test_apply_proposal_needs_if_match_and_answers_the_new_etag(db):
+    _seed(db)
+    _seed_proposal(db)
+    client = _client()
+    url = f"/api/admin/quotes/{PID}/proposal/apply"
+
+    seen = {"proposal_created_at": T0.isoformat()}
+
+    assert client.post(url, json=seen).status_code == 428
+    assert client.post(url, headers={"If-Match": '"v2"'}).status_code == 422  # which proposal the admin saw
+    ok = client.post(url, json=seen, headers={"If-Match": '"v2"'})
+
+    assert ok.status_code == 200 and ok.headers["ETag"] == '"v3"' and ok.json()["version"] == 3
+    assert db.get_data(*QUOTE)["items"][0]["sku"] == "BAG-RIV-001"
+    again = client.post(url, json=seen, headers={"If-Match": '"v3"'})
+    assert again.status_code == 409 and again.json()["error_code"] == "PROPOSAL_OUTDATED"
+
+
+def test_apply_a_proposal_replaced_since_the_admin_saw_it_is_409(db):
+    _seed(db)
+    _seed_proposal(db)
+    resp = _client().post(f"/api/admin/quotes/{PID}/proposal/apply", headers={"If-Match": '"v2"'},
+                          json={"proposal_created_at": "2026-10-10T08:00:00+00:00"})
+    assert resp.status_code == 409 and resp.json()["error_code"] == "PROPOSAL_OUTDATED"
+
+
+def test_apply_without_a_proposal_is_404(db):
+    _seed(db)
+    resp = _client().post(f"/api/admin/quotes/{PID}/proposal/apply", headers={"If-Match": '"v2"'},
+                          json={"proposal_created_at": T0.isoformat()})
+    assert resp.status_code == 404 and resp.json()["error_code"] == "PROPOSAL_NOT_FOUND"
+
+
+def test_apply_proposal_is_admin_only(db):
+    resp = _client(role=None).post(f"/api/admin/quotes/{PID}/proposal/apply", headers={"If-Match": '"v2"'},
+                                   json={"proposal_created_at": T0.isoformat()})
+    assert resp.status_code == 403

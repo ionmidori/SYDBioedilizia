@@ -25,6 +25,8 @@ from src.services.quote_build import BuiltDraft
 logger = logging.getLogger(__name__)
 
 PROPOSAL_DOC_ID = "quote_proposal"
+# Reason of the AI revision written when the team applies the proposal.
+PROPOSAL_APPLIED_REASON = "Proposta AI di revisione applicata"
 
 
 @dataclass(frozen=True)
@@ -65,13 +67,18 @@ def proposal_digest(proposal: QuoteProposal, quote_rooms: list[dict[str, Any]]) 
     )
 
 
-async def read_proposal(db: Any, project_id: str) -> QuoteProposal | None:
-    """The stored proposal, or None (none, or not readable: logged, the dossier still opens)."""
+async def read_proposal(db: Any, project_id: str, *, transaction: Any | None = None) -> QuoteProposal | None:
+    """The stored proposal, or None (none, or not readable: logged, the dossier still opens);
+    with `transaction`, the transaction's read of it: a Firestore error then propagates
+    (the transaction retries it), only an unreadable doc is None."""
+    swallowed: tuple[type[Exception], ...] = (ValidationError,) if transaction is not None else (
+        GoogleAPIError, ValidationError,
+    )
     try:
-        snap = await proposal_ref(db, project_id).get()
+        snap = await proposal_ref(db, project_id).get(transaction=transaction)
         if not snap.exists:
             return None
         return QuoteProposal.model_validate(snap.to_dict() or {})
-    except (GoogleAPIError, ValidationError) as exc:
+    except swallowed as exc:
         logger.warning("[QuoteProposal] Not readable", extra={"error_type": type(exc).__name__})
         return None

@@ -13,6 +13,7 @@ import { fetchWithAuth } from '@/lib/api-client';
 import {
   type AdminMe,
   type AdminQuoteList,
+  type ApplyProposalBody,
   type EditQuoteBody,
   type MediaUrlResponse,
   type QuoteDossier,
@@ -191,6 +192,10 @@ export const adminApi = {
 
   approve: (projectId: string, etag: string): Promise<QuoteWriteResponse> =>
     request(`${quote(projectId)}/approve`, quoteWriteResponseSchema, { method: 'POST', headers: ifMatch(etag) }),
+
+  /** Replace the draft with the AI proposal the admin saw; 409 PROPOSAL_OUTDATED once it or the quote changed. */
+  applyProposal: (projectId: string, etag: string, body: ApplyProposalBody): Promise<QuoteWriteResponse> =>
+    request(`${quote(projectId)}/proposal/apply`, quoteWriteResponseSchema, jsonInit('POST', body, ifMatch(etag))),
 
   regeneratePdf: (projectId: string): Promise<QuoteWriteResponse> =>
     request(`${quote(projectId)}/pdf`, quoteWriteResponseSchema, { method: 'POST' }),

@@ -44,6 +44,18 @@ export function describeAdminError(error: unknown): AdminErrorInfo {
         message: "L'email del preventivo è ancora in invio. Attendi che parta, poi potrai rivederlo.",
         stale: true,
       };
+    case 'PROPOSAL_OUTDATED':
+      return {
+        kind: 'conflict',
+        message: 'La proposta AI non è più applicabile: il preventivo è cambiato dopo. Ricarica per vedere la versione aggiornata.',
+        stale: true,
+      };
+    case 'PROPOSAL_NOT_FOUND':
+      return {
+        kind: 'conflict',
+        message: 'La proposta AI non c’è più. Ricarica per vedere la versione aggiornata.',
+        stale: true,
+      };
     case 'PRECONDITION_REQUIRED':
       return { kind: 'conflict', message: 'Versione dei dati mancante: ricarica la pagina.', stale: true };
     case 'PRICE_BOOK_SKU_IN_USE': {
