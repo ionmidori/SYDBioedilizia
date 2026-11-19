@@ -1,14 +1,41 @@
 import asyncio
+import io
 import json
 import logging
 
+from fastapi.concurrency import run_in_threadpool
 from google.genai import types as genai_types
+from PIL import Image, ImageOps
 from pydantic import BaseModel
 from src.core.models import ModelRole, build_thinking_config, get_genai_client, get_model_id
 
 logger = logging.getLogger(__name__)
 
-_ARCHITECT_TIMEOUT_SECONDS = 25.0
+_ARCHITECT_TIMEOUT_SECONDS = 12.0
+_ARCHITECT_MAX_IMAGE_DIM = 1024
+
+
+def _downscale_for_architect_sync(
+    image_bytes: bytes,
+    mime_type: str,
+    max_dim: int = _ARCHITECT_MAX_IMAGE_DIM,
+) -> tuple[bytes, str]:
+    """Resize large uploads to <=1024px JPEG so Vision prompt-building stays fast."""
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as raw:
+            img = ImageOps.exif_transpose(raw)
+            needs_resize = max(img.size) > max_dim
+            if not needs_resize and mime_type == "image/jpeg":
+                return image_bytes, mime_type
+            if needs_resize:
+                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+            if img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+            out = io.BytesIO()
+            img.save(out, format="JPEG", quality=82, optimize=True)
+            return out.getvalue(), "image/jpeg"
+    except (OSError, ValueError):
+        return image_bytes, mime_type
 
 class ArchitectOutput(BaseModel):
     """
@@ -130,6 +157,9 @@ Respond with ONLY valid JSON. No markdown, no explanations:
 
     try:
         client = get_genai_client()
+        prepared_bytes, prepared_mime = await run_in_threadpool(
+            _downscale_for_architect_sync, image_bytes, mime_type
+        )
 
         response = await asyncio.wait_for(
             client.aio.models.generate_content(
@@ -137,10 +167,10 @@ Respond with ONLY valid JSON. No markdown, no explanations:
                 contents=[genai_types.Content(role="user", parts=[
                     genai_types.Part(text=system_prompt),
                     genai_types.Part(inline_data=genai_types.Blob(
-                        mime_type=mime_type,
+                        mime_type=prepared_mime,
                         # genai Blob.data wants RAW bytes (the SDK base64-encodes it
                         # for the wire); a base64 str would double-encode.
-                        data=image_bytes,
+                        data=prepared_bytes,
                     )),
                 ])],
                 config=genai_types.GenerateContentConfig(
@@ -177,10 +207,13 @@ Respond with ONLY valid JSON. No markdown, no explanations:
             logger.error(f"[Architect] JSON Parse Error: {e}")
             return _create_fallback_output(target_style, preservation_list)
 
-    except TimeoutError as error:
-        logger.error(f"[Architect] Timed out after {_ARCHITECT_TIMEOUT_SECONDS}s")
-        raise Exception(f"Architect timed out after {_ARCHITECT_TIMEOUT_SECONDS}s") from error
+    except TimeoutError:
+        logger.warning(f"[Architect] Timed out after {_ARCHITECT_TIMEOUT_SECONDS}s, using fallback")
+        return _create_fallback_output(target_style, preservation_list)
     except Exception as error:
+        if "DEADLINE_EXCEEDED" in str(error) or "504" in str(error):
+            logger.warning(f"[Architect] Remote deadline exceeded ({error}), using fallback")
+            return _create_fallback_output(target_style, preservation_list)
         logger.error(f"[Architect] Generation Error: {error}")
         raise Exception(f"Architect generation failed: {str(error)}") from error
 

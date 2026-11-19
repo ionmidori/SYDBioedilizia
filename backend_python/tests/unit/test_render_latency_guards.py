@@ -72,7 +72,10 @@ async def test_architect_bounds_thinking_json_and_times_out_cleanly(sample_image
     assert cfg.response_mime_type == "application/json"
     assert cfg.max_output_tokens is None
 
-    # Slow response must time out explicitly rather than hanging until the 180s ADK timeout
+    # Slow response must fall back cleanly within 12s rather than hanging until the 180s ADK timeout
+    from src.vision import architect as architect_mod
+    assert architect_mod._ARCHITECT_TIMEOUT_SECONDS <= 12.0
+
     async def _hang(*_a, **_kw):
         await asyncio.sleep(5)
 
@@ -80,14 +83,50 @@ async def test_architect_bounds_thinking_json_and_times_out_cleanly(sample_image
     with (
         patch("src.vision.architect.get_genai_client", return_value=mock_client),
         patch("src.vision.architect._ARCHITECT_TIMEOUT_SECONDS", 0.05),
-        pytest.raises(Exception, match="timed out") as exc_info,
     ):
-        await generate_architectural_prompt(
+        fallback = await generate_architectural_prompt(
             image_bytes=sample_image_bytes,
             target_style="contemporary",
             mime_type="image/jpeg",
         )
-    assert isinstance(exc_info.value.__cause__, TimeoutError)
+    assert isinstance(fallback, architect_mod.ArchitectOutput)
+    assert "contemporary" in fallback.material_plan.lower()
+
+
+@pytest.mark.asyncio
+async def test_architect_downscales_large_image_before_gemini_call():
+    import io
+
+    from PIL import Image
+    from src.vision.architect import generate_architectural_prompt
+
+    # Create a large 3000x2000 PNG to simulate a smartphone upload
+    buf = io.BytesIO()
+    Image.new("RGB", (3000, 2000), color=(180, 160, 140)).save(buf, format="PNG")
+    large_png = buf.getvalue()
+
+    mock_response = MagicMock()
+    mock_response.text = json.dumps({
+        "structuralSkeleton": "Walls",
+        "materialPlan": "Oak",
+        "furnishingStrategy": "Sofa",
+        "technicalNotes": "24mm",
+    })
+    mock_client = MagicMock()
+    mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
+
+    with patch("src.vision.architect.get_genai_client", return_value=mock_client):
+        await generate_architectural_prompt(
+            image_bytes=large_png,
+            target_style="minimal",
+            mime_type="image/png",
+        )
+
+    _, kwargs = mock_client.aio.models.generate_content.call_args
+    blob = kwargs["contents"][0].parts[1].inline_data
+    assert blob.mime_type == "image/jpeg"
+    sent_img = Image.open(io.BytesIO(blob.data))
+    assert max(sent_img.size) <= 1024
 
 
 @pytest.mark.asyncio
