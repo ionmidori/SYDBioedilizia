@@ -869,6 +869,8 @@ class ADKOrchestrator(BaseOrchestrator):
                 # outside the breaker scope — those are Firestore operations, not
                 # Vertex AI calls. Only run_async failures count toward the breaker.
                 if not await vertex_ai_breaker.before_call():
+                    if turn is not None:
+                        turn.set_outcome("circuit_open")
                     async for chunk in stream_error(
                         "Il servizio AI è temporaneamente non disponibile. "
                         "Il nostro team è stato avvisato. Riprova tra qualche minuto."
@@ -1184,11 +1186,15 @@ class ADKOrchestrator(BaseOrchestrator):
                     if turn is not None:
                         turn.add_persist((time.perf_counter() - persist_started) * 1000)
             except Exception as _inner_exc:
+                if turn is not None:
+                    turn.set_outcome("error")
                 await vertex_ai_breaker.on_failure(_inner_exc)
                 logger.exception("Inner ADK run_async error captured")
                 async for chunk in stream_error("Errore durante la generazione della risposta AI."):
                     yield chunk
         except Exception:
+            if turn is not None:
+                turn.set_outcome("error")
             logger.exception("Outer ADKOrchestrator execution error.")
             async for chunk in stream_error("Impossibile connettersi all'assistente Sydney."):
                 yield chunk

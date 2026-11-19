@@ -58,6 +58,15 @@ class ToolCallTiming:
         }
 
 
+def _merge_token_count(current: int | None, incoming: int | None) -> int | None:
+    """Monotonic merge so trailing zero/None stream chunks never erase prior counts."""
+    if incoming is None:
+        return current
+    if current is None:
+        return incoming
+    return max(current, incoming)
+
+
 def _span_trace_id(span: Span | None) -> str | None:
     if span is None:
         return None
@@ -158,14 +167,10 @@ class TurnTiming:
             return
         if call.first_chunk_ms is None:
             call.first_chunk_ms = self.elapsed_ms(call.started)
-        if prompt_tokens is not None:
-            call.prompt_tokens = prompt_tokens
-        if cached_tokens is not None:
-            call.cached_tokens = cached_tokens
-        if thoughts_tokens is not None:
-            call.thoughts_tokens = thoughts_tokens
-        if output_tokens is not None:
-            call.output_tokens = output_tokens
+        call.prompt_tokens = _merge_token_count(call.prompt_tokens, prompt_tokens)
+        call.cached_tokens = _merge_token_count(call.cached_tokens, cached_tokens)
+        call.thoughts_tokens = _merge_token_count(call.thoughts_tokens, thoughts_tokens)
+        call.output_tokens = _merge_token_count(call.output_tokens, output_tokens)
 
     def llm_finished(
         self,
@@ -180,14 +185,10 @@ class TurnTiming:
         if call is None:
             return
         call.duration_ms = self.elapsed_ms(call.started)
-        if prompt_tokens is not None:
-            call.prompt_tokens = prompt_tokens
-        if cached_tokens is not None:
-            call.cached_tokens = cached_tokens
-        if thoughts_tokens is not None:
-            call.thoughts_tokens = thoughts_tokens
-        if output_tokens is not None:
-            call.output_tokens = output_tokens
+        call.prompt_tokens = _merge_token_count(call.prompt_tokens, prompt_tokens)
+        call.cached_tokens = _merge_token_count(call.cached_tokens, cached_tokens)
+        call.thoughts_tokens = _merge_token_count(call.thoughts_tokens, thoughts_tokens)
+        call.output_tokens = _merge_token_count(call.output_tokens, output_tokens)
         call.estimated_cost_usd = estimate_llm_cost_usd(
             call.model,
             prompt_tokens=call.prompt_tokens,

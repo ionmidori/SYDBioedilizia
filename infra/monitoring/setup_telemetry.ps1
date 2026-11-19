@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Idempotent GCP telemetry provisioning for SYD ADK agents (chatbotluca-a8a73).
 Creates:
@@ -85,6 +85,7 @@ $ErrorActionPreference = $prevEap
 if ($tblExists) {
     $viewSql = "CREATE OR REPLACE VIEW ``$ProjectId.$DatasetId.v_events_dedup`` AS SELECT * FROM ``$ProjectId.$DatasetId.run_googleapis_com_stdout`` QUALIFY ROW_NUMBER() OVER (PARTITION BY insertId ORDER BY receiveTimestamp DESC) = 1"
     bq --project_id=$ProjectId query --use_legacy_sql=false --location=$Location --label=datacloud:antigravity $viewSql
+    if ($LASTEXITCODE -ne 0) { throw "Failed to create BigQuery view v_events_dedup (exit $LASTEXITCODE)" }
 } else {
     Write-Host "Table run_googleapis_com_stdout not created yet; skipping v_events_dedup view."
 }

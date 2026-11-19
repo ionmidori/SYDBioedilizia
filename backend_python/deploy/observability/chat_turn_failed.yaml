@@ -10,10 +10,7 @@ description: "Chat turns interrupted by an agent error (model timeout, tool fail
 filter: >-
   resource.type="cloud_run_revision"
   AND resource.labels.service_name="syd-brain"
-  AND (
-    jsonPayload.message=("Inner ADK run_async error captured" OR "Outer ADKOrchestrator execution error." OR "[ADK] run_async timed out after 180s")
-    OR (jsonPayload.event="chat_turn_timing" AND jsonPayload.outcome=("timeout" OR "error"))
-  )
+  AND jsonPayload.message=("Inner ADK run_async error captured" OR "Outer ADKOrchestrator execution error." OR "[ADK] run_async timed out after 180s")
 metricDescriptor:
   metricKind: DELTA
   valueType: INT64
