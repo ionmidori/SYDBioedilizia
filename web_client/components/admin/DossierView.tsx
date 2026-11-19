@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle2, Loader2, Lock, MessageSquare, Save, TriangleAl
 import { ApproveDialog } from '@/components/admin/dossier/ApproveDialog';
 import { ClientCard, clientDisplayName, RequestCard } from '@/components/admin/dossier/DossierCards';
 import { DeliveryLog } from '@/components/admin/dossier/DeliveryLog';
+import { DossierChat } from '@/components/admin/dossier/DossierChat';
 import { DossierProposal } from '@/components/admin/dossier/DossierProposal';
 import { EstimateRange } from '@/components/admin/dossier/EstimateRange';
 import { ErrorBanner } from '@/components/admin/dossier/ErrorBanner';
@@ -358,8 +359,11 @@ export function DossierView({ projectId }: { projectId: string }) {
           <MessageSquare className="w-4 h-4 mt-0.5 shrink-0 text-info-ink" aria-hidden />
           <span>
             Il cliente ha chiesto modifiche in chat il {formatDateTime(followup.requested_at)} (
-            {followup.count === 1 ? '1 richiesta' : `${followup.count} richieste`}): leggi la chat prima di approvare
-            o inviare.
+            {followup.count === 1 ? '1 richiesta' : `${followup.count} richieste`}):{' '}
+            <a href="#chat-cliente" className="font-semibold underline">
+              leggi la chat
+            </a>{' '}
+            prima di approvare o inviare.
           </span>
         </p>
       )}
@@ -464,6 +468,7 @@ export function DossierView({ projectId }: { projectId: string }) {
             pending={applyProposal.isPending}
             onApply={applyAiProposal}
           />
+          <DossierChat projectId={projectId} />
           <QuoteItemsEditor
             items={shownItems}
             saved={savedItems}

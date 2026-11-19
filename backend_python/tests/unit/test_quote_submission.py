@@ -5,7 +5,7 @@ One transaction: draft → pending_review + the admin email in the outbox (with
 the project id, so the GDPR erasure finds it). Idempotent by status and by
 Idempotency-Key; only the owner, never a guest."""
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -81,6 +81,8 @@ async def test_submit_moves_the_draft_to_review_and_queues_one_admin_email(db, d
 
     assert result == quote_submission.SubmissionResult(PID, "pending_review", "PRV-2026-0042", duplicate=False)
     assert db.get_data(*QUOTE)["status"] == "pending_review"
+    # Where the change the admin reads in the chat starts (admin dossier).
+    assert db.get_data(*QUOTE)["submitted_at"] == NOW
     [entry] = _outbox_entries(db)
     assert entry["kind"] == "admin_notification" and entry["status"] == "pending"
     assert entry["project_id"] == PID  # found by the GDPR erasure (email_outbox step)
@@ -103,6 +105,7 @@ async def test_a_quote_already_with_the_team_is_not_sent_again(db, dispatch, sta
     result = await quote_submission.submit_project_quote(OWNER, PID, idempotency_key=KEY, now=NOW)
     assert result.duplicate and result.status == status
     assert db.get_data(*QUOTE)["status"] == status
+    assert "submitted_at" not in db.get_data(*QUOTE)
     assert _outbox_entries(db) == []
     dispatch.assert_not_awaited()
 
@@ -111,8 +114,11 @@ async def test_the_same_idempotency_key_answers_like_the_first_request(db, dispa
     _seed(db)
     await quote_submission.submit_project_quote(OWNER, PID, idempotency_key=KEY, now=NOW)
     db.apply_update(QUOTE, {"status": "in_review"})  # the admin opened it meanwhile
-    again = await quote_submission.submit_project_quote(OWNER, PID, idempotency_key=KEY, now=NOW)
+    again = await quote_submission.submit_project_quote(
+        OWNER, PID, idempotency_key=KEY, now=NOW + timedelta(minutes=5)
+    )
     assert again.duplicate and again.status == "in_review"
+    assert db.get_data(*QUOTE)["submitted_at"] == NOW
     assert len(_outbox_entries(db)) == 1
     assert dispatch.await_count == 1
 

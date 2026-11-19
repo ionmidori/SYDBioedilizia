@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -128,6 +129,35 @@ class QuoteDossier(BaseModel):
     revisions: list[RevisionSummary] = Field(default_factory=list)
     deliveries: list[DeliverySummary] = Field(default_factory=list)
     proposal: QuoteProposal | None = None
+
+
+AdminChatRole = Literal["user", "assistant"]
+# Why part of the chat is highlighted: a change asked while the team had the
+# quote (`followup`), or the revision the client opened after a send (`revision`).
+ChatChangeKind = Literal["followup", "revision"]
+
+
+class AdminChatMessage(BaseModel):
+    """One turn of the client chat as the admin reads it: text only, no tool rows."""
+    id: str
+    role: AdminChatRole
+    text: str
+    at: datetime | None = None
+    room_label: str | None = None
+    has_media: bool = False
+    # Part of the change the team has to read (at or after `AdminChat.change_since`).
+    in_change: bool = False
+
+
+class AdminChat(BaseModel):
+    """The client chat of a quote (GET /api/admin/quotes/{id}/chat), oldest first.
+    `change_kind` set with `change_since` None: the start of the change is not
+    known (a quote sent before `submitted_at` existed), nothing is highlighted."""
+    messages: list[AdminChatMessage] = Field(default_factory=list)
+    change_kind: ChatChangeKind | None = None
+    change_since: datetime | None = None
+    # Older messages were left out (ADMIN_CHAT_MAX_MESSAGES).
+    truncated: bool = False
 
 
 class EditQuoteBody(BaseModel):

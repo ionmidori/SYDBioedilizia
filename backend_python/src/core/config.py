@@ -198,6 +198,10 @@ class Settings(BaseSettings):
     ROOM_BRIEF_HISTORY_MESSAGES: int = Field(
         default=20, ge=1, description="Newest messages of the room read by one refresh."
     )
+    # Client chat shown in the admin dossier (src/services/admin_chat.py).
+    ADMIN_CHAT_MAX_MESSAGES: int = Field(
+        default=200, ge=1, le=1000, description="Newest chat rows read for the admin dossier."
+    )
 
     # Feature Flags (App Check enabled by default for production safety)
     ENABLE_APP_CHECK: bool = Field(default=True, description="Enable Firebase App Check (set to false for local dev)")

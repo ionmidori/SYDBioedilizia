@@ -11,6 +11,7 @@ import { z } from 'zod';
 
 import { fetchWithAuth } from '@/lib/api-client';
 import {
+  type AdminChat,
   type AdminMe,
   type AdminQuoteList,
   type ApplyProposalBody,
@@ -21,6 +22,7 @@ import {
   type SendDefaults,
   type SendQuoteBody,
   type SendQuoteResponse,
+  adminChatSchema,
   adminMeSchema,
   adminQuoteListSchema,
   mediaUrlResponseSchema,
@@ -169,6 +171,9 @@ export const adminApi = {
 
   getRevision: (projectId: string, version: number): Promise<QuoteRevision> =>
     request(`${quote(projectId)}/revisions/${version}`, quoteRevisionSchema),
+
+  /** The client chat, with the change the team has to read marked `in_change`. */
+  getChat: (projectId: string): Promise<AdminChat> => request(`${quote(projectId)}/chat`, adminChatSchema),
 
   /** Fresh 15-minute URL; `attachment` makes the browser save it as PRV-…_foto-1.jpg. */
   getMediaUrl: (

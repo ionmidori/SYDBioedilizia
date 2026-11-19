@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from src.api.routes import admin_quotes as routes
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import AppException
+from src.repositories import conversation_repository, room_repository
 from src.schemas.internal import UserSession
 from src.services.client_profile import ClientProfile
 from src.services.email.console import ConsoleProvider
@@ -68,7 +69,9 @@ def _client(role: str | None = "admin") -> TestClient:
     return TestClient(app)
 
 
-@pytest.mark.parametrize("path", ["/api/admin/me", "/api/admin/quotes", f"/api/admin/quotes/{PID}"])
+@pytest.mark.parametrize(
+    "path", ["/api/admin/me", "/api/admin/quotes", f"/api/admin/quotes/{PID}", f"/api/admin/quotes/{PID}/chat"]
+)
 def test_non_admin_is_refused(db, path):
     resp = _client(role=None).get(path)
     assert resp.status_code == 403 and resp.json()["error_code"] == "ADMIN_REQUIRED"
@@ -389,6 +392,31 @@ def test_a_revision_with_a_spec_of_an_older_shape_still_opens(db):
                                       "specs": [{"room_id": "bagno1", "spec": {"old_field": 1}}]})
 
     assert _client().get(f"/api/admin/quotes/{PID}/revisions/1").status_code == 200
+
+
+def test_the_client_chat_highlights_the_change_asked_with_the_team(db, monkeypatch):
+    monkeypatch.setattr(conversation_repository, "get_async_firestore_client", lambda: db)
+    monkeypatch.setattr(room_repository, "get_async_firestore_client", lambda: db)
+    t_submit = datetime(2026, 10, 11, 9, tzinfo=UTC)
+    _seed(db, submitted_at=t_submit, client_followup={"requested_at": T0, "count": 1, "version": 2})
+    db.put("sessions", PID, "messages", "m1", {"role": "user", "content": "rifate il bagno", "timestamp": T0})
+    db.put("sessions", PID, "messages", "m2", {
+        "role": "user", "content": "aggiungo la cucina", "timestamp": datetime(2026, 10, 12, 9, tzinfo=UTC),
+    })
+
+    resp = _client().get(f"/api/admin/quotes/{PID}/chat")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["change_kind"] == "followup" and body["truncated"] is False
+    assert [(m["text"], m["in_change"]) for m in body["messages"]] == [
+        ("rifate il bagno", False), ("aggiungo la cucina", True),
+    ]
+
+
+def test_the_client_chat_of_a_missing_quote_is_not_found(db):
+    resp = _client().get(f"/api/admin/quotes/{PID}/chat")
+    assert resp.status_code == 404 and resp.json()["error_code"] == "QUOTE_NOT_FOUND"
 
 
 def test_dossier_carries_the_ai_proposal_without_its_specs(db):

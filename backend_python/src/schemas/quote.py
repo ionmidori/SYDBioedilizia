@@ -268,6 +268,8 @@ class QuoteSchema(BaseModel):
     # PR-3): only then does the client history show it. Cleared when the admin
     # revises or reopens the quote (that work stays confidential).
     client_revision: bool | None = None
+    # Last time the client sent the quote to the team (src/services/quote_submission.py).
+    submitted_at: datetime | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     # Optimistic-concurrency token: bumped on every content change.
