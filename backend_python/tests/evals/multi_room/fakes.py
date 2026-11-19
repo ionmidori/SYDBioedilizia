@@ -36,6 +36,7 @@ from google.adk.tools.base_tool import BaseTool
 from google.adk.tools.tool_context import ToolContext
 from google.api_core.exceptions import NotFound
 from google.genai import types
+from src.core.config import settings
 from src.core.exceptions import ProjectFileNotFoundError, RoomNotFoundError
 from src.core.money import sum_amounts
 from src.repositories.spec_store import CHAT_SPEC_KEY, SpecChange
@@ -46,6 +47,7 @@ from src.services.company_info_service import CompanyInfoService
 from src.services.pricing_service import PricingService
 from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult, QuoteStatusView
 from src.services.quote_followup import FollowupResult
+from src.services.quote_proposal import ProposalDraft
 from src.services.quote_state import ai_draft_action
 from src.services.room_aggregation import load_rules
 from src.tools.quota import QuotaDecision
@@ -264,6 +266,8 @@ class QuoteRecorder:
     quotes: list[QuoteSchema] = field(default_factory=list)
     outcomes: list[DraftSaveOutcome] = field(default_factory=list)
     relayed: int = 0
+    # The AI revision proposal of each relayed request (None: relayed without one).
+    proposals: list[ProposalDraft | None] = field(default_factory=list)
 
     def _action(self) -> str:
         current = self.current
@@ -287,10 +291,13 @@ class QuoteRecorder:
         self.outcomes.append(result.outcome)
         return result
 
-    async def relay(self, db: Any, project_id: str, now: Any = None) -> FollowupResult | None:
+    async def relay(
+        self, db: Any, project_id: str, now: Any = None, *, proposal: ProposalDraft | None = None
+    ) -> FollowupResult | None:
         if self.current is None or self._action() != "relay":
             return None
         self.relayed += 1
+        self.proposals.append(proposal)
         return FollowupResult(self.current.status, self.current.quote_number, notified=True)
 
     def revision_problems(self) -> list[str]:
@@ -407,6 +414,9 @@ class ResponseRecorder(BasePlugin):
 RESPONSES = ResponseRecorder()
 
 
+_TOOL_REPLY_LOGGED = 1500  # characters of each tool reply in the eval log
+
+
 class ToolCallRecorder(BasePlugin):
     """Tools called in every turn (invocation), in order: every turn is listed,
     also one without tool calls."""
@@ -414,9 +424,11 @@ class ToolCallRecorder(BasePlugin):
     def __init__(self) -> None:
         super().__init__(name="eval_tool_call_recorder")
         self.calls: dict[str, list[tuple[str, str]]] = {}  # invocation → [(agent, tool)]
+        self.results: dict[str, list[tuple[str, str]]] = {}  # invocation → [(agent.tool, reply)]
 
     def reset(self) -> None:
         self.calls = {}
+        self.results = {}
 
     async def before_run_callback(self, *, invocation_context: InvocationContext) -> types.Content | None:
         self.calls.setdefault(invocation_context.invocation_id, [])
@@ -427,6 +439,25 @@ class ToolCallRecorder(BasePlugin):
     ) -> dict[str, Any] | None:
         self.calls.setdefault(tool_context.invocation_id, []).append((tool_context.agent_name, tool.name))
         return None
+
+    async def after_tool_callback(
+        self, *, tool: BaseTool, tool_args: dict[str, Any], tool_context: ToolContext, result: object
+    ) -> dict[str, Any] | None:
+        # A plugin error stops the eval: any result shape is only logged.
+        reply = result.get("result", result) if isinstance(result, dict) else result
+        self.calls.setdefault(tool_context.invocation_id, [])  # the turn numbering of `report`
+        self.results.setdefault(tool_context.invocation_id, []).append(
+            (f"{tool_context.agent_name}.{tool.name}", repr(reply)[:_TOOL_REPLY_LOGGED])
+        )
+        return None
+
+    def result_report(self) -> list[str]:
+        """One line per tool reply: what the model was told (compare with its reply)."""
+        return [
+            f"turn {i}: {tool} → {reply}"
+            for i, invocation in enumerate(self.calls, 1)
+            for tool, reply in self.results.get(invocation, [])
+        ]
 
     def turns(self) -> list[list[tuple[str, str]]]:
         return list(self.calls.values())
@@ -614,6 +645,18 @@ def _room_correction_problems(run: MultiRoomRun) -> list[str]:
     return found
 
 
+def _quote_with_team_problems(run: MultiRoomRun) -> list[str]:
+    """PR 3: the change reaches the team once, nothing is written or sent again.
+    A request relayed without an AI proposal is right only while the analysis
+    still needs the client's answers: the reply asks them."""
+    found = run.quotes.relay_problems() + run.submissions.problems(expected=0)
+    replies = run.responses.turns()
+    last = replies[-1] if replies else ""
+    if None in run.quotes.proposals and "?" not in last:
+        found.append(f"relayed without an AI proposal and the reply asks nothing: {last[:200]!r}")
+    return found
+
+
 # What each multi-room eval set checks in the backend after its run (run_evals.py).
 BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "multi_room_flow.test.json": lambda run: run.renders.problems(),
@@ -635,7 +678,7 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     # A sent quote + a new request: the next revision (same PRV), sent after the explicit yes.
     "quote_revision.test.json": lambda run: run.quotes.revision_problems() + run.submissions.problems(expected=1),
     # The team has the quote: the change reaches the team, nothing written or sent again.
-    "quote_with_team.test.json": lambda run: run.quotes.relay_problems() + run.submissions.problems(expected=0),
+    "quote_with_team.test.json": _quote_with_team_problems,
     # PR 1 · C: a bathroom without measures goes straight to the tool and the card.
     "measures_on_card.test.json": _measures_on_card_problems,
     # A bedroom without its size: the floor area is asked once before the tool (18 Nov test chat).
@@ -704,6 +747,8 @@ def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
         ):
             stack.enter_context(patch(target, return_value=repo))
         stack.enter_context(patch("src.tools.quote_tools.get_spec_store", return_value=specs))
+        # select_room would measure the room's photos in the background on the real Firestore (PR 2).
+        stack.enter_context(patch.object(settings, "ROOM_VISION_ENABLED", False))
         stack.enter_context(patch("src.adk.tools.latest_uploaded_photo_url", new=AsyncMock(return_value=newest_project_photo)))
         # The gate itself (not only the account lookup): the dev auth bypass of a local .env would open it.
         stack.enter_context(patch("src.adk.tools._is_guest", new=AsyncMock(return_value=guest)))

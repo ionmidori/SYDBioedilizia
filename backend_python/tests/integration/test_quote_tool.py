@@ -82,7 +82,7 @@ def _status(status: str, *, sent_before: bool = False, delivery: str | None = No
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status", ["pending_review", "in_review", "approved"])
-async def test_a_quote_the_team_has_is_relayed_without_analysing_the_project(status):
+async def test_a_quote_the_team_has_gets_an_ai_proposal_not_a_draft(status):
     relay = AsyncMock(return_value=FollowupResult(status, "PRV-2026-0009", notified=True))
     with patch("src.tools.quote_tools.ConversationRepository") as MockRepo, patch(
         "src.tools.quote_tools.get_insight_engine"
@@ -92,16 +92,19 @@ async def test_a_quote_the_team_has_is_relayed_without_analysing_the_project(sta
         "src.tools.quote_tools.save_ai_draft", new=AsyncMock()
     ) as mock_save:
         analyse = _engine(mock_get_engine)
-        MockRepo.return_value.get_context = AsyncMock(return_value=[])
+        MockRepo.return_value.get_context = AsyncMock(return_value=[
+            {"role": "user", "content": "Rifai il bagno di 6 mq", "attachments": []}
+        ])
         result = await suggest_quote_items_wrapper(session_id="s1", project_id="p1", user_id="u1")
 
     relay.assert_awaited_once()
     assert relay.await_args.args[1] == "p1"
-    analyse.assert_not_awaited()  # no vision/InsightEngine cost for a request we do not write
-    mock_save.assert_not_awaited()
+    analyse.assert_awaited_once()  # analysed like a first quote, for the team
+    assert relay.await_args.kwargs["proposal"] is not None
+    mock_save.assert_not_awaited()  # never written on the quote the team has
     assert "PRV-2026-0009" in result
-    assert "ho segnalato" in result
-    assert "Vuoi che invii" not in result
+    assert "proposta di modifica" in result
+    assert "Vuoi che invii" not in result and "€" not in result
 
 
 @pytest.mark.asyncio

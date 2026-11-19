@@ -100,6 +100,27 @@ describe('admin quote Golden Sync', () => {
     expect(parsed.media[0].url).toContain('signed');
   });
 
+  it('parses the AI revision proposal of a dossier', () => {
+    const proposal = {
+      based_on_version: 3,
+      created_at: '2026-11-19T10:00:00Z',
+      summary: 'Salone: pittura pareti',
+      items: [dossier.quote.items[0]],
+      rooms: [
+        { room_id: 'salone1', room_label: 'Salone', room_type: 'soggiorno', floor_mq: 30, walls_mq: null, room_subtotal: 488.4 },
+      ],
+      financials: dossier.quote.financials,
+      estimate: { low: 550, high: 700, precision: 70, policy_version: 'v1' },
+      manual_work: [{ work: 'Rasatura', room_id: 'salone1', room_label: 'Salone', origin: 'package' }],
+      ai_warnings: [],
+      applied_at: null,
+    };
+    const parsed = quoteDossierSchema.parse({ ...dossier, proposal });
+    expect(parsed.proposal?.estimate?.low).toBe(550);
+    expect(parsed.proposal?.rooms[0].room_label).toBe('Salone');
+    expect(quoteDossierSchema.parse(dossier).proposal ?? null).toBeNull();
+  });
+
   it('parses an inbox page', () => {
     const page = adminQuoteListSchema.parse({
       items: [

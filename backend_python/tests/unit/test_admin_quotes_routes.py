@@ -389,3 +389,29 @@ def test_a_revision_with_a_spec_of_an_older_shape_still_opens(db):
                                       "specs": [{"room_id": "bagno1", "spec": {"old_field": 1}}]})
 
     assert _client().get(f"/api/admin/quotes/{PID}/revisions/1").status_code == 200
+
+
+def test_dossier_carries_the_ai_proposal_without_its_specs(db):
+    _seed(db)
+    db.put("projects", PID, "private_data", "quote_proposal", {
+        "based_on_version": 2, "created_at": T0, "summary": "Salone: pittura",
+        "items": [{"sku": "PIT-001", "description": "Pittura", "unit": "mq", "qty": 30.0,
+                   "unit_price": 12.0, "total": 360.0, "manual_override": False}],
+        "estimate": {"low": 400.0, "high": 520.0, "precision": 70, "policy_version": "v1"},
+        "specs": [],
+    })
+    with patch.object(routes, "get_client_profile", new=AsyncMock(return_value=None)):
+        body = _client().get(f"/api/admin/quotes/{PID}").json()
+
+    proposal = body["proposal"]
+    assert proposal["based_on_version"] == 2 and proposal["summary"] == "Salone: pittura"
+    assert proposal["estimate"]["low"] == 400.0 and proposal["items"][0]["sku"] == "PIT-001"
+    assert "specs" not in proposal
+
+
+def test_dossier_without_a_proposal(db):
+    _seed(db)
+    with patch.object(routes, "get_client_profile", new=AsyncMock(return_value=None)):
+        body = _client().get(f"/api/admin/quotes/{PID}").json()
+
+    assert body["proposal"] is None

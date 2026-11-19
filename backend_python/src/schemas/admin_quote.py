@@ -11,13 +11,19 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from src.core.money import Money
+from src.schemas.price_range import PriceEstimate
 from src.schemas.quote import (
     DeliveryRecordStatusType,
+    ManualWorkItem,
     MediaRef,
+    QuoteAiWarning,
     QuoteDeliveryStatusType,
+    QuoteFinancials,
     QuoteItem,
+    QuoteRoom,
     QuoteSchema,
     QuoteStatusType,
+    RevisionRoomSpec,
 )
 
 
@@ -90,6 +96,27 @@ class DeliverySummary(BaseModel):
     last_event_at: datetime | None = None
 
 
+class QuoteProposal(BaseModel):
+    """AI revision proposal: a change the client asked in the chat while the team
+    had the quote, analysed like a first quote but never written on it
+    (projects/{pid}/private_data/quote_proposal, replaced at each request)."""
+    model_config = ConfigDict(extra="forbid")
+    # The quote version the team had when the client asked.
+    based_on_version: int = Field(..., ge=1)
+    created_at: datetime
+    summary: str = ""
+    items: list[QuoteItem] = Field(default_factory=list)
+    rooms: list[QuoteRoom] = Field(default_factory=list)
+    financials: QuoteFinancials = Field(default_factory=QuoteFinancials)  # type: ignore[arg-type]
+    estimate: PriceEstimate | None = None
+    manual_work: list[ManualWorkItem] = Field(default_factory=list)
+    ai_warnings: list[QuoteAiWarning] = Field(default_factory=list)
+    # What the lines were computed from, for the revision when the team applies it.
+    # exclude=True: never in an API response (no TypeScript twin), like QuoteRevision.specs.
+    specs: list[RevisionRoomSpec] = Field(default_factory=list, exclude=True)
+    applied_at: datetime | None = None
+
+
 class QuoteDossier(BaseModel):
     project_id: str
     project_name: str | None = None
@@ -100,6 +127,7 @@ class QuoteDossier(BaseModel):
     media: list[DossierMedia] = Field(default_factory=list)
     revisions: list[RevisionSummary] = Field(default_factory=list)
     deliveries: list[DeliverySummary] = Field(default_factory=list)
+    proposal: QuoteProposal | None = None
 
 
 class EditQuoteBody(BaseModel):

@@ -12,6 +12,7 @@ For live eval runs, use: uv run python tests/evals/run_evals.py
 """
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from google.adk.evaluation.eval_set import EvalSet
@@ -325,9 +326,56 @@ class TestMultiRoomQuoteEval:
         assert BACKEND_CHECKS["quote_revision.test.json"](run) == ["submit_quote_request called 0 times, expected 1"]
 
         with multi_room_backend("quote_with_team.test.json") as run:
-            relayed = await run.quotes.relay(None, "eval")
+            relayed = await run.quotes.relay(None, "eval", proposal=MagicMock())
         assert relayed is not None and relayed.status == "in_review"
         assert BACKEND_CHECKS["quote_with_team.test.json"](run) == []
+
+        # Without a proposal: right only while the reply asks the missing data.
+        with multi_room_backend("quote_with_team.test.json") as run:
+            await run.quotes.relay(None, "eval")
+            run.responses.texts = {"inv": ["Ho segnalato al team la tua richiesta."]}
+        assert BACKEND_CHECKS["quote_with_team.test.json"](run) == [
+            "relayed without an AI proposal and the reply asks nothing: 'Ho segnalato al team la tua richiesta.'"
+        ]
+
+        with multi_room_backend("quote_with_team.test.json") as run:
+            await run.quotes.relay(None, "eval")
+            run.responses.texts = {"inv": ["Ho segnalato al team la richiesta. Quanti mq è il bagno?"]}
+        assert BACKEND_CHECKS["quote_with_team.test.json"](run) == []
+
+    async def test_the_room_photo_vision_never_runs_in_an_eval(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """select_room would start it in the background on the real Firestore (PR 2)."""
+        from src.core.config import settings
+        from src.services.room_photo_vision import schedule_room_vision
+        from tests.evals.multi_room.fakes import multi_room_backend
+
+        monkeypatch.setattr(settings, "ROOM_VISION_ENABLED", True)
+        with multi_room_backend():
+            task = schedule_room_vision("eval", "bagno1")
+        if task is not None:
+            task.cancel()
+        assert task is None
+
+    async def test_the_tool_replies_are_recorded_for_the_log(self) -> None:
+        """What a tool told the model: the reply can then be compared with it."""
+        from types import SimpleNamespace
+
+        from tests.evals.multi_room.fakes import ToolCallRecorder
+
+        calls = ToolCallRecorder()
+        context = SimpleNamespace(invocation_id="inv1", agent_name="quote")
+        await calls.after_tool_callback(
+            tool=SimpleNamespace(name="suggest_quote_items"), tool_args={}, tool_context=context,
+            result={"result": "Quanti mq è il bagno?\n\nIntanto ho segnalato al team la tua richiesta."},
+        )
+        # transfer_to_agent returns None
+        await calls.after_tool_callback(
+            tool=SimpleNamespace(name="transfer_to_agent"), tool_args={}, tool_context=context, result=None,
+        )
+        assert calls.result_report() == [
+            "turn 1: quote.suggest_quote_items → 'Quanti mq è il bagno?\\n\\nIntanto ho segnalato al team la tua richiesta.'",
+            "turn 1: quote.transfer_to_agent → None",
+        ]
 
     def test_every_multi_room_set_has_a_backend_check(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS

@@ -21,6 +21,7 @@ from src.core.config import settings
 from src.services.email import outbox
 from src.services.email_templates import admin_client_followup_email, digest_from_quote
 from src.services.quote_drafts import quote_doc_ref
+from src.services.quote_proposal import ProposalDraft, proposal_digest, proposal_payload, proposal_ref, to_proposal
 from src.services.quote_state import ai_draft_action, status_label_it
 from src.utils.datetime_utils import utc_now
 
@@ -53,11 +54,12 @@ async def _transact(db: Any, body: Any) -> Any:
 
 
 async def relay_tx(
-    transaction: Any, db: Any, project_id: str, now: datetime
+    transaction: Any, db: Any, project_id: str, now: datetime, *, proposal: ProposalDraft | None = None
 ) -> tuple[FollowupResult | None, str | None]:
-    """Record the request and queue the admin email. Returns (None, None) when
-    the chat may write the quote after all (the status changed): the caller
-    drafts instead. Otherwise the result and the outbox id to dispatch."""
+    """Record the request (with the AI revision `proposal`, if any, stored apart:
+    quote_proposal) and queue the admin email. Returns (None, None) when the chat
+    may write the quote after all (the status changed): the caller drafts
+    instead. Otherwise the result and the outbox id to dispatch."""
     ref = quote_doc_ref(db, project_id)
     snap = await ref.get(transaction=transaction)
     if not snap.exists:
@@ -70,10 +72,20 @@ async def relay_tx(
     version = int(quote.get("version") or 1)
     previous = quote.get("client_followup") or {}
     count = int(previous.get("count") or 0) + 1 if previous.get("version") == version else 1
-    out_ref = db.collection(outbox.OUTBOX).document(followup_id_for(project_id, version, str(status)))
-    already_emailed = (await out_ref.get(transaction=transaction)).exists
+    # The proposal has its own email: a request relayed first without one (a
+    # measure was missing) still lets the proposal reach the team later; a plain
+    # request after either email sends nothing more.
+    proposal_email = db.collection(outbox.OUTBOX).document(followup_id_for(project_id, version, f"{status}:proposal"))
+    plain_email = db.collection(outbox.OUTBOX).document(followup_id_for(project_id, version, str(status)))
+    out_ref = proposal_email if proposal is not None else plain_email
+    blocking = [proposal_email] if proposal is not None else [plain_email, proposal_email]
+    # Every read before the first write (Firestore transactions).
+    already_emailed = any([(await email.get(transaction=transaction)).exists for email in blocking])
 
     transaction.update(ref, {"client_followup": {"requested_at": now, "count": count, "version": version}})
+    stored = to_proposal(proposal, version=version, now=now) if proposal is not None else None
+    if stored is not None:
+        transaction.set(proposal_ref(db, project_id), proposal_payload(stored))
     result = FollowupResult(str(status), quote.get("quote_number"), notified=False)
     if already_emailed:
         return result, None
@@ -82,7 +94,8 @@ async def relay_tx(
         logger.error("Admin notification skipped: ADMIN_EMAIL not configured.")
         return result, None
     content = admin_client_followup_email(
-        digest=digest_from_quote(quote), status_label=status_label_it(status), admin_url=settings.ADMIN_DASHBOARD_URL
+        digest=digest_from_quote(quote), status_label=status_label_it(status), admin_url=settings.ADMIN_DASHBOARD_URL,
+        proposal=proposal_digest(stored, quote.get("rooms") or []) if stored is not None else None,
     )
     transaction.set(
         out_ref,
@@ -94,10 +107,13 @@ async def relay_tx(
     return FollowupResult(result.status, result.quote_number, notified=True), out_ref.id
 
 
-async def relay_client_request(db: Any, project_id: str, now: datetime | None = None) -> FollowupResult | None:
-    """Relay a change asked in the chat to the team (see the module docstring)."""
+async def relay_client_request(
+    db: Any, project_id: str, now: datetime | None = None, *, proposal: ProposalDraft | None = None
+) -> FollowupResult | None:
+    """Relay a change asked in the chat to the team (see the module docstring),
+    with the AI revision `proposal` the chat analysed, if any."""
     when = now or utc_now()
-    result, queued_id = await _transact(db, lambda tx: relay_tx(tx, db, project_id, when))
+    result, queued_id = await _transact(db, lambda tx: relay_tx(tx, db, project_id, when, proposal=proposal))
     if queued_id:
         await outbox.dispatch_soon(db, queued_id, when)
     if result is not None:

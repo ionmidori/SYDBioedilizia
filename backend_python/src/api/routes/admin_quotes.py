@@ -48,6 +48,7 @@ from src.services.email import get_email_provider, outbox
 from src.services.email_templates import attachment_filename, client_quote_email
 from src.services.pdf_service import PdfService, resolve_validity
 from src.services.quote_drafts import quote_doc_ref, revision_ref
+from src.services.quote_proposal import read_proposal
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,8 @@ async def get_dossier(
     project_id: str = _PID,
     admin: UserSession = Depends(require_admin),  # pyright: ignore[reportUnusedParameter]
 ) -> QuoteDossier:
-    """Everything the admin needs to decide: quote, client, request, media, history."""
+    """Everything the admin needs to decide: quote, client, request, media, history,
+    and the AI revision proposal of a change the client asked meanwhile."""
     db = get_async_firestore_client()
     quote = await svc.read_quote(db, project_id)
     project_snap = await db.collection("projects").document(project_id).get()
@@ -123,11 +125,12 @@ async def get_dossier(
 
     snapshot = quote.get("client_snapshot") or {}
     owner = quote.get("user_id") or project.get("userId") or ""
-    media, revisions, deliveries, live = await asyncio.gather(
+    media, revisions, deliveries, live, proposal = await asyncio.gather(
         svc.signed_media(quote, project_id),
         svc.revision_summaries(db, project_id),
         svc.delivery_summaries(db, project_id),
         get_client_profile(owner) if owner else asyncio.sleep(0, result=None),
+        read_proposal(db, project_id),
     )
     client_live = None
     changed = False
@@ -149,6 +152,7 @@ async def get_dossier(
         media=[DossierMedia(**m) for m in media],
         revisions=[RevisionSummary(**r) for r in revisions if r.get("version")],
         deliveries=[DeliverySummary(**d) for d in deliveries],
+        proposal=proposal,
     )
 
 
