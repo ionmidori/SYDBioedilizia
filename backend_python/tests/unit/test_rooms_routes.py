@@ -225,7 +225,6 @@ async def test_render_links_its_photo_by_file_id_and_inherits_the_room(monkeypat
     rooms = MagicMock(find_file_by_storage_path=AsyncMock(return_value={"id": "a1", "roomId": "bagno"}))
     files = MagicMock(save_file_metadata=AsyncMock(return_value="r1"))
     with patch.object(generate_render, "download_image_smart", new=AsyncMock(return_value=(b"x", "image/jpeg"))), \
-         patch.object(generate_render, "analyze_image_triage", new=AsyncMock(return_value={})), \
          patch("src.vision.architect.generate_architectural_prompt", new=AsyncMock(side_effect=RuntimeError)), \
          patch.object(generate_render, "generate_image_i2i",
                       new=AsyncMock(return_value={"success": True, "mime_type": "png", "image_base64": "eA=="})), \

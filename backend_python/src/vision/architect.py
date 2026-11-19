@@ -1,11 +1,14 @@
+import asyncio
 import json
 import logging
 
 from google.genai import types as genai_types
 from pydantic import BaseModel
-from src.core.models import ModelRole, get_genai_client, get_model_id
+from src.core.models import ModelRole, build_thinking_config, get_genai_client, get_model_id
 
 logger = logging.getLogger(__name__)
+
+_ARCHITECT_TIMEOUT_SECONDS = 25.0
 
 class ArchitectOutput(BaseModel):
     """
@@ -128,18 +131,26 @@ Respond with ONLY valid JSON. No markdown, no explanations:
     try:
         client = get_genai_client()
 
-        response = await client.aio.models.generate_content(
-            model=model_name,
-            contents=[genai_types.Content(role="user", parts=[
-                genai_types.Part(text=system_prompt),
-                genai_types.Part(inline_data=genai_types.Blob(
-                    mime_type=mime_type,
-                    # genai Blob.data wants RAW bytes (the SDK base64-encodes it
-                    # for the wire); a base64 str would double-encode.
-                    data=image_bytes,
-                )),
-            ])],
-            config=genai_types.GenerateContentConfig(temperature=0.4),
+        response = await asyncio.wait_for(
+            client.aio.models.generate_content(
+                model=model_name,
+                contents=[genai_types.Content(role="user", parts=[
+                    genai_types.Part(text=system_prompt),
+                    genai_types.Part(inline_data=genai_types.Blob(
+                        mime_type=mime_type,
+                        # genai Blob.data wants RAW bytes (the SDK base64-encodes it
+                        # for the wire); a base64 str would double-encode.
+                        data=image_bytes,
+                    )),
+                ])],
+                config=genai_types.GenerateContentConfig(
+                    temperature=0.4,
+                    response_mime_type="application/json",
+                    thinking_config=build_thinking_config(ModelRole.VISION),
+                    http_options=genai_types.HttpOptions(timeout=int(_ARCHITECT_TIMEOUT_SECONDS * 1000)),
+                ),
+            ),
+            timeout=_ARCHITECT_TIMEOUT_SECONDS,
         )
 
         raw_output = response.text or ""
@@ -166,6 +177,9 @@ Respond with ONLY valid JSON. No markdown, no explanations:
             logger.error(f"[Architect] JSON Parse Error: {e}")
             return _create_fallback_output(target_style, preservation_list)
 
+    except TimeoutError as error:
+        logger.error(f"[Architect] Timed out after {_ARCHITECT_TIMEOUT_SECONDS}s")
+        raise Exception(f"Architect timed out after {_ARCHITECT_TIMEOUT_SECONDS}s") from error
     except Exception as error:
         logger.error(f"[Architect] Generation Error: {error}")
         raise Exception(f"Architect generation failed: {str(error)}") from error
