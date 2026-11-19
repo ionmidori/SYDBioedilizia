@@ -65,6 +65,7 @@ const mocks = {
   reject: mutation(),
   reopen: mutation(),
   regenerate: mutation(),
+  applyProposal: mutation(),
 };
 
 function setup(data: QuoteDossier, meUid = 'admin-1') {
@@ -80,6 +81,7 @@ function setup(data: QuoteDossier, meUid = 'admin-1') {
   m.useRejectQuote.mockReturnValue(mocks.reject as unknown as ReturnType<typeof m.useRejectQuote>);
   m.useReopenQuote.mockReturnValue(mocks.reopen as unknown as ReturnType<typeof m.useReopenQuote>);
   m.useRegeneratePdf.mockReturnValue(mocks.regenerate as unknown as ReturnType<typeof m.useRegeneratePdf>);
+  m.useApplyProposal.mockReturnValue(mocks.applyProposal as unknown as ReturnType<typeof m.useApplyProposal>);
   m.useSendDefaults.mockReturnValue({ isPending: true, isError: false } as unknown as ReturnType<typeof m.useSendDefaults>);
   return render(<DossierView projectId="p1" />);
 }
@@ -530,5 +532,48 @@ describe('quoteRequestSchema', () => {
     });
     expect(parsed.manual_work[0].origin).toBe('an_origin_added_later');
     expect(parsed.ai_warnings[0].skus).toEqual([]);
+  });
+});
+
+describe('DossierView — AI revision proposal', () => {
+  const PROPOSAL = {
+    based_on_version: 2,
+    created_at: '2026-11-19T10:00:00Z',
+    summary: 'Aggiunto il salone',
+    items: [{ sku: 'PIT-001', description: 'Pittura', unit: 'mq', qty: 30, unit_price: 12, total: 360, manual_override: false }],
+    rooms: [],
+    financials: { subtotal: 360, vat_rate: 0.22, vat_amount: 79.2, grand_total: 439.2 },
+    estimate: null,
+    manual_work: [],
+    ai_warnings: [],
+    applied_at: null,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    Object.values(mocks).forEach((mock) => Object.assign(mock, mutation()));
+  });
+
+  it('applies the proposal with the dossier ETag after the confirmation', () => {
+    setup(dossier({ proposal: PROPOSAL }, { rooms: [] }));
+    const panel = screen.getByTestId('dossier-proposal');
+    fireEvent.click(within(panel).getByRole('button', { name: 'Applica alla bozza' }));
+    fireEvent.click(within(panel).getByRole('button', { name: 'Conferma' }));
+    expect(mocks.applyProposal.mutate).toHaveBeenCalledWith(
+      { etag: '"v2"', proposalCreatedAt: '2026-11-19T10:00:00Z' },
+      expect.any(Object),
+    );
+  });
+
+  it('cannot apply while another admin holds the quote', () => {
+    setup(
+      dossier({ proposal: PROPOSAL }, { rooms: [], status: 'in_review', review: { locked_by: 'admin-2', locked_at: new Date().toISOString() } }),
+    );
+    expect(within(screen.getByTestId('dossier-proposal')).getByRole('button', { name: 'Applica alla bozza' })).toBeDisabled();
+  });
+
+  it('shows no panel without a proposal', () => {
+    setup(dossier());
+    expect(screen.queryByTestId('dossier-proposal')).not.toBeInTheDocument();
   });
 });

@@ -139,6 +139,14 @@ export const editQuoteBodySchema = z
   .strict();
 export type EditQuoteBody = z.infer<typeof editQuoteBodySchema>;
 
+// Which AI proposal the admin confirmed: the chat replaces it at each request.
+export const applyProposalBodySchema = z
+  .object({
+    proposal_created_at: z.string(),
+  })
+  .strict();
+export type ApplyProposalBody = z.infer<typeof applyProposalBodySchema>;
+
 export const reasonBodySchema = z
   .object({
     reason: z.string().min(3).max(1000),

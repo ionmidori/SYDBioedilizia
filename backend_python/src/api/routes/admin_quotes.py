@@ -26,6 +26,7 @@ from src.schemas.admin_quote import (
     AdminMe,
     AdminQuoteList,
     AdminQuoteListItem,
+    ApplyProposalBody,
     ClientLive,
     DeliverySummary,
     DossierMedia,
@@ -257,6 +258,32 @@ async def edit_quote(
         )
     )
     _audit(AuditAction.QUOTE_EDIT, project_id, admin, quote_number=result.quote_number, version=result.version)
+    response.headers["ETag"] = svc.etag_for(result.version)
+    return _write_response(result)
+
+
+@router.post("/quotes/{project_id}/proposal/apply", response_model=QuoteWriteResponse)
+@limiter.limit("60/minute")
+async def apply_proposal(
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+    response: Response,
+    body: ApplyProposalBody,
+    project_id: str = _PID,
+    if_match: str | None = Header(None, alias="If-Match"),
+    admin: UserSession = Depends(require_admin),
+) -> QuoteWriteResponse:
+    """Replace the draft with the AI revision proposal the admin saw; 409 PROPOSAL_OUTDATED
+    when it was replaced since, made on an older version, or is already applied."""
+    expected = svc.parse_if_match(if_match)
+    now = utc_now()
+    result = await _run(
+        lambda tx, db: svc.apply_proposal_tx(
+            tx, db, project_id, admin.uid, expected, now, proposal_created_at=body.proposal_created_at
+        )
+    )
+    _audit(
+        AuditAction.QUOTE_APPLY_PROPOSAL, project_id, admin, quote_number=result.quote_number, version=result.version
+    )
     response.headers["ETag"] = svc.etag_for(result.version)
     return _write_response(result)
 

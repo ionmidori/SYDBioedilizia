@@ -78,6 +78,16 @@ describe('adminApi', () => {
       expect((mockFetch.mock.calls[1][1] as RequestInit).headers).toMatchObject({ 'If-Match': '"v3"' });
     });
 
+    it('applies the AI proposal with the dossier ETag as If-Match', async () => {
+      mockFetch.mockResolvedValue(json(200, WRITE_OK));
+      const seen = { proposal_created_at: '2026-11-19T10:00:00Z' };
+      await expect(adminApi.applyProposal('p1', '"v2"', seen)).resolves.toMatchObject({ version: 3 });
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/py/admin/quotes/p1/proposal/apply');
+      expect(init).toMatchObject({ method: 'POST', body: JSON.stringify(seen) });
+      expect((init as RequestInit).headers).toMatchObject({ 'If-Match': '"v2"' });
+    });
+
     it('sends the Idempotency-Key on send', async () => {
       mockFetch.mockResolvedValue(
         json(202, { project_id: 'p1', delivery_id: 'd1', status: 'sent', delivery_status: 'queued' }),

@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle2, Loader2, Lock, MessageSquare, Save, TriangleAl
 import { ApproveDialog } from '@/components/admin/dossier/ApproveDialog';
 import { ClientCard, clientDisplayName, RequestCard } from '@/components/admin/dossier/DossierCards';
 import { DeliveryLog } from '@/components/admin/dossier/DeliveryLog';
+import { DossierProposal } from '@/components/admin/dossier/DossierProposal';
 import { EstimateRange } from '@/components/admin/dossier/EstimateRange';
 import { ErrorBanner } from '@/components/admin/dossier/ErrorBanner';
 import { MediaGallery } from '@/components/admin/dossier/MediaGallery';
@@ -20,6 +21,7 @@ import { DELIVERY_STATUS_CHIP, formatDateTime, formatEuro, QUOTE_STATUS_CHIP } f
 import {
   useAdminDossier,
   useAdminMe,
+  useApplyProposal,
   useApproveQuote,
   useClaimQuote,
   useEditQuote,
@@ -80,6 +82,7 @@ export function DossierView({ projectId }: { projectId: string }) {
   const reject = useRejectQuote(projectId);
   const reopen = useReopenQuote(projectId);
   const regenerate = useRegeneratePdf(projectId);
+  const applyProposal = useApplyProposal(projectId);
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [showErrors, setShowErrors] = useState(false);
@@ -170,6 +173,7 @@ export function DossierView({ projectId }: { projectId: string }) {
     claim.isPending ||
     release.isPending ||
     edit.isPending ||
+    applyProposal.isPending ||
     approve.isPending ||
     reject.isPending ||
     reopen.isPending;
@@ -207,7 +211,7 @@ export function DossierView({ projectId }: { projectId: string }) {
     });
 
   const resetErrors = () => {
-    for (const mutation of [claim, release, edit, approve, reject, reopen, regenerate]) mutation.reset();
+    for (const mutation of [claim, release, edit, applyProposal, approve, reject, reopen, regenerate]) mutation.reset();
   };
 
   const reload = () => {
@@ -240,6 +244,23 @@ export function DossierView({ projectId }: { projectId: string }) {
         },
       },
     );
+  };
+
+  // The proposal replaces the draft: unsaved edits must be saved or dropped first.
+  const proposalBlocker = !reviewable
+    ? 'Riapri il preventivo per modificarlo'
+    : lockedByOther
+      ? 'Il preventivo è in revisione da un altro admin'
+      : draftShown
+        ? 'Salva o annulla prima le modifiche'
+        : undefined;
+
+  const applyAiProposal = (proposalCreatedAt: string) => {
+    if (busy || proposalBlocker) return;
+    setNotice(null);
+    applyProposal.mutate({ etag, proposalCreatedAt }, {
+      onSuccess: (result) => setNotice(`Proposta AI applicata alla bozza: nuova revisione ${result.version}.`),
+    });
   };
 
   const onSent = (result: SendQuoteResponse, to: string) => {
@@ -361,7 +382,7 @@ export function DossierView({ projectId }: { projectId: string }) {
           Ultimo motivo registrato: {review.reason}
         </p>
       )}
-      <ErrorBanner error={claim.error ?? release.error ?? edit.error ?? regenerate.error} onReload={reload} />
+      <ErrorBanner error={claim.error ?? release.error ?? edit.error ?? applyProposal.error ?? regenerate.error} onReload={reload} />
 
       {/* ── Actions ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Azioni sul preventivo">
@@ -432,6 +453,17 @@ export function DossierView({ projectId }: { projectId: string }) {
         <div className="lg:col-span-2 space-y-4 min-w-0">
           <RequestCard request={quote.request} projectName={dossier.data.project_name} createdAt={quote.created_at} />
           <MediaGallery projectId={projectId} media={dossier.data.media} />
+          <DossierProposal
+            proposal={dossier.data.proposal}
+            quoteVersion={quote.version}
+            quoteRooms={quote.rooms}
+            quoteItems={savedItems}
+            vatRate={quote.financials.vat_rate}
+            canApply={!busy && proposalBlocker === undefined}
+            disabledReason={proposalBlocker}
+            pending={applyProposal.isPending}
+            onApply={applyAiProposal}
+          />
           <QuoteItemsEditor
             items={shownItems}
             saved={savedItems}

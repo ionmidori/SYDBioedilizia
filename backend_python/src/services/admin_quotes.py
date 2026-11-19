@@ -32,6 +32,8 @@ from google.cloud.firestore_v1 import DELETE_FIELD, FieldFilter, Query
 from src.core.exceptions import (
     MediaNotFoundError,
     PreconditionRequiredError,
+    ProposalNotFoundError,
+    ProposalOutdatedError,
     QuoteDeliveryPendingError,
     QuoteLockedError,
     QuoteNotFoundError,
@@ -44,6 +46,7 @@ from src.services.pdf_service import quote_pdf_blob_path
 from src.services.pricing_service import PricingService
 from src.services.quote_diff import diff_items
 from src.services.quote_drafts import build_revision, quote_doc_ref, revision_ref
+from src.services.quote_proposal import PROPOSAL_APPLIED_REASON, proposal_ref, read_proposal
 from src.services.quote_state import QuoteEvent, QuoteStatus, transition
 from src.services.room_aggregation import assign_sections, with_subtotals
 from src.utils.download import session_storage_prefixes
@@ -218,6 +221,78 @@ async def edit_tx(
     )
     revision["diff"] = [c.model_dump(exclude_none=True) for c in diff_items(previous_items, items_dump)]
     transaction.set(revision_ref(ref, version), revision)
+    return _result(project_id, quote, status.value, version)
+
+
+async def apply_proposal_tx(
+    transaction: Any,
+    db: Any,
+    project_id: str,
+    admin_uid: str,
+    expected_version: int,
+    now: datetime,
+    *,
+    proposal_created_at: datetime,
+) -> WriteResult:
+    """Replace the draft with the AI revision proposal (relay plan, PR 4).
+
+    Same checks as an edit, plus the proposal must be the one the admin saw
+    (`proposal_created_at`: the chat replaces it at each request without a new
+    quote version), made on the current version and not applied yet. The revision is an AI one (actor = the admin who applied
+    it), so the learning ledger compares the approved quote with what the AI
+    proposed. The quote's VAT rate and admin notes are kept."""
+    ref, quote = await _read(transaction, db, project_id)
+    _check_version(project_id, quote, expected_version)
+    _check_lock(project_id, quote, admin_uid, now)
+    proposal = await read_proposal(db, project_id, transaction=transaction)
+    if proposal is None:
+        raise ProposalNotFoundError(project_id)
+    if (
+        proposal.applied_at is not None
+        or proposal.based_on_version != expected_version
+        or proposal.created_at != proposal_created_at
+    ):
+        raise ProposalOutdatedError(
+            project_id, proposal.based_on_version, expected_version, applied=proposal.applied_at is not None
+        )
+    status = transition(quote.get("status", ""), QuoteEvent.EDIT)
+
+    previous_items: list[dict[str, Any]] = list(quote.get("items") or [])
+    items = [item.model_copy(update={"total": line_total(item.qty, item.unit_price), "manual_override": False})
+             for item in proposal.items]
+    # Like an edit: every line in a section of the proposal, subtotals recomputed.
+    sections = proposal.rooms
+    if sections:
+        items = assign_sections(items, sections)
+        sections = with_subtotals(sections, items)
+    rate = float((quote.get("financials") or {}).get("vat_rate", proposal.financials.vat_rate))
+    financials = PricingService.calculate_financials(items, vat_rate=rate)
+    notes = quote.get("admin_notes")
+    version = expected_version + 1
+    items_dump = [i.model_dump() for i in items]
+
+    transaction.update(
+        ref,
+        {
+            "items": items_dump,
+            "rooms": [s.model_dump(exclude_none=True) for s in sections],
+            "financials": financials.model_dump(),
+            "estimate": proposal.estimate.model_dump() if proposal.estimate is not None else DELETE_FIELD,
+            "request.manual_work": [w.model_dump(exclude_none=True) for w in proposal.manual_work],
+            "request.ai_warnings": [w.model_dump(exclude_none=True) for w in proposal.ai_warnings],
+            "version": version,
+            "status": status.value,
+            "updated_at": now,
+            **_lock_fields(admin_uid, now),
+        },
+    )
+    revision = build_revision(
+        version, items, financials, notes, "ai", admin_uid, now,
+        reason=PROPOSAL_APPLIED_REASON, rooms=sections, specs=proposal.specs, estimate=proposal.estimate,
+    )
+    revision["diff"] = [c.model_dump(exclude_none=True) for c in diff_items(previous_items, items_dump)]
+    transaction.set(revision_ref(ref, version), revision)
+    transaction.update(proposal_ref(db, project_id), {"applied_at": now})
     return _result(project_id, quote, status.value, version)
 
 

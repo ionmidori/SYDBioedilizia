@@ -126,6 +126,12 @@ export function useApproveQuote(projectId: string) {
   return useQuoteWrite(projectId, (etag: string) => adminApi.approve(projectId, etag));
 }
 
+export function useApplyProposal(projectId: string) {
+  return useQuoteWrite(projectId, (v: { etag: string; proposalCreatedAt: string }) =>
+    adminApi.applyProposal(projectId, v.etag, { proposal_created_at: v.proposalCreatedAt }),
+  );
+}
+
 export function useRegeneratePdf(projectId: string) {
   return useQuoteWrite<void, QuoteWriteResponse>(projectId, () => adminApi.regeneratePdf(projectId));
 }

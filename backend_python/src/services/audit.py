@@ -32,6 +32,7 @@ class AuditAction(StrEnum):
     QUOTE_CLAIM = "quote.claim"
     QUOTE_RELEASE = "quote.release"
     QUOTE_EDIT = "quote.edit"
+    QUOTE_APPLY_PROPOSAL = "quote.apply_proposal"
     QUOTE_REOPEN = "quote.reopen"
     QUOTE_PDF = "quote.pdf"
     QUOTE_SEND = "quote.send"

@@ -138,6 +138,12 @@ class EditQuoteBody(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
 
 
+class ApplyProposalBody(BaseModel):
+    """Which AI proposal the admin confirmed: the chat replaces it at each request."""
+    model_config = ConfigDict(extra="forbid")
+    proposal_created_at: datetime
+
+
 class ReasonBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     reason: str = Field(..., min_length=3, max_length=1000)

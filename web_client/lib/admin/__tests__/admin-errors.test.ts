@@ -8,6 +8,18 @@ describe('describeAdminError', () => {
     expect(info.message).not.toMatch(/preventivo|listino/i);
   });
 
+  it('an outdated AI proposal asks for a reload', () => {
+    const info = describeAdminError(new AdminApiError(409, 'PROPOSAL_OUTDATED', 'outdated'));
+    expect(info).toMatchObject({ kind: 'conflict', stale: true });
+    expect(info.message).toMatch(/proposta/i);
+  });
+
+  it('a proposal gone in the meantime asks for a reload, in Italian', () => {
+    const info = describeAdminError(new AdminApiError(404, 'PROPOSAL_NOT_FOUND', 'No AI revision proposal'));
+    expect(info).toMatchObject({ kind: 'conflict', stale: true });
+    expect(info.message).toMatch(/proposta/i);
+  });
+
   it('a missing If-Match does not talk about quotes (it is also the company info and the price book)', () => {
     const info = describeAdminError(new AdminApiError(428, 'PRECONDITION_REQUIRED', 'missing'));
     expect(info).toMatchObject({ kind: 'conflict', stale: true });
