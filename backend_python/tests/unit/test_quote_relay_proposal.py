@@ -9,7 +9,7 @@ from src.services.quote_drafts import QuoteStatusView
 from src.services.quote_followup import FollowupResult
 from src.services.quote_proposal import ProposalDraft
 from src.tools import quote_tools
-from tests.unit.test_room_quote import ANALYSES, _project, _quote, _s
+from tests.unit.test_room_quote import ANALYSES, _bathroom, _project, _quote, _s, _stored
 
 WITH_THE_TEAM = QuoteStatusView(
     status="in_review", delivery_status=None, quote_number="PRV-2026-0042", version=3, sent_before=False,
@@ -83,3 +83,16 @@ async def test_a_status_change_during_the_analysis_drafts_as_usual():
     mocks["saved"].assert_awaited_once()
     assert mocks["store"].update.await_count >= 2  # the room specs are saved for the card
     assert "Ho registrato la tua richiesta di preventivo" in reply
+
+
+async def test_a_card_confirmation_during_the_run_still_reaches_the_draft():
+    """The client confirms 8 mq on the card while SYD analyses and the team hands
+    the quote back meanwhile: the draft uses the 8, not the model's 6."""
+    confirmed = _stored(measures=[{"name": "mq", "value": 8, "source": "confirmed"}])
+    with _relay(relayed=(None,), analyses={**ANALYSES, "Bagno": _bathroom()},
+                specs_at_save={"bagno1": confirmed}) as mocks:
+        await _quote()
+
+    quote = mocks["saved"].await_args.args[2]
+    bagno = {i.sku: i.qty for i in quote.items if i.room_id == "bagno1"}
+    assert bagno["BAG-RIV-001"] == 18.48 and bagno["MUR-004"] == 17.6  # 8 * 2.2 * 1.05, 8 * 2.2

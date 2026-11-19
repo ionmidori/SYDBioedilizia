@@ -36,7 +36,7 @@ from src.services.intervention_expansion import (
     spec_from_analysis,
 )
 from src.services.pricing_service import PricingService
-from src.services.quote_build import UnitBuild, build_draft, price_book_units
+from src.services.quote_build import BuiltDraft, UnitBuild, build_draft, price_book_units
 from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_ai_draft
 from src.services.quote_followup import FollowupResult, relay_client_request
@@ -855,16 +855,29 @@ async def _save_spec(
         return None
 
 
-async def _save_specs(
+async def _saved_for_the_card(
     results: list[_UnitResult], project_id: str, stored_specs: Mapping[str, RoomInterventionSpec] | None
-) -> None:
-    """Store the specs a proposal analysis left unsaved (`_analyse` persist_specs False)."""
+) -> list[_UnitResult]:
+    """The units of a proposal analysis (`_analyse` persist_specs False) with their
+    spec stored after all, as `_analyse` stores it: the lines follow a confirmation
+    the client made on the card meanwhile, and the card shows the unit."""
     if stored_specs is None:
-        return
-    await asyncio.gather(*(
-        _save_spec(project_id, r.unit.spec_key, r.analysed.fresh, r.before, r.analysed.validated)
-        for r in results if r.analysed.fresh is not None
-    ))
+        return results
+
+    async def saved(result: _UnitResult) -> _UnitResult:
+        analysed = result.analysed
+        if analysed.fresh is None:
+            return result
+        written = await _save_spec(project_id, result.unit.spec_key, analysed.fresh, result.before, analysed.validated)
+        if written is None:
+            return result
+        stored = written if not same_confirmations(written, result.before) else result.before
+        lines = _expansion(analysed.validated, analysed.measures, analysed.library, stored)
+        expansion, spec = _checked(analysed, lines, stored, written)
+        on_card = result.unit.spec_key != CHAT_SPEC_KEY or chat_on_card(stored_specs)
+        return replace(result, expansion=expansion, spec=spec, on_card=on_card)
+
+    return list(await asyncio.gather(*(saved(r) for r in results)))
 
 
 def _expansion(
@@ -1285,15 +1298,18 @@ async def suggest_quote_items_wrapper(
         # totals and price range: the pipeline the confirmation card uses too.
         # We need a user_id. If not provided, we try to get it from context or use session_id
         final_user_id = user_id or "guest_" + session_id
-        built = build_draft(
-            target_project_id,
-            final_user_id,
-            [UnitBuild(section_id=r.unit.section_id, label=_section_label(r), expansion=r.expansion, spec=r.spec)
-             for r in results],
-            all_rooms,
-            to_quote=bool(to_quote),
-        )
-        quote = built.quote
+
+        def draft(units: list[_UnitResult]) -> BuiltDraft:
+            return build_draft(
+                target_project_id,
+                final_user_id,
+                [UnitBuild(section_id=r.unit.section_id, label=_section_label(r), expansion=r.expansion, spec=r.spec)
+                 for r in units],
+                all_rooms,
+                to_quote=bool(to_quote),
+            )
+
+        built = draft(results)
         if to_quote:
             summary = "\n".join(f"{_room_label(r)}: {r.analysis.summary}" for r in results if r.lines)
             headline = "\n".join(f"**{_room_label(r)}** — {r.analysis.summary}" for r in results if r.lines)
@@ -1309,7 +1325,11 @@ async def suggest_quote_items_wrapper(
                 return _relayed_reply(relayed, proposal=True)
             # The status changed during the analysis: draft as usual (the save
             # re-checks it), with the specs the card shows saved now.
-            await _save_specs(results, target_project_id, stored_specs)
+            results = await _with_late_confirmations(
+                await _saved_for_the_card(results, target_project_id, stored_specs), target_project_id
+            )
+            built = draft(results)
+        quote = built.quote
 
         # 9. Save the draft to Firestore (projects/{projectId}/private_data/quote)
         # in a transaction: never overwrite a quote the team is working on, open
