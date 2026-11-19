@@ -127,6 +127,30 @@ async def test_a_second_request_replaces_the_proposal_and_emails_once():
     assert len(_outbox(db)) == 1
 
 
+async def test_a_proposal_after_a_plain_relay_still_reaches_the_team():
+    """The first request lacked a measure (relayed without a proposal); once the
+    client answers, the proposal gets its own email."""
+    db = FakeDb()
+    _seed(db)
+    await _relay(db)
+
+    await _relay(db, _draft(), NOW + timedelta(hours=1))
+
+    texts = [entry["message"]["text"].lower() for entry in _outbox(db)]
+    assert len(texts) == 2
+    assert sum("proposta" in text for text in texts) == 1
+
+
+async def test_a_plain_relay_after_a_proposal_emails_nothing_more():
+    db = FakeDb()
+    _seed(db)
+    await _relay(db, _draft())
+
+    await _relay(db, when=NOW + timedelta(hours=1))
+
+    assert len(_outbox(db)) == 1
+
+
 async def test_a_quote_the_chat_may_draft_gets_no_proposal():
     db = FakeDb()
     _seed(db, status="draft")

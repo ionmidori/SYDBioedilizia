@@ -330,11 +330,31 @@ class TestMultiRoomQuoteEval:
         assert relayed is not None and relayed.status == "in_review"
         assert BACKEND_CHECKS["quote_with_team.test.json"](run) == []
 
+        # Without a proposal: right only while the reply asks the missing data.
         with multi_room_backend("quote_with_team.test.json") as run:
             await run.quotes.relay(None, "eval")
+            run.responses.texts = {"inv": ["Ho segnalato al team la tua richiesta."]}
         assert BACKEND_CHECKS["quote_with_team.test.json"](run) == [
-            "the request reached the team without an AI proposal"
+            "relayed without an AI proposal and the reply asks nothing: 'Ho segnalato al team la tua richiesta.'"
         ]
+
+        with multi_room_backend("quote_with_team.test.json") as run:
+            await run.quotes.relay(None, "eval")
+            run.responses.texts = {"inv": ["Ho segnalato al team la richiesta. Quanti mq è il bagno?"]}
+        assert BACKEND_CHECKS["quote_with_team.test.json"](run) == []
+
+    async def test_the_room_photo_vision_never_runs_in_an_eval(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """select_room would start it in the background on the real Firestore (PR 2)."""
+        from src.core.config import settings
+        from src.services.room_photo_vision import schedule_room_vision
+        from tests.evals.multi_room.fakes import multi_room_backend
+
+        monkeypatch.setattr(settings, "ROOM_VISION_ENABLED", True)
+        with multi_room_backend():
+            task = schedule_room_vision("eval", "bagno1")
+        if task is not None:
+            task.cancel()
+        assert task is None
 
     def test_every_multi_room_set_has_a_backend_check(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS

@@ -1170,6 +1170,16 @@ def _relayed_reply(relayed: FollowupResult, *, proposal: bool = False) -> str:
     )
 
 
+def _relayed_pending_note(relayed: FollowupResult, *, awaiting_answer: bool) -> str:
+    """The request reached the team without a proposal (nothing was written on the
+    quote); `awaiting_answer`: the analysis still needs the client's answers."""
+    reference = f" (preventivo **{relayed.quote_number}**)" if relayed.quote_number else ""
+    note = f"\n\nIntanto ho segnalato al team la tua richiesta{reference}"
+    if not awaiting_answer:
+        return note + "."
+    return note + ": quando mi rispondi preparo per il team la modifica che mi hai chiesto."
+
+
 def with_turn_message(history: list[dict[str, Any]], turn_message: dict[str, Any] | None) -> list[dict[str, Any]]:
     """The history with the client's message of this turn at the end. /chat/stream
     saves it after the stream, so while the turn runs Firestore does not hold it;
@@ -1292,7 +1302,11 @@ async def suggest_quote_items_wrapper(
         results, left_out = _without_idle_rooms(results, round_)
         refusal = _rooms_reply(results) if to_quote else _single_unit_reply(results[0])
         if refusal is not None:
-            return _measures_block(results) + refusal + _left_out_note(left_out)
+            reply = _measures_block(results) + refusal + _left_out_note(left_out)
+            # The team learns of the request now; the proposal follows the answer.
+            if relay and (relayed := await relay_client_request(db, target_project_id)) is not None:
+                reply += _relayed_pending_note(relayed, awaiting_answer=any(r.needs_info for r in results))
+            return reply
 
         # 8. Prices, one quote for the home (project-wide lines once, in "Generale"),
         # totals and price range: the pipeline the confirmation card uses too.

@@ -72,8 +72,15 @@ async def relay_tx(
     version = int(quote.get("version") or 1)
     previous = quote.get("client_followup") or {}
     count = int(previous.get("count") or 0) + 1 if previous.get("version") == version else 1
-    out_ref = db.collection(outbox.OUTBOX).document(followup_id_for(project_id, version, str(status)))
-    already_emailed = (await out_ref.get(transaction=transaction)).exists
+    # The proposal has its own email: a request relayed first without one (a
+    # measure was missing) still lets the proposal reach the team later; a plain
+    # request after either email sends nothing more.
+    proposal_email = db.collection(outbox.OUTBOX).document(followup_id_for(project_id, version, f"{status}:proposal"))
+    plain_email = db.collection(outbox.OUTBOX).document(followup_id_for(project_id, version, str(status)))
+    out_ref = proposal_email if proposal is not None else plain_email
+    blocking = [proposal_email] if proposal is not None else [plain_email, proposal_email]
+    # Every read before the first write (Firestore transactions).
+    already_emailed = any([(await email.get(transaction=transaction)).exists for email in blocking])
 
     transaction.update(ref, {"client_followup": {"requested_at": now, "count": count, "version": version}})
     stored = to_proposal(proposal, version=version, now=now) if proposal is not None else None

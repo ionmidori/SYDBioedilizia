@@ -36,6 +36,7 @@ from google.adk.tools.base_tool import BaseTool
 from google.adk.tools.tool_context import ToolContext
 from google.api_core.exceptions import NotFound
 from google.genai import types
+from src.core.config import settings
 from src.core.exceptions import ProjectFileNotFoundError, RoomNotFoundError
 from src.core.money import sum_amounts
 from src.repositories.spec_store import CHAT_SPEC_KEY, SpecChange
@@ -308,7 +309,6 @@ class QuoteRecorder:
     def relay_problems(self) -> list[str]:
         """Phase 139 PR-3: a change asked while the team has the quote reaches the team, nothing is written."""
         found = [] if self.relayed == 1 else [f"{self.relayed} requests relayed to the team, expected 1"]
-        found += ["the request reached the team without an AI proposal"] if None in self.proposals else []
         return found + ([f"{len(self.quotes)} quotes written, expected 0"] if self.quotes else [])
 
     def problems(self) -> list[str]:
@@ -621,6 +621,18 @@ def _room_correction_problems(run: MultiRoomRun) -> list[str]:
     return found
 
 
+def _quote_with_team_problems(run: MultiRoomRun) -> list[str]:
+    """PR 3: the change reaches the team once, nothing is written or sent again.
+    A request relayed without an AI proposal is right only while the analysis
+    still needs the client's answers: the reply asks them."""
+    found = run.quotes.relay_problems() + run.submissions.problems(expected=0)
+    replies = run.responses.turns()
+    last = replies[-1] if replies else ""
+    if None in run.quotes.proposals and "?" not in last:
+        found.append(f"relayed without an AI proposal and the reply asks nothing: {last[:200]!r}")
+    return found
+
+
 # What each multi-room eval set checks in the backend after its run (run_evals.py).
 BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "multi_room_flow.test.json": lambda run: run.renders.problems(),
@@ -642,7 +654,7 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     # A sent quote + a new request: the next revision (same PRV), sent after the explicit yes.
     "quote_revision.test.json": lambda run: run.quotes.revision_problems() + run.submissions.problems(expected=1),
     # The team has the quote: the change reaches the team, nothing written or sent again.
-    "quote_with_team.test.json": lambda run: run.quotes.relay_problems() + run.submissions.problems(expected=0),
+    "quote_with_team.test.json": _quote_with_team_problems,
     # PR 1 · C: a bathroom without measures goes straight to the tool and the card.
     "measures_on_card.test.json": _measures_on_card_problems,
     # A bedroom without its size: the floor area is asked once before the tool (18 Nov test chat).
@@ -711,6 +723,8 @@ def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
         ):
             stack.enter_context(patch(target, return_value=repo))
         stack.enter_context(patch("src.tools.quote_tools.get_spec_store", return_value=specs))
+        # select_room would measure the room's photos in the background on the real Firestore (PR 2).
+        stack.enter_context(patch.object(settings, "ROOM_VISION_ENABLED", False))
         stack.enter_context(patch("src.adk.tools.latest_uploaded_photo_url", new=AsyncMock(return_value=newest_project_photo)))
         # The gate itself (not only the account lookup): the dev auth bypass of a local .env would open it.
         stack.enter_context(patch("src.adk.tools._is_guest", new=AsyncMock(return_value=guest)))

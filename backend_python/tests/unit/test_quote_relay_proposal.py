@@ -62,18 +62,49 @@ async def test_an_analysis_failure_relays_the_request_as_before():
     mocks["saved"].assert_not_awaited()
 
 
-async def test_a_missing_measure_is_asked_before_the_team_is_told():
-    analyses = {
-        **ANALYSES,
-        "Cucina": InsightAnalysis(summary="Cucina", completeness_score=0.4, missing_info=["Quanti metri di top?"],
-                                  suggestions=[_s("CUC-TOP-002", 1)]),
-    }
-    with _relay(analyses=analyses) as mocks:
+_MISSING_TOP = {
+    **ANALYSES,
+    "Cucina": InsightAnalysis(summary="Cucina", completeness_score=0.4, missing_info=["Quanti metri di top?"],
+                              suggestions=[_s("CUC-TOP-002", 1)]),
+}
+
+
+async def test_a_missing_measure_is_asked_and_the_team_is_told_without_a_proposal():
+    """The team learns of the request now; the proposal follows the client's answer."""
+    with _relay(analyses=_MISSING_TOP) as mocks:
         reply = await _quote()
 
     assert "**Cucina**: Quanti metri di top?" in reply
-    mocks["relay"].assert_not_awaited()
+    mocks["relay"].assert_awaited_once()
+    assert _proposal(mocks["relay"]) is None
+    assert "segnalato al team" in reply and "preventivo **PRV-2026-0042**" in reply
+    assert "quando mi rispondi" in reply
+    assert "scheda" not in reply  # the card cannot be confirmed while the team has the quote
+    mocks["saved"].assert_not_awaited()
     mocks["store"].update.assert_not_awaited()
+
+
+async def test_a_refusal_with_nothing_to_answer_relays_without_awaiting_an_answer():
+    """SKUs out of the price book: the team learns of the request, no answer is awaited."""
+    unknown = {name: InsightAnalysis(summary=name, completeness_score=0.9, suggestions=[_s("XXX-999", 1)])
+               for name in ("Bagno", "Cucina")}
+    with _relay(analyses={**ANALYSES, **unknown}) as mocks:
+        reply = await _quote()
+
+    assert "consulente ti contatterà" in reply
+    mocks["relay"].assert_awaited_once()
+    assert _proposal(mocks["relay"]) is None
+    assert "segnalato al team" in reply and "quando mi rispondi" not in reply
+
+
+async def test_a_missing_measure_with_the_quote_handed_back_only_asks():
+    """The status changed: nothing was relayed, so nothing is claimed."""
+    with _relay(relayed=(None,), analyses=_MISSING_TOP) as mocks:
+        reply = await _quote()
+
+    assert "**Cucina**: Quanti metri di top?" in reply
+    assert "segnalato al team" not in reply
+    mocks["saved"].assert_not_awaited()
 
 
 async def test_a_status_change_during_the_analysis_drafts_as_usual():
