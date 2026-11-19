@@ -28,7 +28,8 @@ _DEFAULT_RATES = ModelTokenRates(0.30, 0.03, 2.50)
 
 
 def _rates_for_model(model: str) -> ModelTokenRates:
-    normalized = model.lower().strip()
+    # Strip full Vertex resource paths (e.g. projects/.../models/...) before tier match.
+    normalized = model.lower().strip().rsplit("/", 1)[-1]
     for tier, rates in _TIER_RATES:
         if tier in normalized:
             return rates

@@ -11,7 +11,7 @@
         "widget": {
           "title": "KPI di Riferimento SYD Agents (Target Operativi)",
           "text": {
-            "content": "| KPI | Target Verde | Attenzione | Leva di Ottimizzazione |\n| :--- | :---: | :---: | :--- |\n| **TTFT (`chat_ttft_ms`, warm)** | p50 `< 1.5s` / p95 `< 3.5s` | p95 `> 5.0s` | Ridurre `thinking_budget` sul router (`syd_orchestrator`), controllare `session_ms` |\n| **Durata Turno (`chat_total_ms`)** | p95 `< 6.0s` | p95 `> 10.0s` | Ottimizzare tool esterni o rimuovere hop LLM sequenziali |\n| **Prompt Tokens (`chat_prompt_tokens`)** | p50 `< 4k` / p95 `< 10k` | p95 `> 18k` | Abbassare soglia `EventsCompactionConfig` (`src/adk/compaction.py`), snellire prompt |\n| **Cache Hit (`cached / prompt`)** | `> 40%` | `< 20%` | Mantenere prefisso statico invariato in testa al prompt (dati dinamici in coda) |\n| **Thinking Ratio (`thoughts / (thoughts+out)`)** | `< 35%` | `> 55%` | `thinking_budget=0` su router, ridotto su `triage_agent` |\n| **LLM Calls / Turno (`chat_llm_calls_count`)** | `1.0 – 1.8` | `> 2.5` | Ridurre rimbalzi `syd_orchestrator` ↔ sub-agenti |\n| **Errori (`chat_turn_failed`)** | `< 1%` | `> 3%` | Ispezionare span in Cloud Trace (`chatbotluca-a8a73`) |",
+            "content": "| KPI | Target Verde | Attenzione | Leva di Ottimizzazione |\n| :--- | :---: | :---: | :--- |\n| **TTFT (`chat_ttft_ms`, warm)** | p50 `< 1.5s` / p95 `< 3.0s` | p95 `> 5.0s` | Ridurre `THINKING_LEVEL_*` (`src/core/config.py`) sul router, verificare `session_ms` |\n| **Durata Turno (`chat_total_ms`)** | p95 `< 6.0s` | p95 `> 10.0s` | Ottimizzare tool esterni o rimuovere hop LLM sequenziali |\n| **Prompt Tokens (`chat_prompt_tokens`)** | p50 `< 4k` / p95 `< 10k` | p95 `> 18k` | Abbassare soglia `EventsCompactionConfig` (`src/adk/compaction.py`), snellire prompt |\n| **Cache Hit (`cached / prompt`)** | `> 40%` | `< 20%` | Mantenere prefisso statico invariato in testa al prompt (dati dinamici in coda) |\n| **Thinking Ratio (`thoughts / (thoughts+out)`)** | `< 35%` | `> 55%` | Abbassare `THINKING_LEVEL_*` su router e `triage_agent` |\n| **LLM Calls / Turno (`chat_llm_calls_count`)** | `1.0 – 1.8` | `> 2.5` | Ridurre rimbalzi `syd_orchestrator` ↔ sub-agenti |\n| **Errori (`chat_turn_failed`)** | `< 1%` | `> 3%` | Ispezionare span in Cloud Trace (`chatbotluca-a8a73`) |",
             "format": "MARKDOWN"
           }
         }
@@ -33,8 +33,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_ttft_ms\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.cold_start"]
                     }
                   }
                 }
@@ -47,15 +48,16 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_ttft_ms\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_95",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.cold_start"]
                     }
                   }
                 }
               }
             ],
             "thresholds": [
-              { "label": "Target p95 (3.5s)", "value": 3500 }
+              { "label": "Target p95 (3.0s)", "value": 3000 }
             ],
             "yAxis": { "label": "ms", "scale": "LINEAR" }
           }
@@ -78,8 +80,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_total_ms\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.cold_start"]
                     }
                   }
                 }
@@ -92,8 +95,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_total_ms\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_95",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.cold_start"]
                     }
                   }
                 }
@@ -123,8 +127,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_prompt_tokens\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.primary_agent"]
                     }
                   }
                 }
@@ -137,8 +142,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_prompt_tokens\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_95",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.primary_agent"]
                     }
                   }
                 }
@@ -168,8 +174,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_cached_tokens\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.primary_agent"]
                     }
                   }
                 }
@@ -196,8 +203,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_thoughts_tokens\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.primary_agent"]
                     }
                   }
                 }
@@ -210,8 +218,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_output_tokens\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.primary_agent"]
                     }
                   }
                 }
@@ -238,8 +247,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/llm_call_duration_ms\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_95",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.agent", "metric.label.model"]
                     }
                   }
                 }
@@ -266,8 +276,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_llm_calls_count\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.primary_agent"]
                     }
                   }
                 }
@@ -280,8 +291,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_llm_calls_count\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_95",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.primary_agent"]
                     }
                   }
                 }
@@ -311,8 +323,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/llm_call_cost_usd\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.agent", "metric.label.model"]
                     }
                   }
                 }
@@ -325,8 +338,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/llm_call_cost_usd\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_95",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.agent", "metric.label.model"]
                     }
                   }
                 }
@@ -353,8 +367,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_queued_ms\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.cold_start"]
                     }
                   }
                 }
@@ -367,8 +382,9 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/chat_queued_ms\" resource.type=\"cloud_run_revision\"",
                     "aggregation": {
                       "alignmentPeriod": "300s",
-                      "perSeriesAligner": "ALIGN_PERCENTILE_95",
-                      "crossSeriesReducer": "REDUCE_NONE"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.cold_start"]
                     }
                   }
                 }

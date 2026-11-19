@@ -163,6 +163,27 @@ def test_pricing_estimates_vertex_gemini_costs():
     # Missing usage returns 0.0 safely
     assert estimate_llm_cost_usd("gemini-2.5-flash", prompt_tokens=None, cached_tokens=None, thoughts_tokens=None, output_tokens=None) == 0.0
 
+    # Resource path containing "projects/" must not false-positive as "pro" tier
+    cost_unknown_path = estimate_llm_cost_usd(
+        "projects/123/locations/eu/publishers/google/models/unknown-model",
+        prompt_tokens=1000,
+        cached_tokens=2000,  # clamped to prompt_tokens
+        thoughts_tokens=-5,  # clamped to 0
+        output_tokens=0,
+    )
+    # Default tier (flash): 1000 cached @ $0.03/1M
+    assert cost_unknown_path == pytest.approx((1000 * 0.03) / 1_000_000, abs=1e-6)
+
+    # Pro tier uses pro rates
+    cost_pro = estimate_llm_cost_usd(
+        "gemini-2.5-pro",
+        prompt_tokens=1000,
+        cached_tokens=0,
+        thoughts_tokens=0,
+        output_tokens=100,
+    )
+    assert cost_pro == pytest.approx((1000 * 1.25 + 100 * 10.00) / 1_000_000, abs=1e-6)
+
 
 def test_emit_aggregates_tokens_cost_cache_agent_and_emits_llm_call_timing(caplog):
     turn = start_turn("s-agg")
@@ -194,6 +215,7 @@ def test_emit_aggregates_tokens_cost_cache_agent_and_emits_llm_call_timing(caplo
     assert rec.n_tool_calls == 1
     assert rec.tool_total_ms == pytest.approx(145.5, abs=0.1)
     assert rec.tool_names == ["pricing_engine"]
+    assert rec.tool_calls == [{"name": "pricing_engine", "duration_ms": 145.5, "status": "ok"}]
 
 
 async def test_instrumented_tool_records_duration_in_active_turn():
@@ -203,9 +225,20 @@ async def test_instrumented_tool_records_duration_in_active_turn():
     async def _tool() -> str:
         return "ok"
 
+    @instrumented_tool("failing_tool")
+    async def _bad_tool() -> str:
+        raise RuntimeError("boom")
+
+    @instrumented_tool("sync_tool")
+    def _sync_tool() -> str:
+        return "sync"
+
     turn = start_turn("s-tool")
     assert await _tool() == "ok"
-    assert len(turn.tool_calls) == 1
-    assert turn.tool_calls[0].name == "demo_tool"
-    assert turn.tool_calls[0].status == "ok"
+    assert _sync_tool() == "sync"
+    with pytest.raises(RuntimeError, match="boom"):
+        await _bad_tool()
+
+    assert [t.name for t in turn.tool_calls] == ["demo_tool", "sync_tool", "failing_tool"]
+    assert [t.status for t in turn.tool_calls] == ["ok", "ok", "error"]
     assert turn.tool_total_ms >= 0.0

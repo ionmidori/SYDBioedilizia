@@ -87,8 +87,8 @@ class LlmCallTiming:
         model_ms = None
         if self.duration_ms is not None:
             model_ms = round(self.duration_ms - self.guardrail_in_ms, 1)
-        prompt = self.prompt_tokens or 0
-        cached = self.cached_tokens or 0
+        prompt = max(0, self.prompt_tokens or 0)
+        cached = min(prompt, max(0, self.cached_tokens or 0))
         cache_hit_ratio = round(cached / prompt, 4) if prompt > 0 else 0.0
         return {
             "agent": self.agent,
@@ -200,7 +200,7 @@ class TurnTiming:
         self.persist_ms += ms
 
     def add_tool(self, name: str, duration_ms: float, *, status: str = "ok") -> None:
-        self.tool_total_ms = round(self.tool_total_ms + duration_ms, 1)
+        self.tool_total_ms += duration_ms
         self.tool_calls.append(ToolCallTiming(name=name, duration_ms=duration_ms, status=status))
 
     def _primary_agent(self) -> str:
@@ -223,11 +223,11 @@ class TurnTiming:
         if self.trace_id is None:
             self.trace_id = _span_trace_id(trace.get_current_span())
         total_ms = self.marks.get("finish", self.elapsed_ms())
-        prompt_total = sum(c.prompt_tokens or 0 for c in self.llm_calls)
-        cached_total = sum(c.cached_tokens or 0 for c in self.llm_calls)
-        thoughts_total = sum(c.thoughts_tokens or 0 for c in self.llm_calls)
-        output_total = sum(c.output_tokens or 0 for c in self.llm_calls)
-        cache_hit_ratio = round(cached_total / prompt_total, 4) if prompt_total > 0 else 0.0
+        prompt_total = sum(max(0, c.prompt_tokens or 0) for c in self.llm_calls)
+        cached_total = min(prompt_total, sum(max(0, c.cached_tokens or 0) for c in self.llm_calls))
+        thoughts_total = sum(max(0, c.thoughts_tokens or 0) for c in self.llm_calls)
+        output_total = sum(max(0, c.output_tokens or 0) for c in self.llm_calls)
+        cache_hit_ratio = min(1.0, round(cached_total / prompt_total, 4)) if prompt_total > 0 else 0.0
         estimated_cost_usd = round(sum(c.estimated_cost_usd for c in self.llm_calls), 6)
         logger.info(
             "chat_turn_timing",
@@ -254,6 +254,7 @@ class TurnTiming:
                 "n_tool_calls": len(self.tool_calls),
                 "tool_total_ms": round(self.tool_total_ms, 1),
                 "tool_names": [t.name for t in self.tool_calls],
+                "tool_calls": [t.as_log() for t in self.tool_calls],
                 "llm_calls": [c.as_log() for c in self.llm_calls],
                 "guardrail_ms": round(self.guardrail_ms, 1),
                 "persist_ms": round(self.persist_ms, 1),

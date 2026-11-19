@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
 Idempotent GCP telemetry provisioning for SYD ADK agents (chatbotluca-a8a73).
 Creates:
@@ -34,8 +34,13 @@ function Invoke-GcloudOptional {
 }
 
 Write-Host "=== 1. BigQuery Dataset ($DatasetId in $Location) ==="
-$existingDs = Invoke-GcloudOptional { bq --project_id=$ProjectId ls --datasets --format=sparse | Select-String -Pattern "\b$DatasetId\b" }
-if (-not $existingDs) {
+$dsExists = $false
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+bq --project_id=$ProjectId show --format=none "${ProjectId}:${DatasetId}" 2>$null | Out-Null
+if ($LASTEXITCODE -eq 0) { $dsExists = $true }
+$ErrorActionPreference = $prevEap
+if (-not $dsExists) {
     bq --project_id=$ProjectId mk --dataset --location=$Location --default_table_expiration=15552000 --default_partition_expiration=15552000 --label=datacloud:antigravity --description="SYD ADK agent telemetry (chat_turn_timing & llm_call_timing)" "${ProjectId}:${DatasetId}"
 } else {
     Write-Host "Dataset $DatasetId already exists."
@@ -122,11 +127,11 @@ $metrics = @(
     },
     @{
         Name = "llm_call_cost_usd"
-        Desc = "Estimated USD cost per LLM call (in micro-USD, x1e6) by agent and model."
+        Desc = "Estimated USD cost per LLM call (in USD) by agent and model."
         Filter = 'resource.type="cloud_run_revision" AND resource.labels.service_name="syd-brain" AND jsonPayload.event="llm_call_timing" AND jsonPayload.estimated_cost_usd>=0'
         Extractor = "EXTRACT(jsonPayload.estimated_cost_usd)"
         Labels = @{ agent = "EXTRACT(jsonPayload.agent)"; model = "EXTRACT(jsonPayload.model)" }
-        Scale = 0.0001; Growth = 1.4; Buckets = 32; Unit = "1"
+        Scale = 0.00001; Growth = 1.4; Buckets = 40; Unit = "1"
     }
 )
 
@@ -171,7 +176,8 @@ bucketOptions:
 
 Write-Host "=== 4. Cloud Monitoring Dashboard ==="
 $dashFile = Join-Path $PSScriptRoot "syd-agents-dashboard.json"
-$targetTitle = (Get-Content $dashFile -Raw -Encoding utf8 | ConvertFrom-Json).displayName
+$dashObj = Get-Content $dashFile -Raw -Encoding utf8 | ConvertFrom-Json
+$targetTitle = $dashObj.displayName
 $allDashesRaw = Invoke-GcloudOptional { gcloud --quiet --billing-project=$ProjectId monitoring dashboards list --project=$ProjectId --format=json }
 $existingDash = $null
 if ($allDashesRaw) {
@@ -183,7 +189,6 @@ if (-not $existingDash) {
 } else {
     Write-Host "Updating existing dashboard $existingDash..."
     $etag = gcloud --quiet --billing-project=$ProjectId monitoring dashboards describe $existingDash --project=$ProjectId --format="value(etag)"
-    $dashObj = Get-Content $dashFile -Raw | ConvertFrom-Json
     $dashObj | Add-Member -NotePropertyName etag -NotePropertyValue $etag -Force
     $tmpDash = "$env:TEMP\syd_dash_update.json"
     [System.IO.File]::WriteAllText($tmpDash, ($dashObj | ConvertTo-Json -Depth 20), $utf8NoBom)
