@@ -1,0 +1,430 @@
+{
+  "displayName": "SYD Agents — Latency, Tokens & Cost",
+  "mosaicLayout": {
+    "columns": 12,
+    "tiles": [
+      {
+        "xPos": 0,
+        "yPos": 0,
+        "width": 12,
+        "height": 3,
+        "widget": {
+          "title": "KPI di Riferimento SYD Agents (Target Operativi)",
+          "text": {
+            "content": "| KPI | Target Verde | Attenzione | Leva di Ottimizzazione |\n| :--- | :---: | :---: | :--- |\n| **TTFT (`chat_ttft_ms`, warm)** | p50 `< 1.5s` / p95 `< 3.0s` | p95 `> 5.0s` | Ridurre `THINKING_LEVEL_*` (`src/core/config.py`) sul router, verificare `session_ms` |\n| **Durata Turno (`chat_total_ms`)** | p95 `< 6.0s` | p95 `> 10.0s` | Ottimizzare tool esterni o rimuovere hop LLM sequenziali |\n| **Prompt Tokens (`chat_prompt_tokens`)** | p50 `< 4k` / p95 `< 10k` | p95 `> 18k` | Abbassare soglia `EventsCompactionConfig` (`src/adk/compaction.py`), snellire prompt |\n| **Cache Hit (`cached / prompt`)** | `> 40%` | `< 20%` | Mantenere prefisso statico invariato in testa al prompt (dati dinamici in coda) |\n| **Thinking Ratio (`thoughts / (thoughts+out)`)** | `< 35%` | `> 55%` | Abbassare `THINKING_LEVEL_*` su router e `triage_agent` |\n| **LLM Calls / Turno (`chat_llm_calls_count`)** | `1.0 – 1.8` | `> 2.5` | Ridurre rimbalzi `syd_orchestrator` ↔ sub-agenti |\n| **Errori (`chat_turn_failed`)** | `< 1%` | `> 3%` | Ispezionare span in Cloud Trace (`chatbotluca-a8a73`) |",
+            "format": "MARKDOWN"
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 3,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "TTFT — Time to First Text (p50 / p95, ms)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "p50 (cold=${metric.labels.cold_start})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_ttft_ms\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.cold_start"]
+                    }
+                  }
+                }
+              },
+              {
+                "legendTemplate": "p95 (cold=${metric.labels.cold_start})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_ttft_ms\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.cold_start"]
+                    }
+                  }
+                }
+              }
+            ],
+            "thresholds": [
+              { "label": "Target p95 (3.0s)", "value": 3000 }
+            ],
+            "yAxis": { "label": "ms", "scale": "LINEAR" }
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "yPos": 3,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Durata Totale Turno (p50 / p95, ms)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "p50 (cold=${metric.labels.cold_start})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_total_ms\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.cold_start"]
+                    }
+                  }
+                }
+              },
+              {
+                "legendTemplate": "p95 (cold=${metric.labels.cold_start})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_total_ms\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.cold_start"]
+                    }
+                  }
+                }
+              }
+            ],
+            "thresholds": [
+              { "label": "Target p95 (6s)", "value": 6000 }
+            ],
+            "yAxis": { "label": "ms", "scale": "LINEAR" }
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 7,
+        "width": 4,
+        "height": 4,
+        "widget": {
+          "title": "Prompt Tokens / Turno (p50 / p95)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "p50 (${metric.labels.primary_agent})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_prompt_tokens\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.primary_agent"]
+                    }
+                  }
+                }
+              },
+              {
+                "legendTemplate": "p95 (${metric.labels.primary_agent})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_prompt_tokens\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.primary_agent"]
+                    }
+                  }
+                }
+              }
+            ],
+            "thresholds": [
+              { "label": "Target p95 (10k)", "value": 10000 }
+            ],
+            "yAxis": { "label": "tokens", "scale": "LINEAR" }
+          }
+        }
+      },
+      {
+        "xPos": 4,
+        "yPos": 7,
+        "width": 4,
+        "height": 4,
+        "widget": {
+          "title": "Cached Tokens / Turno (p50)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "cached p50 (${metric.labels.primary_agent})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_cached_tokens\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.primary_agent"]
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": { "label": "tokens", "scale": "LINEAR" }
+          }
+        }
+      },
+      {
+        "xPos": 8,
+        "yPos": 7,
+        "width": 4,
+        "height": 4,
+        "widget": {
+          "title": "Thinking vs Output Tokens (p50)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "thoughts p50 (${metric.labels.primary_agent})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_thoughts_tokens\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.primary_agent"]
+                    }
+                  }
+                }
+              },
+              {
+                "legendTemplate": "output p50 (${metric.labels.primary_agent})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_output_tokens\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.primary_agent"]
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": { "label": "tokens", "scale": "LINEAR" }
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 11,
+        "width": 4,
+        "height": 4,
+        "widget": {
+          "title": "Latenza per Agente & Modello (p95, ms)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "${metric.labels.agent} / ${metric.labels.model}",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/llm_call_duration_ms\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.agent", "metric.label.model"]
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": { "label": "ms", "scale": "LINEAR" }
+          }
+        }
+      },
+      {
+        "xPos": 4,
+        "yPos": 11,
+        "width": 4,
+        "height": 4,
+        "widget": {
+          "title": "Chiamate LLM per Turno (p50 / p95)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "p50 (${metric.labels.primary_agent})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_llm_calls_count\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.primary_agent"]
+                    }
+                  }
+                }
+              },
+              {
+                "legendTemplate": "p95 (${metric.labels.primary_agent})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_llm_calls_count\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.primary_agent"]
+                    }
+                  }
+                }
+              }
+            ],
+            "thresholds": [
+              { "label": "Target <= 2", "value": 2 }
+            ],
+            "yAxis": { "label": "calls", "scale": "LINEAR" }
+          }
+        }
+      },
+      {
+        "xPos": 8,
+        "yPos": 11,
+        "width": 4,
+        "height": 4,
+        "widget": {
+          "title": "Costo Stimato per Chiamata LLM (USD, p50 / p95)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "p50 (${metric.labels.agent}/${metric.labels.model})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/llm_call_cost_usd\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.agent", "metric.label.model"]
+                    }
+                  }
+                }
+              },
+              {
+                "legendTemplate": "p95 (${metric.labels.agent}/${metric.labels.model})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/llm_call_cost_usd\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.agent", "metric.label.model"]
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": { "label": "USD", "scale": "LINEAR" }
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 15,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Cold Start / Queued Time (p50 / p95, ms)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "p50 (cold=${metric.labels.cold_start})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_queued_ms\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_50",
+                      "groupByFields": ["metric.label.cold_start"]
+                    }
+                  }
+                }
+              },
+              {
+                "legendTemplate": "p95 (cold=${metric.labels.cold_start})",
+                "plotType": "LINE",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_queued_ms\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "crossSeriesReducer": "REDUCE_PERCENTILE_95",
+                      "groupByFields": ["metric.label.cold_start"]
+                    }
+                  }
+                }
+              }
+            ],
+            "thresholds": [
+              { "label": "Target p95 (3s)", "value": 3000 }
+            ],
+            "yAxis": { "label": "ms", "scale": "LINEAR" }
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "yPos": 15,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Turni Falliti (count / 5m)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "legendTemplate": "Turni falliti",
+                "plotType": "STACKED_BAR",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/chat_turn_failed\" resource.type=\"cloud_run_revision\"",
+                    "aggregation": {
+                      "alignmentPeriod": "300s",
+                      "perSeriesAligner": "ALIGN_SUM",
+                      "crossSeriesReducer": "REDUCE_SUM"
+                    }
+                  }
+                }
+              }
+            ],
+            "yAxis": { "label": "errors", "scale": "LINEAR" }
+          }
+        }
+      }
+    ]
+  }
+}
