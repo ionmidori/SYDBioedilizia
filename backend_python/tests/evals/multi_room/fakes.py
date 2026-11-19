@@ -414,6 +414,9 @@ class ResponseRecorder(BasePlugin):
 RESPONSES = ResponseRecorder()
 
 
+_TOOL_REPLY_LOGGED = 1500  # characters of each tool reply in the eval log
+
+
 class ToolCallRecorder(BasePlugin):
     """Tools called in every turn (invocation), in order: every turn is listed,
     also one without tool calls."""
@@ -421,9 +424,11 @@ class ToolCallRecorder(BasePlugin):
     def __init__(self) -> None:
         super().__init__(name="eval_tool_call_recorder")
         self.calls: dict[str, list[tuple[str, str]]] = {}  # invocation → [(agent, tool)]
+        self.results: dict[str, list[tuple[str, str]]] = {}  # invocation → [(agent.tool, reply)]
 
     def reset(self) -> None:
         self.calls = {}
+        self.results = {}
 
     async def before_run_callback(self, *, invocation_context: InvocationContext) -> types.Content | None:
         self.calls.setdefault(invocation_context.invocation_id, [])
@@ -434,6 +439,25 @@ class ToolCallRecorder(BasePlugin):
     ) -> dict[str, Any] | None:
         self.calls.setdefault(tool_context.invocation_id, []).append((tool_context.agent_name, tool.name))
         return None
+
+    async def after_tool_callback(
+        self, *, tool: BaseTool, tool_args: dict[str, Any], tool_context: ToolContext, result: object
+    ) -> dict[str, Any] | None:
+        # A plugin error stops the eval: any result shape is only logged.
+        reply = result.get("result", result) if isinstance(result, dict) else result
+        self.calls.setdefault(tool_context.invocation_id, [])  # the turn numbering of `report`
+        self.results.setdefault(tool_context.invocation_id, []).append(
+            (f"{tool_context.agent_name}.{tool.name}", repr(reply)[:_TOOL_REPLY_LOGGED])
+        )
+        return None
+
+    def result_report(self) -> list[str]:
+        """One line per tool reply: what the model was told (compare with its reply)."""
+        return [
+            f"turn {i}: {tool} → {reply}"
+            for i, invocation in enumerate(self.calls, 1)
+            for tool, reply in self.results.get(invocation, [])
+        ]
 
     def turns(self) -> list[list[tuple[str, str]]]:
         return list(self.calls.values())

@@ -356,6 +356,27 @@ class TestMultiRoomQuoteEval:
             task.cancel()
         assert task is None
 
+    async def test_the_tool_replies_are_recorded_for_the_log(self) -> None:
+        """What a tool told the model: the reply can then be compared with it."""
+        from types import SimpleNamespace
+
+        from tests.evals.multi_room.fakes import ToolCallRecorder
+
+        calls = ToolCallRecorder()
+        context = SimpleNamespace(invocation_id="inv1", agent_name="quote")
+        await calls.after_tool_callback(
+            tool=SimpleNamespace(name="suggest_quote_items"), tool_args={}, tool_context=context,
+            result={"result": "Quanti mq è il bagno?\n\nIntanto ho segnalato al team la tua richiesta."},
+        )
+        # transfer_to_agent returns None
+        await calls.after_tool_callback(
+            tool=SimpleNamespace(name="transfer_to_agent"), tool_args={}, tool_context=context, result=None,
+        )
+        assert calls.result_report() == [
+            "turn 1: quote.suggest_quote_items → 'Quanti mq è il bagno?\\n\\nIntanto ho segnalato al team la tua richiesta.'",
+            "turn 1: quote.transfer_to_agent → None",
+        ]
+
     def test_every_multi_room_set_has_a_backend_check(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS
 

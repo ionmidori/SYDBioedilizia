@@ -14,7 +14,14 @@
             "phone_on_file": true,
             "session_id": "eval-quote-with-team"
           },
-          "syd_rooms": [],
+          "syd_rooms": [
+            {
+              "room_id": "r_bagno",
+              "label": "Bagno",
+              "room_type": "bagno",
+              "summary": "Rifacimento completo: 2 x 2,5 m (5 mq di pavimento), via vasca e sanitari, doccia walk-in, sanitari sospesi"
+            }
+          ],
           "syd_house_quote": {
             "quote_number": "PRV-EVAL-0001",
             "status": "in_review",

@@ -122,6 +122,8 @@ async def _evaluate(path: Path, agent_name: str | None, num_runs: int) -> object
         logger.info(f"{path.name} tokens {line}")
     for line in run.tool_calls.report():
         logger.info(f"{path.name} tools {line}")
+    for line in run.tool_calls.result_report():
+        logger.info(f"{path.name} tool reply {line}")
     problems = BACKEND_CHECKS[path.name](run)
     if problems:
         raise AssertionError(f"{path.name}: " + "; ".join(problems))
