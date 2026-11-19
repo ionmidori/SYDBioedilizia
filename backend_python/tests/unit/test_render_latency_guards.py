@@ -10,7 +10,6 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from google.genai import types as genai_types
 
 
 @pytest.mark.asyncio
@@ -38,13 +37,16 @@ async def test_triage_does_not_enable_code_execution_or_close_shared_client(samp
     _, kwargs = mock_client.aio.models.generate_content.call_args
     cfg = kwargs["config"]
     assert not cfg.tools
-    assert cfg.thinking_config is not None
-    assert cfg.thinking_config.thinking_level == genai_types.ThinkingLevel.MINIMAL
+    from src.core.models import ModelRole, build_thinking_config
+
+    assert cfg.thinking_config == build_thinking_config(ModelRole.VISION)
     assert cfg.response_mime_type == "application/json"
+    assert cfg.max_output_tokens is None
 
 
 @pytest.mark.asyncio
 async def test_architect_bounds_thinking_json_and_times_out_cleanly(sample_image_bytes):
+    from src.core.models import ModelRole, build_thinking_config
     from src.vision.architect import generate_architectural_prompt
 
     mock_response = MagicMock()
@@ -66,14 +68,11 @@ async def test_architect_bounds_thinking_json_and_times_out_cleanly(sample_image
 
     _, kwargs = mock_client.aio.models.generate_content.call_args
     cfg = kwargs["config"]
-    assert cfg.thinking_config is not None
-    assert cfg.thinking_config.thinking_level in (
-        genai_types.ThinkingLevel.MINIMAL,
-        genai_types.ThinkingLevel.LOW,
-    )
+    assert cfg.thinking_config == build_thinking_config(ModelRole.VISION)
     assert cfg.response_mime_type == "application/json"
+    assert cfg.max_output_tokens is None
 
-    # Slow response must time out rather than hanging until the 180s ADK timeout
+    # Slow response must time out explicitly rather than hanging until the 180s ADK timeout
     async def _hang(*_a, **_kw):
         await asyncio.sleep(5)
 
@@ -81,13 +80,14 @@ async def test_architect_bounds_thinking_json_and_times_out_cleanly(sample_image
     with (
         patch("src.vision.architect.get_genai_client", return_value=mock_client),
         patch("src.vision.architect._ARCHITECT_TIMEOUT_SECONDS", 0.05),
-        pytest.raises(Exception, match="timed out|timeout|Architect generation failed"),
+        pytest.raises(Exception, match="timed out") as exc_info,
     ):
         await generate_architectural_prompt(
             image_bytes=sample_image_bytes,
             target_style="contemporary",
             mime_type="image/jpeg",
         )
+    assert isinstance(exc_info.value.__cause__, TimeoutError)
 
 
 @pytest.mark.asyncio

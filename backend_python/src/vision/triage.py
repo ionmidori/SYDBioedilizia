@@ -3,43 +3,23 @@ import logging
 from typing import Any
 
 from google.genai import types
-from src.core.models import ModelRole, get_genai_client, get_model_id
+from src.core.models import ModelRole, build_thinking_config, get_genai_client, get_model_id
 from src.utils.json_parser import extract_json_response
 
 logger = logging.getLogger(__name__)
 
+_TRIAGE_TIMEOUT_SECONDS = 20.0
+
 TRIAGE_PROMPT = """You are an expert interior architect and structural engineer analyzing this image.
 
-**CRITICAL: Execute the following Chain of Thought (CoT) process before answering:**
-
-1.  **VISUAL IDENTIFICATION**:
-    *   Is this a PHOTO of a room?
-    *   Is this a FLOOR PLAN (technical drawing)?
-    *   Is this a RENDER or SKETCH?
-
-2.  **TECHNICAL EXTRACTION (Use Python Code)**:
-    *   **If Floor Plan**: Use Python to detect contour lines, identifying room labels (OCR) and verifying scale if a scale bar is visible.
-    *   **If Photo**: Use Python to detect high-contrast technical labels or overlaid measurements if present.
-    *   **Logic Check**: Verify if the detected elements are physically consistent (e.g., a "bedroom" label on a 2m² space is likely an error).
-
-3.  **CONDITIONAL ANALYSIS**:
-    *   If simple photo: Focus on style, lighting, materials.
-    *   If technical drawing: Focus on dimensions, layout flow, load-bearing walls.
-
-4.  **FINAL OUTPUT GENERATION**:
-    *   Synthesize your findings into the JSON structure below.
-
-Provide your analysis:
-
-1. ROOM TYPE: What type of room is this? (e.g., kitchen, living room, bedroom, floor_plan)
+Classify the image (interior photo, floor plan, or render/sketch) and extract:
+1. ROOM TYPE: e.g., kitchen, living room, bedroom, bathroom, floor_plan.
 2. CURRENT STYLE: Design style or "technical_drawing" if applicable.
-3. KEY FEATURES: List 3-5 notable structural or design elements (BE PRECISE).
-4. CONDITION: Rate the overall condition (excellent/good/fair/poor).
-5. RENOVATION POTENTIAL: Assessment of what could be improved.
+3. KEY FEATURES: 3-5 notable structural or design elements (be precise).
+4. CONDITION: Overall condition (excellent/good/fair/poor).
+5. RENOVATION NOTES: Concise assessment of what could be improved.
 
-**IMPORTANT**: After your reasoning/verification, output the final answer ONLY inside a ```json code block:
-
-```json
+Return ONLY a valid JSON object matching this schema:
 {
   "roomType": "...",
   "currentStyle": "...",
@@ -47,7 +27,6 @@ Provide your analysis:
   "condition": "...",
   "renovationNotes": "..."
 }
-```
 """
 
 async def analyze_image_triage(image_data: bytes) -> dict[str, Any]:
@@ -73,13 +52,11 @@ async def analyze_image_triage(image_data: bytes) -> dict[str, Any]:
                 ],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    max_output_tokens=512,
-                    thinking_config=types.ThinkingConfig(
-                        thinking_level=types.ThinkingLevel.MINIMAL,
-                    ),
+                    thinking_config=build_thinking_config(ModelRole.VISION),
+                    http_options=types.HttpOptions(timeout=int(_TRIAGE_TIMEOUT_SECONDS * 1000)),
                 ),
             ),
-            timeout=20.0,
+            timeout=_TRIAGE_TIMEOUT_SECONDS,
         )
 
         if not response.text:

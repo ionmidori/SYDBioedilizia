@@ -4,7 +4,7 @@ import logging
 
 from google.genai import types as genai_types
 from pydantic import BaseModel
-from src.core.models import ModelRole, get_genai_client, get_model_id
+from src.core.models import ModelRole, build_thinking_config, get_genai_client, get_model_id
 
 logger = logging.getLogger(__name__)
 
@@ -146,10 +146,8 @@ Respond with ONLY valid JSON. No markdown, no explanations:
                 config=genai_types.GenerateContentConfig(
                     temperature=0.4,
                     response_mime_type="application/json",
-                    max_output_tokens=1024,
-                    thinking_config=genai_types.ThinkingConfig(
-                        thinking_level=genai_types.ThinkingLevel.MINIMAL,
-                    ),
+                    thinking_config=build_thinking_config(ModelRole.VISION),
+                    http_options=genai_types.HttpOptions(timeout=int(_ARCHITECT_TIMEOUT_SECONDS * 1000)),
                 ),
             ),
             timeout=_ARCHITECT_TIMEOUT_SECONDS,
@@ -179,6 +177,9 @@ Respond with ONLY valid JSON. No markdown, no explanations:
             logger.error(f"[Architect] JSON Parse Error: {e}")
             return _create_fallback_output(target_style, preservation_list)
 
+    except TimeoutError as error:
+        logger.error(f"[Architect] Timed out after {_ARCHITECT_TIMEOUT_SECONDS}s")
+        raise Exception(f"Architect timed out after {_ARCHITECT_TIMEOUT_SECONDS}s") from error
     except Exception as error:
         logger.error(f"[Architect] Generation Error: {error}")
         raise Exception(f"Architect generation failed: {str(error)}") from error
