@@ -23,6 +23,7 @@ from src.core.money import to_cents
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.admin_quote import (
+    AdminChat,
     AdminMe,
     AdminQuoteList,
     AdminQuoteListItem,
@@ -43,6 +44,7 @@ from src.schemas.admin_quote import (
 from src.schemas.internal import UserSession
 from src.schemas.quote import QuoteRevision, QuoteSchema
 from src.services import admin_quotes as svc
+from src.services.admin_chat import admin_chat
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
 from src.services.client_profile import get_client_profile
 from src.services.email import get_email_provider, outbox
@@ -173,6 +175,17 @@ async def get_revision(
     # cannot break an old revision.
     stored = {k: v for k, v in (snap.to_dict() or {}).items() if k != "specs"}
     return QuoteRevision(**stored)
+
+
+@router.get("/quotes/{project_id}/chat", response_model=AdminChat)
+@limiter.limit("120/minute")
+async def get_client_chat(
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+    project_id: str = _PID,
+    admin: UserSession = Depends(require_admin),  # pyright: ignore[reportUnusedParameter]
+) -> AdminChat:
+    """The client chat of the quote, with the change the team has to read highlighted."""
+    return await admin_chat(get_async_firestore_client(), project_id)
 
 
 @router.get("/quotes/{project_id}/media/{media_id}/url", response_model=MediaUrlResponse)

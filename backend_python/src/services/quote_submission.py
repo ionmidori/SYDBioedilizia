@@ -99,7 +99,8 @@ async def _submit_tx(
         raise EmptyQuoteError(project_id)
 
     new_status = transition(status, QuoteEvent.SUBMIT)  # 409 from rejected or a legacy status
-    transaction.update(q_ref, {"status": new_status.value, "updated_at": now})
+    # submitted_at: where the change the admin reads in the chat starts (admin dossier).
+    transaction.update(q_ref, {"status": new_status.value, "updated_at": now, "submitted_at": now})
 
     if not settings.ADMIN_EMAIL:
         # The quote still reaches the admin inbox (pending_review), but nobody is emailed.

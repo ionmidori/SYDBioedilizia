@@ -88,6 +88,31 @@ describe('adminApi', () => {
       expect((init as RequestInit).headers).toMatchObject({ 'If-Match': '"v2"' });
     });
 
+    it('reads the client chat of a quote', async () => {
+      mockFetch.mockResolvedValue(
+        json(200, {
+          messages: [
+            {
+              id: 'm1',
+              role: 'user',
+              text: 'aggiungo la cucina',
+              at: '2026-11-19T11:00:00Z',
+              room_label: null,
+              has_media: false,
+              in_change: true,
+            },
+          ],
+          change_kind: 'followup',
+          change_since: '2026-11-19T10:00:00Z',
+          truncated: false,
+        }),
+      );
+      const chat = await adminApi.getChat('p1');
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/py/admin/quotes/p1/chat');
+      expect(chat.change_kind).toBe('followup');
+      expect(chat.messages[0]).toMatchObject({ id: 'm1', in_change: true });
+    });
+
     it('sends the Idempotency-Key on send', async () => {
       mockFetch.mockResolvedValue(
         json(202, { project_id: 'p1', delivery_id: 'd1', status: 'sent', delivery_status: 'queued' }),

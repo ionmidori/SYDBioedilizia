@@ -453,6 +453,33 @@ class TestMergedChat:
             await repo.ensure_session("s1", "u1", is_guest=False)
 
 
+class TestListForAdmin:
+    """The client chat for the admin dossier: whole rows with their time, errors raised."""
+
+    @pytest.mark.asyncio
+    async def test_returns_the_newest_rows_oldest_first(self, repo):
+        db = FakeDb()
+        for minute in range(4):
+            db.put("sessions", "s1", "messages", f"m{minute}", {
+                "role": "user", "content": f"msg {minute}",
+                "timestamp": datetime(2026, 11, 19, 10, minute, tzinfo=UTC),
+                "metadata": {"room_id": "bagno"},
+            })
+        with patch(f"{_MODULE}.get_async_firestore_client", return_value=db):
+            rows = await repo.list_for_admin("s1", limit=3)
+
+        assert [r["id"] for r in rows] == ["m1", "m2", "m3"]
+        assert rows[0]["timestamp"] == datetime(2026, 11, 19, 10, 1, tzinfo=UTC)
+        assert rows[0]["metadata"] == {"room_id": "bagno"}
+
+    @pytest.mark.asyncio
+    async def test_a_read_error_is_raised(self, repo):
+        db = MagicMock()
+        db.collection.side_effect = RuntimeError("firestore down")
+        with patch(f"{_MODULE}.get_async_firestore_client", return_value=db), pytest.raises(RuntimeError):
+            await repo.list_for_admin("s1", limit=3)
+
+
 class TestHistoryRevision:
     """Bumped by a chat merge: the ADK sessions held in memory rebuild."""
 

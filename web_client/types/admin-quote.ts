@@ -129,6 +129,33 @@ export const quoteDossierSchema = z.object({
 });
 export type QuoteDossier = z.infer<typeof quoteDossierSchema>;
 
+export const adminChatRoleSchema = z.enum(['user', 'assistant']);
+// Why part of the chat is highlighted: a change asked while the team had the
+// quote (`followup`), or the revision the client opened after a send (`revision`).
+export const chatChangeKindSchema = z.enum(['followup', 'revision']);
+
+// One turn of the client chat as the admin reads it: text only, no tool rows.
+export const adminChatMessageSchema = z.object({
+  id: z.string(),
+  role: adminChatRoleSchema,
+  text: z.string(),
+  at: z.string().nullable().optional(),
+  room_label: z.string().nullable().optional(),
+  has_media: z.boolean().default(false),
+  in_change: z.boolean().default(false),
+});
+export type AdminChatMessage = z.infer<typeof adminChatMessageSchema>;
+
+// The client chat of a quote, oldest first. A kind without `change_since`: the
+// start of the change is not known, nothing is highlighted.
+export const adminChatSchema = z.object({
+  messages: z.array(adminChatMessageSchema).default([]),
+  change_kind: chatChangeKindSchema.nullable().optional(),
+  change_since: z.string().nullable().optional(),
+  truncated: z.boolean().default(false),
+});
+export type AdminChat = z.infer<typeof adminChatSchema>;
+
 export const editQuoteBodySchema = z
   .object({
     items: z.array(quoteItemSchema).max(200).nullable().optional(),

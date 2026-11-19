@@ -15,6 +15,7 @@ export const ADMIN_KEYS = {
   quotes: (filters: QuoteListFilters) => ['admin', 'quotes', filters] as const,
   dossier: (projectId: string) => ['admin', 'dossier', projectId] as const,
   revision: (projectId: string, version: number) => ['admin', 'revision', projectId, version] as const,
+  chat: (projectId: string) => ['admin', 'chat', projectId] as const,
   sendDefaults: (projectId: string) => ['admin', 'send-defaults', projectId] as const,
   kpis: ['admin', 'kpis'] as const,
   testimonials: (status: string) => ['admin', 'testimonials', status] as const,
@@ -75,6 +76,17 @@ export function useAdminRevision(projectId: string, version: number, enabled: bo
   });
 }
 
+/** The client chat: the client may write meanwhile, refreshed like the dossier. */
+export function useAdminChat(projectId: string) {
+  return useQuery({
+    queryKey: ADMIN_KEYS.chat(projectId),
+    queryFn: () => adminApi.getChat(projectId),
+    staleTime: 15 * 1000,
+    refetchOnWindowFocus: true,
+    retry: retryUnlessDenied,
+  });
+}
+
 /** What the Send dialog pre-fills. Always fresh: the recipient may have changed. */
 export function useSendDefaults(projectId: string, enabled: boolean) {
   return useQuery({
@@ -102,6 +114,8 @@ function useQuoteWrite<TVariables, TResult>(projectId: string, mutationFn: (vari
       void client.invalidateQueries({ queryKey: ADMIN_KEYS.dossier(projectId) });
       void client.invalidateQueries({ queryKey: ['admin', 'quotes'] });
       void client.invalidateQueries({ queryKey: ADMIN_KEYS.sendDefaults(projectId) });
+      // What the chat highlights follows the quote's version and revision.
+      void client.invalidateQueries({ queryKey: ADMIN_KEYS.chat(projectId) });
       // The dashboard counts the decisions.
       void client.invalidateQueries({ queryKey: ADMIN_KEYS.kpis });
     },

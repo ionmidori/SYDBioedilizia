@@ -83,6 +83,7 @@ function setup(data: QuoteDossier, meUid = 'admin-1') {
   m.useRegeneratePdf.mockReturnValue(mocks.regenerate as unknown as ReturnType<typeof m.useRegeneratePdf>);
   m.useApplyProposal.mockReturnValue(mocks.applyProposal as unknown as ReturnType<typeof m.useApplyProposal>);
   m.useSendDefaults.mockReturnValue({ isPending: true, isError: false } as unknown as ReturnType<typeof m.useSendDefaults>);
+  m.useAdminChat.mockReturnValue({ isPending: true, isError: false } as unknown as ReturnType<typeof m.useAdminChat>);
   return render(<DossierView projectId="p1" />);
 }
 
@@ -294,6 +295,13 @@ describe('DossierView', () => {
       const banner = screen.getByTestId('client-followup-banner');
       expect(banner).toHaveTextContent('Il cliente ha chiesto modifiche in chat');
       expect(banner).toHaveTextContent('2 richieste');
+      expect(within(banner).getByRole('link', { name: 'leggi la chat' })).toHaveAttribute('href', '#chat-cliente');
+    });
+
+    it('shows the client chat in the dossier', () => {
+      setup(dossier({}, { status: 'in_review', client_followup: followup }));
+      expect(screen.getByTestId('dossier-chat')).toBeInTheDocument();
+      expect(m.useAdminChat).toHaveBeenCalledWith('p1');
     });
 
     it('is no longer shown once the quote moved to a newer version', () => {

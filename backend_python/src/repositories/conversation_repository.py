@@ -235,6 +235,22 @@ class ConversationRepository:
             logger.error(f"[Repo] Error retrieving messages: {str(e)}", exc_info=True)
             return []
 
+    async def list_for_admin(self, session_id: str, limit: int) -> list[dict[str, Any]]:
+        """The newest `limit` stored rows of the session, oldest first, each with
+        its document `id` (admin dossier, src/services/admin_chat.py). Whole rows,
+        `timestamp` included; errors propagate: the admin must see a failed read,
+        not an empty chat."""
+        query = (
+            self._get_async_db()
+            .collection('sessions')
+            .document(session_id)
+            .collection('messages')
+            .order_by('timestamp', direction=async_firestore.Query.DESCENDING)
+            .limit(limit)
+        )
+        rows = [{**(doc.to_dict() or {}), 'id': doc.id} async for doc in query.stream()]
+        return rows[::-1]
+
     async def latest_assistant_message_id(self, session_id: str) -> str | None:
         """Id of the newest assistant message of the session (None if there is none).
 

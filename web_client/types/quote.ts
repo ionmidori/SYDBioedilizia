@@ -281,6 +281,8 @@ export const quoteSchema = z.object({
   client_followup: clientFollowupSchema.nullable().optional(),
   // The revision in progress was opened by the client in the chat (Phase 139 PR-3).
   client_revision: z.boolean().nullable().optional(),
+  // Last time the client sent the quote to the team.
+  submitted_at: z.string().nullable().optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
   version: z.number().default(1),
