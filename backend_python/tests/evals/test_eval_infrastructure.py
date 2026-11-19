@@ -12,6 +12,7 @@ For live eval runs, use: uv run python tests/evals/run_evals.py
 """
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from google.adk.evaluation.eval_set import EvalSet
@@ -325,9 +326,15 @@ class TestMultiRoomQuoteEval:
         assert BACKEND_CHECKS["quote_revision.test.json"](run) == ["submit_quote_request called 0 times, expected 1"]
 
         with multi_room_backend("quote_with_team.test.json") as run:
-            relayed = await run.quotes.relay(None, "eval")
+            relayed = await run.quotes.relay(None, "eval", proposal=MagicMock())
         assert relayed is not None and relayed.status == "in_review"
         assert BACKEND_CHECKS["quote_with_team.test.json"](run) == []
+
+        with multi_room_backend("quote_with_team.test.json") as run:
+            await run.quotes.relay(None, "eval")
+        assert BACKEND_CHECKS["quote_with_team.test.json"](run) == [
+            "the request reached the team without an AI proposal"
+        ]
 
     def test_every_multi_room_set_has_a_backend_check(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS

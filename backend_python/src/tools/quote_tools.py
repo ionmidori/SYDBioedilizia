@@ -40,6 +40,7 @@ from src.services.quote_build import UnitBuild, build_draft, price_book_units
 from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_ai_draft
 from src.services.quote_followup import FollowupResult, relay_client_request
+from src.services.quote_proposal import ProposalDraft
 from src.services.quote_state import QuoteStatus, ai_draft_action
 from src.services.quote_step import NEEDS_DETAILS
 from src.services.room_aggregation import load_rules
@@ -854,6 +855,18 @@ async def _save_spec(
         return None
 
 
+async def _save_specs(
+    results: list[_UnitResult], project_id: str, stored_specs: Mapping[str, RoomInterventionSpec] | None
+) -> None:
+    """Store the specs a proposal analysis left unsaved (`_analyse` persist_specs False)."""
+    if stored_specs is None:
+        return
+    await asyncio.gather(*(
+        _save_spec(project_id, r.unit.spec_key, r.analysed.fresh, r.before, r.analysed.validated)
+        for r in results if r.analysed.fresh is not None
+    ))
+
+
 def _expansion(
     analysis: InsightAnalysis,
     measures: Mapping[str, Decimal],
@@ -866,11 +879,17 @@ def _expansion(
 
 
 async def _analyse(
-    unit: _QuoteUnit, session_id: str, project_id: str, stored_specs: Mapping[str, RoomInterventionSpec] | None
+    unit: _QuoteUnit,
+    session_id: str,
+    project_id: str,
+    stored_specs: Mapping[str, RoomInterventionSpec] | None,
+    *,
+    persist_specs: bool = True,
 ) -> _UnitResult:
     """InsightEngine on one unit, then SKU and quantity validation, then the
     expansion of the spec into lines by code, with what the client confirmed on
-    the card (`stored_specs`, None: not readable), and the spec stored."""
+    the card (`stored_specs`, None: not readable), and the spec stored (not with
+    `persist_specs` False: a proposal for the team leaves the card as it is)."""
     # 7. Analyze with Insight Engine (uses Gemini response_schema structured output)
     analysis = await get_insight_engine().analyze_project_for_quote(
         [{"role": "user", "content": unit.context}], unit.media, session_id=session_id
@@ -894,7 +913,7 @@ async def _analyse(
     # Built from the model's values: one that differs from a confirmed value is a proposal.
     fresh = _build_spec(unit, validated, measures, library, expansion)
     spec: RoomInterventionSpec | None = None
-    if fresh is not None and stored_specs is not None:
+    if fresh is not None and stored_specs is not None and persist_specs:
         spec = await _save_spec(project_id, unit.spec_key, fresh, stored, validated)
         if spec is not None and not same_confirmations(spec, stored):
             # The client confirmed on the card during the analysis: the lines follow it.
@@ -1114,9 +1133,16 @@ def _manual_work_note(manual_work: list[ManualWorkItem]) -> str:
     return f"\n\nAlcune lavorazioni le quoterà a mano il nostro tecnico: {shown}{more}."
 
 
-def _relayed_reply(relayed: FollowupResult) -> str:
-    """The request reached the team (quote_followup): nothing was written."""
+def _relayed_reply(relayed: FollowupResult, *, proposal: bool = False) -> str:
+    """The request reached the team (quote_followup): nothing was written on the
+    quote; with `proposal`, the team got the revision SYD drafted (no price here)."""
     reference = f" (riferimento **{relayed.quote_number}**)" if relayed.quote_number else ""
+    if proposal:
+        return (
+            f"Il preventivo{reference} è già in mano al nostro team tecnico, quindi non lo modifico da qui: "
+            "ho inviato al team una proposta di modifica con le lavorazioni che mi hai descritto. "
+            "La valuterà prima di inviarti il preventivo aggiornato. Non serve inviarla di nuovo."
+        )
     if relayed.status in (QuoteStatus.APPROVED, QuoteStatus.SENT):
         return (
             f"Il preventivo{reference} è stato approvato dal nostro team ed è in partenza: "
@@ -1166,14 +1192,10 @@ async def suggest_quote_items_wrapper(
     target_project_id = project_id or session_id
     try:
         db = get_async_firestore_client()
-        # The team has the quote: the request is relayed, not drafted, so the
-        # costly analysis (photos + InsightEngine) is skipped altogether.
+        # The team has the quote: the request is analysed like a first quote but
+        # relayed as a proposal for the team, never written on the quote or the card.
         current = await read_quote_status(db, target_project_id)
-        if current is not None and ai_draft_action(current.status, current.delivery_status) == "relay":
-            relayed = await relay_client_request(db, target_project_id)
-            if relayed is not None:
-                return _relayed_reply(relayed)
-            # The status changed meanwhile: draft as usual (the save re-checks it).
+        relay = current is not None and ai_draft_action(current.status, current.delivery_status) == "relay"
 
         # 1. Load context (wide window: the original photo analysis and every room discussed)
         repo = ConversationRepository()
@@ -1212,13 +1234,19 @@ async def suggest_quote_items_wrapper(
                             room, others, general, project_files, session_id, target_project_id,
                             named=named.get(room.room_id, ()), order=order, rooms=all_rooms,
                         )
-                        return await _analyse(unit, session_id, target_project_id, stored_specs)
+                        return await _analyse(
+                            unit, session_id, target_project_id, stored_specs, persist_specs=not relay
+                        )
 
                 async def analyse_rest_of_home() -> _UnitResult | None:
                     generale = next((r for r in all_rooms if r.room_id == DEFAULT_ROOM_ID), None)
                     async with semaphore:
                         unit = await _general_unit(general, generale, [r.label for r in to_quote], target_project_id)
-                        return await _analyse(unit, session_id, target_project_id, stored_specs) if unit else None
+                        if unit is None:
+                            return None
+                        return await _analyse(
+                            unit, session_id, target_project_id, stored_specs, persist_specs=not relay
+                        )
 
                 async with asyncio.TaskGroup() as group:
                     tasks = [group.create_task(analyse_room(room)) for room in to_quote]
@@ -1230,7 +1258,9 @@ async def suggest_quote_items_wrapper(
                     results.append(rest)
             else:
                 unit = await _single_unit(history, session_id)
-                results = [await _analyse(unit, session_id, target_project_id, stored_specs)]
+                results = [
+                    await _analyse(unit, session_id, target_project_id, stored_specs, persist_specs=not relay)
+                ]
         except* (InsightEngineError, GoogleAPIError, ValidationError) as errors:
             failure = errors
         if failure is not None:
@@ -1238,6 +1268,9 @@ async def suggest_quote_items_wrapper(
                 "[QuoteTool] Project analysis failed.",
                 extra={"errors": [f"{type(e).__name__}: {str(e)[:200]}" for e in failure.exceptions]},
             )
+            # The team still learns of the request, without a proposal.
+            if relay and (relayed := await relay_client_request(db, target_project_id)) is not None:
+                return _relayed_reply(relayed)
             return (
                 "Non è stato possibile analizzare automaticamente il progetto in questo momento. "
                 "Ti chiedo di descrivermi le lavorazioni previste e ti fornirò un preventivo manuale."
@@ -1267,6 +1300,16 @@ async def suggest_quote_items_wrapper(
         else:
             summary = results[0].analysis.summary
             headline = f"**{summary}**"
+
+        if relay:
+            relayed = await relay_client_request(
+                db, target_project_id, proposal=ProposalDraft(built=built, summary=summary)
+            )
+            if relayed is not None:
+                return _relayed_reply(relayed, proposal=True)
+            # The status changed during the analysis: draft as usual (the save
+            # re-checks it), with the specs the card shows saved now.
+            await _save_specs(results, target_project_id, stored_specs)
 
         # 9. Save the draft to Firestore (projects/{projectId}/private_data/quote)
         # in a transaction: never overwrite a quote the team is working on, open

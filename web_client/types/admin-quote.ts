@@ -8,9 +8,14 @@ import { z } from 'zod';
 
 import {
   deliveryRecordStatusSchema,
+  manualWorkItemSchema,
   mediaRefSchema,
+  priceEstimateSchema,
+  quoteAiWarningSchema,
   quoteDeliveryStatusSchema,
+  quoteFinancialsSchema,
   quoteItemSchema,
+  quoteRoomSchema,
   quoteSchema,
   quoteStatusSchema,
 } from './quote';
@@ -89,6 +94,27 @@ export const deliverySummarySchema = z.object({
 });
 export type DeliverySummary = z.infer<typeof deliverySummarySchema>;
 
+// AI revision proposal: a change the client asked in the chat while the team had
+// the quote, never written on it (the backend keeps its specs to itself).
+export const quoteProposalSchema = z.object({
+  based_on_version: z.number(),
+  created_at: z.string(),
+  summary: z.string().default(''),
+  items: z.array(quoteItemSchema).default([]),
+  rooms: z.array(quoteRoomSchema).default([]),
+  financials: quoteFinancialsSchema.default({
+    subtotal: 0,
+    vat_rate: 0.22,
+    vat_amount: 0,
+    grand_total: 0,
+  }),
+  estimate: priceEstimateSchema.nullable().optional(),
+  manual_work: z.array(manualWorkItemSchema).default([]),
+  ai_warnings: z.array(quoteAiWarningSchema).default([]),
+  applied_at: z.string().nullable().optional(),
+});
+export type QuoteProposal = z.infer<typeof quoteProposalSchema>;
+
 export const quoteDossierSchema = z.object({
   project_id: z.string(),
   project_name: z.string().nullable().optional(),
@@ -99,6 +125,7 @@ export const quoteDossierSchema = z.object({
   media: z.array(dossierMediaSchema).default([]),
   revisions: z.array(revisionSummarySchema).default([]),
   deliveries: z.array(deliverySummarySchema).default([]),
+  proposal: quoteProposalSchema.nullable().optional(),
 });
 export type QuoteDossier = z.infer<typeof quoteDossierSchema>;
 

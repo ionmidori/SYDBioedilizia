@@ -46,6 +46,7 @@ from src.services.company_info_service import CompanyInfoService
 from src.services.pricing_service import PricingService
 from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult, QuoteStatusView
 from src.services.quote_followup import FollowupResult
+from src.services.quote_proposal import ProposalDraft
 from src.services.quote_state import ai_draft_action
 from src.services.room_aggregation import load_rules
 from src.tools.quota import QuotaDecision
@@ -264,6 +265,8 @@ class QuoteRecorder:
     quotes: list[QuoteSchema] = field(default_factory=list)
     outcomes: list[DraftSaveOutcome] = field(default_factory=list)
     relayed: int = 0
+    # The AI revision proposal of each relayed request (None: relayed without one).
+    proposals: list[ProposalDraft | None] = field(default_factory=list)
 
     def _action(self) -> str:
         current = self.current
@@ -287,10 +290,13 @@ class QuoteRecorder:
         self.outcomes.append(result.outcome)
         return result
 
-    async def relay(self, db: Any, project_id: str, now: Any = None) -> FollowupResult | None:
+    async def relay(
+        self, db: Any, project_id: str, now: Any = None, *, proposal: ProposalDraft | None = None
+    ) -> FollowupResult | None:
         if self.current is None or self._action() != "relay":
             return None
         self.relayed += 1
+        self.proposals.append(proposal)
         return FollowupResult(self.current.status, self.current.quote_number, notified=True)
 
     def revision_problems(self) -> list[str]:
@@ -302,6 +308,7 @@ class QuoteRecorder:
     def relay_problems(self) -> list[str]:
         """Phase 139 PR-3: a change asked while the team has the quote reaches the team, nothing is written."""
         found = [] if self.relayed == 1 else [f"{self.relayed} requests relayed to the team, expected 1"]
+        found += ["the request reached the team without an AI proposal"] if None in self.proposals else []
         return found + ([f"{len(self.quotes)} quotes written, expected 0"] if self.quotes else [])
 
     def problems(self) -> list[str]:

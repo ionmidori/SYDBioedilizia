@@ -75,6 +75,29 @@ class RequestDigest:
     is_revision: bool = False
 
 
+@dataclass(frozen=True)
+class ProposalDigest:
+    """The AI revision proposal as the admin notification shows it (quote_proposal)."""
+    low: Decimal | None
+    high: Decimal | None
+    grand_total: Decimal
+    item_count: int
+    # Rooms the proposal quotes and the quote the team has does not.
+    new_rooms: list[str]
+
+
+def _proposal_lines(proposal: ProposalDigest) -> list[str]:
+    amount = (
+        f"stima {format_eur(proposal.low)} – {format_eur(proposal.high)} IVA inclusa"
+        if proposal.low is not None and proposal.high is not None
+        else f"totale {format_eur(proposal.grand_total)}"
+    )
+    lines = [f"SYD ha preparato una proposta di revisione: {proposal.item_count} lavorazioni, {amount}."]
+    if proposal.new_rooms:
+        lines.append(f"Stanze nuove rispetto al preventivo: {one_line(', '.join(proposal.new_rooms))}.")
+    return lines
+
+
 def one_line(value: Any) -> str:
     """Collapse control characters (CR/LF/tab…) so the value is header-safe."""
     return _CONTROL.sub(" ", str(value if value is not None else "")).strip()
@@ -440,20 +463,25 @@ def admin_new_requests_email(*, requests: list[RequestDigest], admin_url: str) -
     return EmailContent(subject=subject, text=text, html=html)
 
 
-def admin_client_followup_email(*, digest: RequestDigest, status_label: str, admin_url: str) -> EmailContent:
+def admin_client_followup_email(
+    *, digest: RequestDigest, status_label: str, admin_url: str, proposal: ProposalDigest | None = None
+) -> EmailContent:
     """The client asked for changes in the chat while the team has the quote
-    (in review, or approved and about to be sent): nothing was written."""
+    (in review, or approved and about to be sent): nothing was written on it;
+    `proposal`, the AI revision SYD drafted apart for the team, if any."""
     number = one_line(digest.quote_number) or "senza numero"
     who = _who(digest)
     subject = f"[SYD] {number}: {who} chiede modifiche in chat"
     intro = f"{who} ha chiesto in chat altre modifiche al preventivo {number}."
     status = f"Stato attuale: {one_line(status_label)}."
+    proposal_lines = _proposal_lines(proposal) if proposal is not None else []
     text = "\n".join(
-        [intro, status, "", "Leggi la chat dalla scheda del preventivo nella console admin:", admin_url]
+        [intro, status, *proposal_lines, "", "Leggi la chat dalla scheda del preventivo nella console admin:", admin_url]
     )
     html = _document(
         _p(_t(intro))
         + _p(_t(status), f"color:{_c('ink-muted')};")
+        + "".join(_p(_t(line)) for line in proposal_lines)
         + _p("Leggi la chat dalla scheda del preventivo nella console admin.")
         + _button(admin_url, "Apri la console admin"),
         title=subject,
