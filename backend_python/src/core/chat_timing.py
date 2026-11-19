@@ -58,6 +58,15 @@ class ToolCallTiming:
         }
 
 
+def _merge_token_count(current: int | None, incoming: int | None) -> int | None:
+    """Monotonic merge so trailing zero/None stream chunks never erase prior counts."""
+    if incoming is None:
+        return current
+    if current is None:
+        return incoming
+    return max(current, incoming)
+
+
 def _span_trace_id(span: Span | None) -> str | None:
     if span is None:
         return None
@@ -119,7 +128,12 @@ class TurnTiming:
     persist_ms: float = 0.0
     tool_total_ms: float = 0.0
     trace_id: str | None = None
+    outcome_override: str | None = None
     emitted: bool = False
+
+    def set_outcome(self, outcome: str) -> None:
+        """Record an internal outcome (e.g. 'timeout') when stream closes without raising."""
+        self.outcome_override = outcome
 
     def elapsed_ms(self, since: float | None = None) -> float:
         return round((time.perf_counter() - (since if since is not None else self.arrival)) * 1000, 1)
@@ -139,10 +153,24 @@ class TurnTiming:
             agent=agent, model=model, started=time.perf_counter(), span=span
         )
 
-    def llm_chunk(self, key: str) -> None:
+    def llm_chunk(
+        self,
+        key: str,
+        *,
+        prompt_tokens: int | None = None,
+        cached_tokens: int | None = None,
+        thoughts_tokens: int | None = None,
+        output_tokens: int | None = None,
+    ) -> None:
         call = self._open_llm_calls.get(key)
-        if call is not None and call.first_chunk_ms is None:
+        if call is None:
+            return
+        if call.first_chunk_ms is None:
             call.first_chunk_ms = self.elapsed_ms(call.started)
+        call.prompt_tokens = _merge_token_count(call.prompt_tokens, prompt_tokens)
+        call.cached_tokens = _merge_token_count(call.cached_tokens, cached_tokens)
+        call.thoughts_tokens = _merge_token_count(call.thoughts_tokens, thoughts_tokens)
+        call.output_tokens = _merge_token_count(call.output_tokens, output_tokens)
 
     def llm_finished(
         self,
@@ -157,16 +185,16 @@ class TurnTiming:
         if call is None:
             return
         call.duration_ms = self.elapsed_ms(call.started)
-        call.prompt_tokens = prompt_tokens
-        call.cached_tokens = cached_tokens
-        call.thoughts_tokens = thoughts_tokens
-        call.output_tokens = output_tokens
+        call.prompt_tokens = _merge_token_count(call.prompt_tokens, prompt_tokens)
+        call.cached_tokens = _merge_token_count(call.cached_tokens, cached_tokens)
+        call.thoughts_tokens = _merge_token_count(call.thoughts_tokens, thoughts_tokens)
+        call.output_tokens = _merge_token_count(call.output_tokens, output_tokens)
         call.estimated_cost_usd = estimate_llm_cost_usd(
             call.model,
-            prompt_tokens=prompt_tokens,
-            cached_tokens=cached_tokens,
-            thoughts_tokens=thoughts_tokens,
-            output_tokens=output_tokens,
+            prompt_tokens=call.prompt_tokens,
+            cached_tokens=call.cached_tokens,
+            thoughts_tokens=call.thoughts_tokens,
+            output_tokens=call.output_tokens,
         )
         call.trace_id = _span_trace_id(call.span) or _span_trace_id(trace.get_current_span())
         if self.trace_id is None and call.trace_id is not None:
@@ -201,7 +229,21 @@ class TurnTiming:
 
     def add_tool(self, name: str, duration_ms: float, *, status: str = "ok") -> None:
         self.tool_total_ms += duration_ms
+        rounded_ms = round(duration_ms, 1)
         self.tool_calls.append(ToolCallTiming(name=name, duration_ms=duration_ms, status=status))
+        trace_id = self.trace_id or _span_trace_id(trace.get_current_span())
+        if self.trace_id is None and trace_id is not None:
+            self.trace_id = trace_id
+        logger.info(
+            "tool_call_timing",
+            extra={
+                "event": "tool_call_timing",
+                "trace_id": trace_id,
+                "tool_name": name,
+                "duration_ms": rounded_ms,
+                "status": status,
+            },
+        )
 
     def _primary_agent(self) -> str:
         if not self.llm_calls:
@@ -229,12 +271,13 @@ class TurnTiming:
         output_total = sum(max(0, c.output_tokens or 0) for c in self.llm_calls)
         cache_hit_ratio = min(1.0, round(cached_total / prompt_total, 4)) if prompt_total > 0 else 0.0
         estimated_cost_usd = round(sum(c.estimated_cost_usd for c in self.llm_calls), 6)
+        effective_outcome = outcome if outcome != "ok" else (self.outcome_override or "ok")
         logger.info(
             "chat_turn_timing",
             extra={
                 "event": "chat_turn_timing",
                 "trace_id": self.trace_id,
-                "outcome": outcome,
+                "outcome": effective_outcome,
                 "cold_start": self.cold_start,
                 "uptime_ms": self.uptime_ms,
                 "queued_ms": self.marks.get("handler"),
@@ -252,6 +295,8 @@ class TurnTiming:
                 "cache_hit_ratio": cache_hit_ratio,
                 "estimated_cost_usd": estimated_cost_usd,
                 "n_tool_calls": len(self.tool_calls),
+                "has_tools": bool(self.tool_calls),
+                "tool_error_count": sum(1 for t in self.tool_calls if t.status != "ok"),
                 "tool_total_ms": round(self.tool_total_ms, 1),
                 "tool_names": [t.name for t in self.tool_calls],
                 "tool_calls": [t.as_log() for t in self.tool_calls],
