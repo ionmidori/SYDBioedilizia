@@ -35,7 +35,11 @@ class Settings(BaseSettings):
     # Ideally, we enforce them.
     GEMINI_API_KEY: str | None = Field(default=None, description="Required for Gemini AI models")
     GOOGLE_API_KEY: str | None = Field(default=None, description="Legacy alias for GEMINI_API_KEY")
-    PERPLEXITY_API_KEY: str | None = Field(default=None, description="Required for Market Prices")
+    PERPLEXITY_API_KEY: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("PERPLEXITY_API_KEY", "PLEX_API_KEY"),
+        description="Required for Market Prices (Cloud Run mounts secret as PLEX_API_KEY).",
+    )
     PINECONE_API_KEY: str | None = Field(default=None, description="Required for RAG Vector Database")
 
     # ── RAG retrieval tuning ──────────────────────────────────────────────────
@@ -86,6 +90,8 @@ class Settings(BaseSettings):
     MODEL_ROUTER: str | None = Field(default=None, description="syd_orchestrator (router). Falls back to CHAT_MODEL_VERSION.")
     MODEL_TRIAGE: str | None = Field(default=None, description="triage sub-agent. Falls back to CHAT_MODEL_VERSION.")
     MODEL_DESIGN: str | None = Field(default=None, description="design sub-agent. Falls back to CHAT_MODEL_VERSION.")
+    # Production overrides MODEL_QUOTE=gemini-3.8-flash (deploy/gemini-vertex-eu.sh, 2026-11-13):
+    # multi_room_submit and room_correction evals require 3.8-flash to avoid premature registration/hallucinated amounts.
     MODEL_QUOTE: str | None = Field(default=None, description="quote sub-agent. Falls back to CHAT_MODEL_VERSION.")
     MODEL_VISION: str | None = Field(
         default="gemini-3.8-flash",
@@ -156,7 +162,7 @@ class Settings(BaseSettings):
     # the static prompts + tools are ~5.5k (router) to ~9.2k (quote) tokens and a
     # 12-turn chat reaches ~11k on the quote agent.
     ADK_COMPACTION_TOKEN_THRESHOLD: int = Field(
-        default=20000, gt=0, description="Prompt tokens of the last model call that trigger a compaction."
+        default=13000, gt=0, description="Prompt tokens of the last model call that trigger a compaction."
     )
     ADK_COMPACTION_EVENT_RETENTION: int = Field(
         default=10, ge=0, description="Newest session events kept verbatim by a compaction."

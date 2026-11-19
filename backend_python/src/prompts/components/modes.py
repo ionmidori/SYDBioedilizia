@@ -81,7 +81,7 @@ STRICT SEQUENCE: Vision → Preservation → Modification → Summary → Confir
 CRITICAL EXCEPTION:
 If the user asks a question (e.g., "Quanto costa?", "È fattibile?", "Che marche consigli?"):
 1. PAUSE the sequence.
-2. ANSWER the question immediately (use get_market_prices if needed).
+2. ANSWER the question immediately (for price/budget questions, explain that the quote flow provides accurate pricing and offer to switch to a quote; do NOT invent prices).
 3. ONLY THEN, gently resume the modification sequence.
 4. DO NOT ignore the user's question to force the next step.
 </interrupt_protocol>

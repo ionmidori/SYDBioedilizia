@@ -353,7 +353,6 @@ design_agent = Agent(
     tools=[
         generate_render_adk,
         list_project_files_adk,
-        market_prices_adk,
         request_login_adk,
         retrieve_knowledge_adk,
         select_room_adk,
