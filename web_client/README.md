@@ -11,25 +11,27 @@ the Python backend.
 | Area | Technology |
 | :--- | :--- |
 | Framework | Next.js 16 (App Router, Turbopack), React 19, TypeScript 6 |
-| Styling | Tailwind CSS 4, a Material Design 3 Expressive design system, glassmorphism surfaces |
+| Styling | Tailwind CSS 4, W3C DTCG + OKLCH semantic role tokens (`light` theme, WCAG 2.2 AA contrast gate, `shadow-1/2/3` elevation and `surface-inverse`) |
 | Motion | Framer Motion 14 with the shared variants in `lib/m3-motion.ts`; scroll-linked effects in CSS (`app/scroll-animations.css`) |
-| Chat | Vercel AI SDK 7 (`@ai-sdk/react`), streaming from the backend `/chat/stream` |
-| Data | TanStack Query for server state (`lib/query-client.ts`, `hooks/use-*.ts`) |
-| Forms | React Hook Form with Zod 4 schemas |
-| Auth | Firebase Auth (modular SDK 13), passkeys (WebAuthn) and Firebase App Check |
+| Chat | Vercel AI SDK 7 (`ai` 7 / `@ai-sdk/react` 4), streaming from the backend `/chat/stream` |
+| Data | TanStack Query 5 for server state (`lib/query-client.ts`, `hooks/use-*.ts`) |
+| Forms | React Hook Form 7 with Zod 4 schemas |
+| Auth | Firebase Auth (modular SDK 13), passkeys (WebAuthn with per-device cookie gate) and Firebase App Check |
 | UI primitives | Radix UI, Vaul drawers, Lucide icons |
-| Tests | Jest and React Testing Library; Playwright for end-to-end tests |
+| Tests | Jest and React Testing Library; Playwright + axe-core for end-to-end and WCAG 2.2 AA tests |
 
 ## What's in the app
 
 | Route | Content |
 | :--- | :--- |
-| `/` | Homepage: hero with the project gallery, "Cosa facciamo", technology, portfolio and testimonials sections |
-| `/progetti`, `/chi-siamo`, `/faq` | Portfolio, company and FAQ pages |
+| `/` | Homepage: `Hero` with the photo-only project gallery, `Services` ("Tecnologia al servizio del Design"), `WhatWeDo` ("Cosa facciamo") and `Testimonials` sections |
+| `/progetti`, `/chi-siamo`, `/faq` | Portfolio archive, company profile and interactive FAQ (`FAQExplorer` + `CompanyContextStrip`) |
 | `/blog`, `/blog/[slug]` | Articles, defined as data in `lib/blog/posts/` and rendered by one route |
 | `/privacy`, `/cookie-policy`, `/terms` | Legal pages, with the company info (`lib/company-info/`, edited in `/admin/company`) |
-| `/dashboard` | Client area: projects, gallery, quotes, profile and settings |
-| `/admin` | Admin console: quote review, price book, company info, portfolio, testimonials, GDPR tools |
+| `/syd-bioedilizia.vcf`, `/llms.txt` | Company vCard download and AI crawler context route |
+| `/auth/action` | In-app Firebase Auth action handler (`resetPassword`, `verifyEmail`, `recoverEmail`) |
+| `/dashboard` | Client area: single home chat & rooms overview, `/dashboard/gallery`, `/dashboard/quotes` (confirmation cards & revision history) and `/dashboard/profile` (account security, passkeys, session revocation) |
+| `/admin` | Admin console: KPI overview, `/admin/quotes` and `/admin/quotes/[projectId]` (dossier), `/admin/price-book`, `/admin/company` (9-tab company editor), `/admin/portfolio`, `/admin/testimonials`, `/admin/gdpr` |
 
 The chat widget is available on every page. Premium actions (renders and
 quotes) ask anonymous visitors to sign in.
@@ -51,10 +53,10 @@ quotes) ask anonymous visitors to sign in.
 
 ## Security headers
 
-`next.config.ts` sets HSTS, `X-Frame-Options: DENY`, `nosniff`, a
-restrictive `Permissions-Policy` and a referrer policy. `proxy.ts` adds the
+`next.config.ts` sets HSTS, `X-Frame-Options: DENY` (`SAMEORIGIN` on `/__/auth/*` so the page can frame the proxied Firebase Auth handler), `nosniff`, a
+restrictive `Permissions-Policy` (`camera=(self), microphone=(), geolocation=(), browsing-topics=()`) and a referrer policy. `proxy.ts` adds the
 Content Security Policy built in `lib/security/csp.ts`: dynamic routes such as
-`/dashboard/*` get a strict nonce-based policy, and statically pre-rendered
+`/dashboard/*` and `/admin/*` get a strict nonce-based policy (`'strict-dynamic'`), and statically pre-rendered
 pages get an allowlist policy because they can't carry a per-request nonce.
 
 ## Branding and PWA assets
@@ -100,7 +102,7 @@ web_client/
 
 Run `npm install` from the repository root: the project is an npm workspace and
 there is a single lockfile. The root `package.json` requires Node.js 24.12 or
-later. The lockfile must be regenerated with npm 10 (see
+later. The lockfile must be updated with the npm bundled with Node 24 (npm 11, see
 [`CONTRIBUTING.md`](../CONTRIBUTING.md)).
 
 ```bash
@@ -108,10 +110,10 @@ npm run dev:web                 # from the repo root: dev server on http://local
 cd web_client
 npm run type-check              # tsc --noEmit, must report 0 errors
 npm run lint                    # ESLint
-npm test                        # Jest and React Testing Library
+npm test                        # Jest and React Testing Library (~210 test files)
 npm run test:coverage           # Jest with coverage thresholds
 npm run build                   # production build
-npm run test:e2e                # Playwright smoke suite (after a build)
+npm run test:e2e                # Playwright smoke + WCAG 2.2 AA suite (after a build)
 ```
 
 The Jest setup (`jest.setup.js`) mocks every Firebase SDK module, because

@@ -59,6 +59,20 @@ passed. Results saved with `--output` are timestamped JSON files in
 | `triage_flow.test.json` | `photo_upload_no_context_intent_first`, `photo_upload_in_quote_flow_no_routing` |
 | `design_flow.test.json` | `design_livingroom_modern` |
 | `multi_room/multi_room_flow.test.json` | `bathroom_render_after_kitchen_photo` |
+| `multi_room/multi_room_quote.test.json` | `bathroom_and_kitchen_quote` |
+| `multi_room/multi_room_submit.test.json` | `bathroom_and_kitchen_quote_then_explicit_yes` |
+| `multi_room/multi_room_general.test.json` | `bathroom_kitchen_and_corridor` |
+| `multi_room/multi_room_long_chat.test.json` | `long_multi_room_recall` |
+| `multi_room/logged_in_quote.test.json` | `registered_bathroom_quote` |
+| `multi_room/guest_quote.test.json` | `guest_bathroom_quote` |
+| `multi_room/guest_render.test.json` | `guest_living_room_render` |
+| `multi_room/guest_price.test.json` | `guest_window_price` |
+| `multi_room/quote_revision.test.json` | `sent_quote_new_request` |
+| `multi_room/quote_with_team.test.json` | `in_review_quote_change` |
+| `multi_room/company_info.test.json` | `guest_company_questions` |
+| `multi_room/measures_on_card.test.json` | `bathroom_without_measures` |
+| `multi_room/room_correction.test.json` | `bathroom_floor_corrected_untagged` |
+| `multi_room/floor_area_asked.test.json` | `bedroom_without_floor_area` |
 
 The files use the ADK `EvalSet` schema, which **requires snake_case keys**:
 

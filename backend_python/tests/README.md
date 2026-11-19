@@ -1,7 +1,7 @@
 # Backend test suite
 
 The backend suite covers the FastAPI app, the ADK tools, the services and the
-Firestore access layer with about 1,200 tests. It runs offline: Firebase,
+Firestore access layer with about 3,500 tests. It runs offline: Firebase,
 Vertex AI, Pinecone and email providers are mocked, so no credentials are
 needed. Tests that need a live API are marked `integration` and are skipped by
 default.
@@ -32,10 +32,10 @@ decorator, and `addopts = "-m 'not integration'"`.
 ```text
 tests/
 ├── conftest.py          # Shared fixtures: Firebase, Gemini and settings mocks
-├── unit/                # Isolated tests, one module per area (about 100 files)
+├── unit/                # Isolated tests, one module per area (about 180 files)
 ├── integration/         # Multi-component flows (some need a live API)
 ├── evals/               # ADK agent evaluations (see evals/README.md)
-├── test_listino_tools.py, test_rag_service.py
+├── test_listino_tools.py, test_rag_service.py, test_rag_tools.py
 └── benchmark_adk.py, load_test_adk.py, repro_issues.py   # Manual scripts, not tests
 ```
 
@@ -54,6 +54,10 @@ These tests protect rules that are easy to break by accident:
 | `test_build_context.py` | `.gcloudignore` matches `.dockerignore`; every file in `src/data` is tracked by git |
 | `test_no_debug_routes.py`, `test_n8n_decommissioned.py`, `test_no_legacy_lead_path.py` | Removed routes and integrations stay removed |
 | `test_adk_tools_trusted_identity.py` | Tools trust the user and session from `tool_context`, never from model arguments |
+| `test_log_no_ids.py` | AST guard that prevents logging raw project/session UUIDs or user UIDs |
+| `test_money_golden.py` | Decimal money arithmetic matches the shared golden vectors (`contracts/money/golden_vectors.json`) |
+| `test_brand.py` | Email templates and PDF service resolve colours and logos from `src/brand/` |
+| `test_python_runtime_sync.py` | `.python-version`, `Dockerfile` and the CI workflow run the same Python major/minor |
 | `evals/test_eval_infrastructure.py` | Eval files load with the installed `google-adk` |
 
 ## Writing tests
