@@ -130,6 +130,48 @@ async def test_architect_downscales_large_image_before_gemini_call():
 
 
 @pytest.mark.asyncio
+async def test_architect_fallback_preserves_user_instructions_on_httpx_timeout(sample_image_bytes):
+    import httpx
+    from src.vision.architect import generate_architectural_prompt
+
+    mock_client = MagicMock()
+    mock_client.aio.models.generate_content = AsyncMock(
+        side_effect=httpx.ReadTimeout("read timed out")
+    )
+
+    with patch("src.vision.architect.get_genai_client", return_value=mock_client):
+        fallback = await generate_architectural_prompt(
+            image_bytes=sample_image_bytes,
+            target_style="minimal",
+            keep_elements=[],
+            mime_type="image/jpeg",
+            user_instructions="Keep original marble floor, add emerald green sofa",
+        )
+
+    assert "living room" not in fallback.structural_skeleton.lower()
+    assert "none specified" not in fallback.structural_skeleton.lower()
+    assert "emerald green sofa" in fallback.furnishing_strategy.lower()
+
+
+@pytest.mark.asyncio
+async def test_architect_downscales_rgba_png_onto_white_background():
+    import io
+
+    from PIL import Image
+    from src.vision.architect import _downscale_for_architect_sync
+
+    buf = io.BytesIO()
+    Image.new("RGBA", (2000, 1000), color=(0, 0, 0, 0)).save(buf, format="PNG")
+    out_bytes, out_mime = _downscale_for_architect_sync(buf.getvalue(), "image/png")
+
+    assert out_mime == "image/jpeg"
+    with Image.open(io.BytesIO(out_bytes)) as img:
+        assert max(img.size) <= 1024
+        # Fully transparent pixel must composite onto white, not black
+        assert img.getpixel((0, 0)) == (255, 255, 255)
+
+
+@pytest.mark.asyncio
 async def test_generate_render_i2i_skips_redundant_triage_call(sample_image_bytes):
     from src.tools.generate_render import generate_render_wrapper
     from src.vision.architect import ArchitectOutput

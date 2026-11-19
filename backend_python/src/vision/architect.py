@@ -3,7 +3,10 @@ import io
 import json
 import logging
 
+import httpx
 from fastapi.concurrency import run_in_threadpool
+from google.api_core import exceptions as gapi_exceptions
+from google.genai import errors as genai_errors
 from google.genai import types as genai_types
 from PIL import Image, ImageOps
 from pydantic import BaseModel
@@ -23,18 +26,36 @@ def _downscale_for_architect_sync(
     """Resize large uploads to <=1024px JPEG so Vision prompt-building stays fast."""
     try:
         with Image.open(io.BytesIO(image_bytes)) as raw:
-            img = ImageOps.exif_transpose(raw)
-            needs_resize = max(img.size) > max_dim
-            if not needs_resize and mime_type == "image/jpeg":
+            if max(raw.size) <= max_dim and mime_type == "image/jpeg":
                 return image_bytes, mime_type
-            if needs_resize:
-                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
-            if img.mode not in ("RGB", "L"):
-                img = img.convert("RGB")
-            out = io.BytesIO()
-            img.save(out, format="JPEG", quality=82, optimize=True)
-            return out.getvalue(), "image/jpeg"
-    except (OSError, ValueError):
+            ImageOps.exif_transpose(raw, in_place=True)
+            converted: Image.Image | None = None
+            try:
+                if raw.mode in ("RGBA", "LA") or (raw.mode == "P" and "transparency" in raw.info):
+                    rgba = raw.convert("RGBA")
+                    try:
+                        bg = Image.new("RGB", rgba.size, (255, 255, 255))
+                        bg.paste(rgba, mask=rgba.split()[-1])
+                        converted = bg
+                    finally:
+                        rgba.close()
+                    work = converted
+                elif raw.mode != "RGB":
+                    converted = raw.convert("RGB")
+                    work = converted
+                else:
+                    work = raw
+
+                if max(work.size) > max_dim:
+                    work.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+
+                out = io.BytesIO()
+                work.save(out, format="JPEG", quality=82, optimize=True)
+                return out.getvalue(), "image/jpeg"
+            finally:
+                if converted is not None:
+                    converted.close()
+    except (OSError, ValueError, SyntaxError, EOFError, Image.DecompressionBombError):
         return image_bytes, mime_type
 
 class ArchitectOutput(BaseModel):
@@ -186,7 +207,7 @@ Respond with ONLY valid JSON. No markdown, no explanations:
         raw_output = response.text or ""
         if not raw_output:
             logger.warning("[Architect] No output, using fallback")
-            return _create_fallback_output(target_style, preservation_list)
+            return _create_fallback_output(target_style, keep_elements, user_instructions)
 
         cleaned_output = raw_output.replace("```json", "").replace("```", "").strip()
 
@@ -205,23 +226,43 @@ Respond with ONLY valid JSON. No markdown, no explanations:
 
         except (json.JSONDecodeError, ValueError) as e:
             logger.error(f"[Architect] JSON Parse Error: {e}")
-            return _create_fallback_output(target_style, preservation_list)
+            return _create_fallback_output(target_style, keep_elements, user_instructions)
 
-    except TimeoutError:
+    except (TimeoutError, httpx.TimeoutException, gapi_exceptions.DeadlineExceeded):
         logger.warning(f"[Architect] Timed out after {_ARCHITECT_TIMEOUT_SECONDS}s, using fallback")
-        return _create_fallback_output(target_style, preservation_list)
-    except Exception as error:
-        if "DEADLINE_EXCEEDED" in str(error) or "504" in str(error):
+        return _create_fallback_output(target_style, keep_elements, user_instructions)
+    except genai_errors.ServerError as error:
+        if error.code == 504 or "DEADLINE_EXCEEDED" in str(error):
             logger.warning(f"[Architect] Remote deadline exceeded ({error}), using fallback")
-            return _create_fallback_output(target_style, preservation_list)
+            return _create_fallback_output(target_style, keep_elements, user_instructions)
+        logger.error(f"[Architect] Generation Error: {error}")
+        raise Exception(f"Architect generation failed: {str(error)}") from error
+    except Exception as error:
         logger.error(f"[Architect] Generation Error: {error}")
         raise Exception(f"Architect generation failed: {str(error)}") from error
 
 
-def _create_fallback_output(target_style: str, preservation_list: str) -> ArchitectOutput:
+def _create_fallback_output(
+    target_style: str,
+    keep_elements: list[str] | str | None = None,
+    user_instructions: str = "",
+) -> ArchitectOutput:
+    if isinstance(keep_elements, list):
+        kept = ", ".join(e.strip() for e in keep_elements if e and e.strip())
+    else:
+        kept = (keep_elements or "").strip()
+        if kept.lower().startswith("none specified"):
+            kept = ""
+
+    skeleton = (
+        f"The existing room preserving its original layout and {kept}"
+        if kept
+        else "The existing room preserving its exact architectural layout, walls, windows, and perspective"
+    )
+    extra = f" Specific client requests: {user_instructions.strip()}" if user_instructions.strip() else ""
     return ArchitectOutput(
-        structural_skeleton=f"A standard living room with {preservation_list or 'typical architectural features'}",
-        material_plan=f"Walls in {target_style.lower()} style finish, flooring in complementary material",
-        furnishing_strategy=f"{target_style} furniture and decor appropriate to the space",
-        technical_notes="24mm lens, f/8, photorealistic 8K, natural lighting"
+        structural_skeleton=skeleton,
+        material_plan=f"Walls and surfaces refinished in {target_style.lower()} style with complementary flooring",
+        furnishing_strategy=f"{target_style} furniture and decor appropriate to the space.{extra}",
+        technical_notes="24mm lens, f/8, photorealistic 8K, natural lighting",
     )

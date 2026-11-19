@@ -11,8 +11,11 @@ def test_compaction_threshold_triggers_before_15k_prompt_bloat():
 
 
 def test_design_agent_does_not_carry_market_prices_tool():
+    from src.adk.agents import DESIGN_AGENT_INSTRUCTION
+
     assert market_prices_adk not in design_agent.tools
     assert market_prices_adk in quote_agent.tools
+    assert "get_market_prices" not in DESIGN_AGENT_INSTRUCTION
 
 
 def test_perplexity_api_key_accepts_cloud_run_plex_api_key_alias(monkeypatch):
