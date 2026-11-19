@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any
 
@@ -57,10 +58,10 @@ async def analyze_image_triage(image_data: bytes) -> dict[str, Any]:
     try:
         client = get_genai_client()
 
-        logger.info("Performing triage analysis on image (Gemini 2.5 Flash)...")
+        logger.info("Performing triage analysis on image...")
 
-        try:
-            response = await client.aio.models.generate_content(
+        response = await asyncio.wait_for(
+            client.aio.models.generate_content(
                 model=get_model_id(ModelRole.VISION),
                 contents=[
                     types.Content(role="user",
@@ -71,11 +72,15 @@ async def analyze_image_triage(image_data: bytes) -> dict[str, Any]:
                     )
                 ],
                 config=types.GenerateContentConfig(
-                    tools=[{"code_execution": {}}]
-                )
-            )
-        finally:
-             client.close()
+                    response_mime_type="application/json",
+                    max_output_tokens=512,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_level=types.ThinkingLevel.MINIMAL,
+                    ),
+                ),
+            ),
+            timeout=20.0,
+        )
 
         if not response.text:
             raise Exception("No response from vision model")

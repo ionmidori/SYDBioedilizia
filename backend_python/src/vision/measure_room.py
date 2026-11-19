@@ -219,22 +219,19 @@ async def measure_room_from_photo(
 
     client = get_genai_client()
 
-    try:
-        response = await client.aio.models.generate_content(
-            model=get_model_id(ModelRole.VISION),
-            contents=[
-                types.Content(role="user", parts=[
-                    types.Part(text=_MEASURE_PROMPT),
-                    types.Part(inline_data=types.Blob(mime_type=mime_type, data=image_bytes)),
-                ])
-            ],
-            config=types.GenerateContentConfig(
-                tools=[{"code_execution": {}}],
-                temperature=0.1,
-            ),
-        )
-    finally:
-        client.close()
+    response = await client.aio.models.generate_content(
+        model=get_model_id(ModelRole.VISION),
+        contents=[
+            types.Content(role="user", parts=[
+                types.Part(text=_MEASURE_PROMPT),
+                types.Part(inline_data=types.Blob(mime_type=mime_type, data=image_bytes)),
+            ])
+        ],
+        config=types.GenerateContentConfig(
+            tools=[{"code_execution": {}}],
+            temperature=0.1,
+        ),
+    )
 
     text = response_text(response)
     if not text:

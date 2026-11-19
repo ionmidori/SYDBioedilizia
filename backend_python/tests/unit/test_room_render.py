@@ -111,7 +111,6 @@ async def test_the_render_file_belongs_to_the_room_rendered_not_the_photo_room()
     rooms = MagicMock()
     rooms.find_file_by_storage_path = AsyncMock(return_value={"id": "f_old", "roomId": "generale"})
     with patch.object(render_module, "download_image_smart", AsyncMock(return_value=(b"img", "image/jpeg"))), \
-         patch.object(render_module, "analyze_image_triage", AsyncMock(return_value={})), \
          patch.object(render_module, "generate_image_i2i", AsyncMock(
              return_value={"success": True, "mime_type": "png", "image_base64": "aW1n"})), \
          patch.object(render_module, "_upload_base64_image_sync", return_value="https://x/renders/r.png"), \

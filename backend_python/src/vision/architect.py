@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -6,6 +7,8 @@ from pydantic import BaseModel
 from src.core.models import ModelRole, get_genai_client, get_model_id
 
 logger = logging.getLogger(__name__)
+
+_ARCHITECT_TIMEOUT_SECONDS = 25.0
 
 class ArchitectOutput(BaseModel):
     """
@@ -128,18 +131,28 @@ Respond with ONLY valid JSON. No markdown, no explanations:
     try:
         client = get_genai_client()
 
-        response = await client.aio.models.generate_content(
-            model=model_name,
-            contents=[genai_types.Content(role="user", parts=[
-                genai_types.Part(text=system_prompt),
-                genai_types.Part(inline_data=genai_types.Blob(
-                    mime_type=mime_type,
-                    # genai Blob.data wants RAW bytes (the SDK base64-encodes it
-                    # for the wire); a base64 str would double-encode.
-                    data=image_bytes,
-                )),
-            ])],
-            config=genai_types.GenerateContentConfig(temperature=0.4),
+        response = await asyncio.wait_for(
+            client.aio.models.generate_content(
+                model=model_name,
+                contents=[genai_types.Content(role="user", parts=[
+                    genai_types.Part(text=system_prompt),
+                    genai_types.Part(inline_data=genai_types.Blob(
+                        mime_type=mime_type,
+                        # genai Blob.data wants RAW bytes (the SDK base64-encodes it
+                        # for the wire); a base64 str would double-encode.
+                        data=image_bytes,
+                    )),
+                ])],
+                config=genai_types.GenerateContentConfig(
+                    temperature=0.4,
+                    response_mime_type="application/json",
+                    max_output_tokens=1024,
+                    thinking_config=genai_types.ThinkingConfig(
+                        thinking_level=genai_types.ThinkingLevel.MINIMAL,
+                    ),
+                ),
+            ),
+            timeout=_ARCHITECT_TIMEOUT_SECONDS,
         )
 
         raw_output = response.text or ""

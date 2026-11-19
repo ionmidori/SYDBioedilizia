@@ -9,7 +9,6 @@ from src.repositories.conversation_repository import get_conversation_repository
 from src.repositories.room_repository import get_room_repository
 from src.storage.upload import upload_base64_image as _upload_base64_image_sync
 from src.utils.download import download_image_smart, session_media_path, storage_path_from_url
-from src.vision.triage import analyze_image_triage
 
 logger = logging.getLogger(__name__)
 
@@ -81,15 +80,7 @@ async def generate_render_wrapper(
 
             logger.info(f"[Render] ✅ Image downloaded: {len(source_bytes)} bytes, MIME: {source_mime_type}")
 
-            # Analyze source image (optional, for context)
-            try:
-                analysis = await analyze_image_triage(source_bytes)
-                if analysis.get("success"):
-                    room_type = analysis.get("roomType", room_type)
-            except Exception:  # noqa: BLE001
-                pass  # Continue without analysis
-
-            # 🎨 USE ARCHITECT FOR ENHANCED PROMPT GENERATION
+            # 🎨 USE ARCHITECT FOR ENHANCED PROMPT GENERATION (directly inspects source_bytes)
             try:
                 from src.vision.architect import generate_architectural_prompt
 

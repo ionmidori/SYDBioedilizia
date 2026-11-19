@@ -307,8 +307,6 @@ async def analyze_video_with_gemini(video_path: str) -> dict[str, Any]:
             "renovationNotes": "Unable to perform video analysis. Please try a different video or contact support.",
             "audioTranscript": None
         }
-    finally:
-        client.close()
 
 
 async def analyze_video_triage(video_data: bytes, metadata: dict[str, Any] | None = None) -> VideoTriageResult:
