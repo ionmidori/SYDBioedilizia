@@ -9,10 +9,12 @@ phone on file, the reply the client saw before this turn, the tools called and
 the client's words (the same readers as the explicit yes of the send,
 `src/services/reply_reading.py`). The model will read the step, not choose it.
 
-Passo 1 only logs the step once per turn (`QuoteStepPlugin`): no behaviour
-changes. The arrows are the diagram "I passi nella strada B" of the analysis
-(https://claude.ai/artifact/F4xsPCoVBbqLTLPRCfcYWL). A wrong step costs at most
-one more question once the tools check it (passo 2).
+Passo 1 logs the step once per turn (`QuoteStepPlugin`). PR 2 makes it a
+control: the `quote` agent reads the step in its session block (`step_line`)
+and a tool called out of step is not run (`step_refusal`, applied by
+`src/adk/quote_gate.py`). The arrows are the diagram "I passi nella strada B" of
+the analysis (https://claude.ai/artifact/F4xsPCoVBbqLTLPRCfcYWL). A wrong step
+costs at most one more question.
 """
 from __future__ import annotations
 
@@ -31,7 +33,7 @@ from src.services.reply_reading import (
 )
 
 REGISTER_TOOL = "suggest_quote_items"
-_LOGIN_TOOL = "request_login"
+LOGIN_TOOL = "request_login"
 _PHONE_TOOL = "save_contact_phone"
 
 
@@ -125,7 +127,7 @@ def _asks_change(words: str) -> bool:
 def _quote_login(f: QuoteFacts) -> bool:
     """The login card of the last turn was for the quote (a render asks it too). A
     rebuilt session has no tool calls: the login message itself counts."""
-    asked = _LOGIN_TOOL in f.last_turn_calls or bool(_LOGIN_TEXT.search(f.last_reply))
+    asked = LOGIN_TOOL in f.last_turn_calls or bool(_LOGIN_TEXT.search(f.last_reply))
     return asked and bool(_QUOTE_OBJECT.search(f.last_reply))
 
 
@@ -136,10 +138,12 @@ def _gate_asked(f: QuoteFacts) -> bool:
 
 
 def _confirmed(f: QuoteFacts) -> QuoteStep:
-    """The registration is confirmed: login for a guest, then the phone once, then register."""
+    """The registration is confirmed: login for a guest, then the phone once, then
+    register. A phone saved in this turn counts as asked: only once the registration
+    is confirmed (a number given while collecting does not skip the confirmation)."""
     if f.is_guest:
         return QuoteStep.ACCESSO
-    return QuoteStep.REGISTRA if f.phone_on_file else QuoteStep.TELEFONO
+    return QuoteStep.REGISTRA if f.phone_on_file or _PHONE_TOOL in f.turn_calls else QuoteStep.TELEFONO
 
 
 def _answer(f: QuoteFacts, asked: QuoteStep, on_yes: QuoteStep) -> QuoteStep:
@@ -193,10 +197,124 @@ def quote_step(f: QuoteFacts) -> QuoteStep:
         return _with_team(f)
     if REGISTER_TOOL in f.turn_calls:
         return QuoteStep.SCHEDA
-    if _LOGIN_TOOL in f.turn_calls:
+    if LOGIN_TOOL in f.turn_calls:
         return QuoteStep.ACCESSO
-    if _PHONE_TOOL in f.turn_calls:
-        return QuoteStep.REGISTRA
     if action == "update":
         return _on_draft(f)
     return _without_draft(f)  # no quote, or a sent/rejected one: the next revision is a new request
+
+
+# ── The step as a control (PR 2) ─────────────────────────────────────────────
+# The questions the model asks with these exact words: the readers above read them
+# back in the next turn (`asked_to_register`, `_LOGIN_TEXT`, `_PHONE`, `asked_to_send`).
+REGISTER_QUESTION = "Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"
+LOGIN_MESSAGE = (
+    "Per registrare la richiesta di preventivo serve un account gratuito — bastano pochi secondi! "
+    "Accedi qui sotto e riprendo subito da qui."
+)
+PHONE_QUESTION = (
+    "Vuoi ricevere aggiornamenti anche su WhatsApp? Se sì, lasciami il numero "
+    "*(opzionale — lo ricordo per i prossimi progetti)*"
+)
+SEND_QUESTION = "Invio al nostro team la richiesta di preventivo per [stanze]. Confermi?"
+
+# The line of the quote agent's session block, and the start of a refused call's
+# answer (`src/adk/turn_reading.py` does not count such a call as called).
+STEP_LINE_MARKER = "PASSO DEL PREVENTIVO"
+STEP_REFUSED_PREFIX = "⛔ NON ESEGUITO"
+
+_UPDATE = "update"  # ai_draft_action: a draft the client is still shaping
+
+_GUIDE: dict[QuoteStep, str] = {
+    QuoteStep.RACCOLTA: (
+        "raccogli i dati (comune, lavori stanza per stanza, m² del pavimento). Quando hai tutto chiedi "
+        f"«{REGISTER_QUESTION}» e fermati. Prima del sì del cliente niente {REGISTER_TOOL} e niente request_login_adk."
+    ),
+    QuoteStep.DOMANDA_REGISTRAZIONE: (
+        f"il cliente ha risposto alla domanda di registrazione con una domanda: rispondi, poi chiedi di nuovo "
+        f"«{REGISTER_QUESTION}» e fermati."
+    ),
+    QuoteStep.ACCESSO: (
+        "il cliente ha confermato la registrazione ma è un ospite: chiama request_login_adk una sola volta (se non "
+        f"l'hai già fatto in questo turno), scrivi «{LOGIN_MESSAGE}» e fermati."
+    ),
+    QuoteStep.TELEFONO: (
+        f"registrazione confermata, manca il telefono: chiedi una sola volta «{PHONE_QUESTION}» e fermati. "
+        "La richiesta si registra al turno dopo, qualunque sia la risposta."
+    ),
+    QuoteStep.REGISTRA: (
+        f"registrazione confermata: chiama {REGISTER_TOOL} ora, senza chiedere di nuovo conferma (se il cliente ha "
+        "appena dato il numero di telefono, prima save_contact_phone)."
+    ),
+    QuoteStep.SCHEDA: (
+        f"la richiesta è registrata e la scheda di conferma aspetta il cliente: riporta la risposta di {REGISTER_TOOL} "
+        "come dice lo STEP 1. In un turno successivo richiamalo solo se il cliente dà o corregge misure a parole, o "
+        "cambia lavori."
+    ),
+    QuoteStep.DOMANDA_INVIO: (
+        "la richiesta è registrata e la scheda è completa: riepiloga le stanze (solo descrizione, nessun prezzo) e "
+        f"chiedi «{SEND_QUESTION}», poi aspetta il sì. Misure date a parole o lavori nuovi: prima {REGISTER_TOOL}."
+    ),
+    QuoteStep.INVIO: "il cliente ha detto sì all'invio: chiama submit_quote_request.",
+    QuoteStep.AL_TEAM: (
+        "il preventivo è già dal team: niente submit_quote_request. Se il cliente chiede modifiche, raccogli i lavori "
+        f"(i m² del pavimento una volta, per una stanza nuova), poi {REGISTER_TOOL} le inoltra al team."
+    ),
+    QuoteStep.INOLTRO: (
+        f"il cliente chiede una modifica a un preventivo già dal team: {REGISTER_TOOL} la inoltra (riporta la sua "
+        "risposta). Niente submit_quote_request."
+    ),
+}
+_COLLECT_ON_DRAFT = (
+    "il cliente cambia o aggiunge lavori alla richiesta già registrata: raccogli i dettagli che mancano, poi "
+    f"{REGISTER_TOOL} la aggiorna. Niente submit_quote_request in questo turno."
+)
+
+
+def step_guide(step: QuoteStep, action: str | None) -> str:
+    """What the agent does at this step (`action`: `ai_draft_action` of the house quote)."""
+    if step is QuoteStep.RACCOLTA and action == _UPDATE:
+        return _COLLECT_ON_DRAFT
+    return _GUIDE[step]
+
+
+def step_line(step: QuoteStep, action: str | None) -> str:
+    """The step line of the quote agent's session block."""
+    return f"{STEP_LINE_MARKER}: {step.value} — {step_guide(step, action)}"
+
+
+def _refused(step: QuoteStep, why: str) -> str:
+    return f"{STEP_REFUSED_PREFIX} (passo: {step.value}): {why}"
+
+
+def step_refusal(
+    step: QuoteStep, action: str | None, tool: str, *, registered_this_turn: bool, quote_known: bool = True
+) -> str | None:
+    """None when `tool` may run at this step, otherwise what the agent does instead.
+
+    Only where the reader is reliable and the error costs: registering before the
+    client confirmed (on a draft the tool only updates it, and measures given in
+    words are not read), a guest's registration (the login first: the tool would
+    refuse it too, but its answer would count as a registration), the login before
+    the confirmation, the phone not asked yet, a second registration in one turn.
+    `quote_known` False: the house quote could not be read, so a draft may exist
+    and the registration is not held back while collecting. The send has its own
+    check (`send_consent`)."""
+    before_confirmation = step in (QuoteStep.RACCOLTA, QuoteStep.DOMANDA_REGISTRAZIONE)
+    if tool == REGISTER_TOOL:
+        if before_confirmation and action != _UPDATE and quote_known:
+            return _refused(step, f"il cliente non ha ancora confermato la registrazione. Chiedi «{REGISTER_QUESTION}» "
+                                  "e fermati.")
+        if step is QuoteStep.ACCESSO:
+            return _refused(step, "il cliente è un ospite: chiama request_login_adk una sola volta (se non l'hai già "
+                                  f"fatto in questo turno), scrivi «{LOGIN_MESSAGE}» e fermati.")
+        if step is QuoteStep.TELEFONO:
+            return _refused(step, f"prima chiedi una sola volta «{PHONE_QUESTION}» e fermati: la richiesta si "
+                                  "registra al turno dopo.")
+        if registered_this_turn:
+            return _refused(step, f"{REGISTER_TOOL} è già stato chiamato in questo turno: riporta la sua risposta, "
+                                  "non richiamarlo.")
+    if tool == LOGIN_TOOL and before_confirmation:
+        return _refused(step, "l'accesso si chiede solo nel turno in cui il cliente conferma la registrazione. "
+                              f"Chiedi «{REGISTER_QUESTION}» e fermati.")
+    return None

@@ -21,9 +21,12 @@ def quote_facts(
     invocation_id: str,
     user_content: types.Content | None,
     state: Mapping[str, Any],
+    *,
+    answered_only: bool = False,
 ) -> QuoteFacts:
     """The facts of this turn, from the ADK session and its state (the session
-    block the orchestrator writes: `session_context.py`)."""
+    block the orchestrator writes: `session_context.py`). `answered_only`: the
+    turn's calls are only those already run (the step gate, `turn_calls`)."""
     session = state.get(SESSION_CONTEXT_STATE_KEY) or {}
     quote = state.get(HOUSE_QUOTE_STATE_KEY) or {}
     card = state.get(CARD_PENDING_STATE_KEY)
@@ -35,7 +38,7 @@ def quote_facts(
         card_pending=card if isinstance(card, bool) else None,
         last_reply=last_reply(events, invocation_id),
         last_turn_calls=tuple(last_turn_calls(events, invocation_id)),
-        turn_calls=tuple(turn_calls(events, invocation_id)),
+        turn_calls=tuple(turn_calls(events, invocation_id, answered_only=answered_only)),
         client_words=client_words(events, invocation_id, user_content),
         last_register_reply="\n".join(last_turn_responses(events, invocation_id, REGISTER_TOOL)),
     )
