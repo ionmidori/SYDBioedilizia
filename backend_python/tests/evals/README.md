@@ -23,8 +23,7 @@ You need a Gemini backend and the ADK eval dependencies:
 
 ```bash
 npm run eval:run              # from the repo root: all flows
-npm run eval:run:quote        # one flow
-npm run eval:run:triage
+npm run eval:run:triage       # one flow
 npm run eval:run:design
 npm run eval:run:rooms        # multi-room chat (Phase 138)
 ```
@@ -33,8 +32,8 @@ To use more options, run the runner directly from `backend_python/`:
 
 ```bash
 uv run python tests/evals/run_evals.py \
-  --file quote_flow.test.json \
-  --agent quote \
+  --file triage_flow.test.json \
+  --agent triage \
   --runs 3 \
   --output results/
 ```
@@ -55,9 +54,8 @@ passed. Results saved with `--output` are timestamped JSON files in
 
 | File | Cases |
 | :--- | :--- |
-| `quote_flow.test.json` | `quote_bathroom_6mq`, `quote_livingroom_28mq` |
-| `triage_flow.test.json` | `photo_upload_no_context_intent_first`, `photo_upload_in_quote_flow_no_routing` |
-| `design_flow.test.json` | `design_livingroom_modern` |
+| `triage_flow.test.json` | `photo_mentioned_without_attachment`, `photo_in_quote_flow` (routing only) |
+| `design_flow.test.json` | `design_livingroom_modern` (routing only) |
 | `multi_room/multi_room_flow.test.json` | `bathroom_render_after_kitchen_photo` |
 | `multi_room/multi_room_quote.test.json` | `bathroom_and_kitchen_quote` |
 | `multi_room/multi_room_submit.test.json` | `bathroom_and_kitchen_quote_then_explicit_yes` |
@@ -146,9 +144,11 @@ differently from the other sets:
 | Criterion | Value | Meaning |
 | :--- | :--- | :--- |
 | `tool_trajectory_avg_score` | 1.0, `IN_ORDER` | The expected tools must be called in that order; extra calls are allowed |
-| `response_match_score` | 0.3 | Permissive similarity between the answer and the expected text |
 
-Edit that file to change the thresholds.
+The triage and design flows run the real agents with no backend and no attached image, so they check
+the router's hand-off only: a word-overlap score against a hand-written reply says nothing about
+generated text (`response_match_score` was dropped). The replies of the multi-room sets are checked
+by their backend checks (`multi_room/fakes.py`). Edit `test_config.json` to change the threshold.
 
 ## Rubrics
 

@@ -18,7 +18,7 @@
           "final_response": {
             "parts": [
               {
-                "text": "Test"
+                "text": "Posso mostrarti il soggiorno in stile moderno minimalista."
               }
             ],
             "role": "model"
@@ -26,9 +26,11 @@
           "intermediate_data": {
             "tool_uses": [
               {
-                "name": "generate_render",
-                "args": {},
-                "id": "call_001"
+                "name": "transfer_to_agent",
+                "args": {
+                  "agent_name": "design"
+                },
+                "id": "call_design_001"
               }
             ]
           }
