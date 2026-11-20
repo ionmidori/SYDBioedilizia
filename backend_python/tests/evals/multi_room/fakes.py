@@ -30,6 +30,7 @@ from google.adk.agents.callback_context import CallbackContext
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.apps.llm_event_summarizer import LlmEventSummarizer
 from google.adk.events import Event
+from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.adk.plugins.base_plugin import BasePlugin
 from google.adk.tools.base_tool import BaseTool
@@ -42,7 +43,7 @@ from src.core.money import sum_amounts
 from src.repositories.spec_store import CHAT_SPEC_KEY, SpecChange
 from src.schemas.intervention_spec import RoomInterventionSpec
 from src.schemas.quote import QuoteRequest, QuoteSchema
-from src.schemas.room import DEFAULT_ROOM_ID, RoomCreate, RoomSchema
+from src.schemas.room import DEFAULT_ROOM_ID, RoomCreate, RoomSchema, RoomUpdate
 from src.services.company_info_service import CompanyInfoService
 from src.services.pricing_service import PricingService
 from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult, QuoteStatusView
@@ -92,6 +93,12 @@ class FakeRoomRepository:
     async def require_room(self, project_id: str, room_id: str) -> RoomSchema:
         if room_id not in self.rooms:
             raise RoomNotFoundError(project_id, room_id)
+        return self.rooms[room_id]
+
+    async def update_room(self, project_id: str, room_id: str, data: RoomUpdate) -> RoomSchema:
+        room = await self.require_room(project_id, room_id)
+        changes = {**data.model_dump(exclude_none=True), "updated_at": utc_now()}
+        self.rooms[room_id] = room.model_copy(update=changes)
         return self.rooms[room_id]
 
     async def create_room(self, project_id: str, data: RoomCreate) -> RoomSchema:
@@ -473,6 +480,44 @@ class ToolCallRecorder(BasePlugin):
 TOOL_CALLS = ToolCallRecorder()
 
 
+def _text_of(content: object) -> str:
+    """Text of a system instruction or a content (str, Content or Part), "" for anything else."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, types.Content):
+        return " ".join(part.text or "" for part in content.parts or [])
+    if isinstance(content, types.Part):
+        return content.text or ""
+    return ""
+
+
+class InstructionRecorder(BasePlugin):
+    """What each model request carried in its contents: the agent and the text. The dynamic
+    instruction (session block, SCHEDA SYD, room playbook) rides on the contents. The system
+    instruction is not read: it is the static prompt, which names the checklist too."""
+
+    def __init__(self) -> None:
+        super().__init__(name="eval_instruction_recorder")
+        self.requests: list[tuple[str, str]] = []  # (agent, text)
+
+    def reset(self) -> None:
+        self.requests = []
+
+    async def before_model_callback(
+        self, *, callback_context: CallbackContext, llm_request: LlmRequest
+    ) -> LlmResponse | None:
+        text = "\n".join(_text_of(content) for content in llm_request.contents or [])
+        self.requests.append((callback_context.agent_name, text))
+        return None
+
+    def agents_with(self, text: str) -> set[str]:
+        """Agents with a model request that carried `text`."""
+        return {agent for agent, carried in self.requests if text in carried}
+
+
+INSTRUCTIONS = InstructionRecorder()
+
+
 @dataclass
 class CompactionRecorder:
     """Summaries the history compaction produced (None: the summarizer gave up)."""
@@ -521,6 +566,7 @@ class MultiRoomRun:
     responses: ResponseRecorder = field(default_factory=lambda: RESPONSES)
     compactions: CompactionRecorder = field(default_factory=CompactionRecorder)
     tool_calls: ToolCallRecorder = field(default_factory=lambda: TOOL_CALLS)
+    instructions: InstructionRecorder = field(default_factory=lambda: INSTRUCTIONS)
 
 
 LOGIN_TOOL = "request_login"
@@ -657,6 +703,40 @@ def _quote_with_team_problems(run: MultiRoomRun) -> list[str]:
     return found
 
 
+# Title the system gives the bathroom checklist when it rides on the dynamic instruction
+# (src/adk/session_context.py). What is checked is that it reaches the model: the model then
+# asks one category per turn, as the prompt says, so a reply never covers the whole checklist.
+CHECKLIST_TITLE = "CHECKLIST TECNICA"
+BATHROOM_CHECKLIST_TITLE = f"{CHECKLIST_TITLE} — BAGNO"
+
+
+def _checklist_delivery_problems(run: MultiRoomRun) -> list[str]:
+    """Strada B PR C: the bathroom checklist reached the quote agent's model request."""
+    if "quote" in run.instructions.agents_with(BATHROOM_CHECKLIST_TITLE):
+        return []
+    return ["the bathroom checklist never reached the quote agent"]
+
+
+def _bathroom_checklist_problems(run: MultiRoomRun) -> list[str]:
+    """A bathroom asked about with no detail: the checklist reaches the quote agent, which asks, no quote yet."""
+    turns = run.tool_calls.turns()
+    first = {tool for _, tool in turns[0]} if turns else set()
+    found = ["suggest_quote_items was called before the checklist"] if "suggest_quote_items" in first else []
+    found += _checklist_delivery_problems(run)
+    replies = run.responses.turns()
+    if not replies or "?" not in replies[0]:
+        found.append("the reply asks nothing")
+    return found + run.submissions.problems(expected=0)
+
+
+def _open_space_problems(run: MultiRoomRun) -> list[str]:
+    """The active room is the kitchen (an open space), the project also has a bathroom:
+    no agent receives the bathroom checklist (only the active room's playbook rides on the instruction)."""
+    agents = run.instructions.agents_with(CHECKLIST_TITLE)
+    found = [f"the bathroom checklist reached {sorted(agents)} in an open space chat"] if agents else []
+    return found + run.submissions.problems(expected=0)
+
+
 # What each multi-room eval set checks in the backend after its run (run_evals.py).
 BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "multi_room_flow.test.json": lambda run: run.renders.problems(),
@@ -685,11 +765,21 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "floor_area_asked.test.json": _floor_area_asked_problems,
     # PR 1 · D/E: a correction typed with no room chip; the reply reports the values as the tool gives them.
     "room_correction.test.json": _room_correction_problems,
+    # PR C: the bathroom checklist comes from the room playbook, for a registered user and for a guest (no rooms).
+    "bathroom_checklist.test.json": _bathroom_checklist_problems,
+    "guest_bathroom_checklist.test.json": (
+        lambda run: _login_problems(run, login_turn=None) + _checklist_delivery_problems(run)
+    ),
+    # PR C: an open space (kitchen) with a bathroom in the project: no bathroom checklist.
+    "open_space_with_bathroom.test.json": _open_space_problems,
 }
 
 # Sets whose user is a guest (the login gate of the premium tools answers "guest").
 GUEST_SETS = frozenset(
-    {"guest_quote.test.json", "guest_render.test.json", "guest_price.test.json", "company_info.test.json"}
+    {
+        "guest_quote.test.json", "guest_render.test.json", "guest_price.test.json", "company_info.test.json",
+        "guest_bathroom_checklist.test.json",
+    }
 )
 # Chat history suggest_quote_items reads, per set (default: QUOTE_HISTORY).
 QUOTE_HISTORIES: dict[str, list[dict[str, Any]]] = {
@@ -735,6 +825,7 @@ def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
     run = MultiRoomRun(renders=RenderRecorder(), quotes=quotes, submissions=SubmitRecorder(quotes), specs=specs)
     RESPONSES.reset()
     TOOL_CALLS.reset()
+    INSTRUCTIONS.reset()
     guest = set_name in GUEST_SETS
     conversations = FakeConversations(QUOTE_HISTORIES.get(set_name, QUOTE_HISTORY))
     newest_project_photo = photo_url(KITCHEN_PHOTOS[1])  # what a room-blind render would use

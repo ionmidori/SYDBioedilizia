@@ -1,0 +1,60 @@
+{
+  "eval_set_id": "syd_open_space_with_bathroom_v1",
+  "name": "SYD Open space with a bathroom in the project (strada B, PR C)",
+  "description": "The active room is the kitchen, which the client says is an open space with the living room; the project also has a bathroom. The bathroom checklist must not be asked: only the active room's playbook rides on the instruction, and there is none for a kitchen yet.",
+  "eval_cases": [
+    {
+      "eval_id": "open_space_with_bathroom",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": false,
+            "phone_on_file": true,
+            "session_id": "eval-open-space"
+          },
+          "syd_rooms": [
+            {
+              "room_id": "r_cucina",
+              "label": "Cucina",
+              "room_type": "cucina",
+              "summary": ""
+            },
+            {
+              "room_id": "r_bagno",
+              "label": "Bagno",
+              "room_type": "bagno",
+              "summary": ""
+            }
+          ],
+          "syd_active_room_id": "r_cucina"
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_open_space_with_bathroom",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nLa cucina è in realtà un open space con il soggiorno. Vorrei rifare il pavimento e tinteggiare le pareti.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Perfetto! Il pavimento attuale va rimosso del tutto o ci posiamo sopra? Le pareti sono intonacate o rivestite?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        }
+      ]
+    }
+  ]
+}

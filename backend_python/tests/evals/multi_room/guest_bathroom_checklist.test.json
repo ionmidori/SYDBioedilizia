@@ -1,0 +1,46 @@
+{
+  "eval_set_id": "syd_guest_bathroom_checklist_v1",
+  "name": "SYD Guest bathroom checklist (strada B, PR C)",
+  "description": "A guest has no rooms (select_room refuses a guest), so the room is unknown: the playbooks apply as when the checklist was static. The guest asks for a bathroom with no detail: the checklist, no login yet (not a confirmation), no premium tool.",
+  "eval_cases": [
+    {
+      "eval_id": "guest_bathroom_checklist",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": true,
+            "phone_on_file": false,
+            "session_id": "eval-guest-bathroom-checklist"
+          },
+          "syd_rooms": []
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_guest_bathroom_checklist",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nCiao, vorrei un preventivo per rifare il bagno del mio appartamento a Roma.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Certo! Il bagno va rifatto tutto o solo in parte? Le pareti sono rivestite a piastrelle, fino a che altezza? Preferisci box doccia o vasca? Metti il radiatore scaldasalviette? I sanitari sono sospesi o a terra? L'impianto idraulico va rifatto?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        }
+      ]
+    }
+  ]
+}
