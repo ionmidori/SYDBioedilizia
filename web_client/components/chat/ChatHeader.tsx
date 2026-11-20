@@ -65,6 +65,7 @@ function ChatHeaderComponent({
 
     const handleSelectClear = useCallback(() => {
         if (!canClear || !onRequestClear) return;
+        triggerRef.current?.focus();
         setMenuOpen(false);
         onRequestClear();
     }, [canClear, onRequestClear]);
@@ -78,6 +79,7 @@ function ChatHeaderComponent({
                 setMenuOpen(false);
                 triggerRef.current?.focus();
             } else if (e.key === 'Tab') {
+                triggerRef.current?.focus();
                 setMenuOpen(false);
             } else if (
                 e.key === 'ArrowDown' ||

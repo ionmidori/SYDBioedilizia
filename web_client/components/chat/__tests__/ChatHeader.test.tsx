@@ -1,6 +1,8 @@
-import { act, render, screen, fireEvent } from '@testing-library/react';
+import { useState } from 'react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ChatHeader } from '../ChatHeader';
+import { ClearChatDialog } from '../ClearChatDialog';
 
 describe('ChatHeader', () => {
     const defaultProps = {
@@ -195,5 +197,90 @@ describe('ChatHeader', () => {
 
         fireEvent.pointerDown(screen.getByTestId('outside'));
         expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    });
+
+    it('keeps focus in header flow instead of dropping to document.body on Tab and Shift+Tab from open menu', async () => {
+        const user = userEvent.setup();
+
+        render(
+            <div>
+                <button type="button">Elemento precedente</button>
+                <ChatHeader
+                    {...defaultProps}
+                    clearActionLabel="Pulisci tutta la chat"
+                    onRequestClear={jest.fn()}
+                />
+            </div>,
+        );
+
+        const trigger = screen.getByRole('button', { name: 'Altre azioni chat' });
+        await user.click(trigger);
+        expect(screen.getByRole('menuitem', { name: 'Pulisci tutta la chat' })).toHaveFocus();
+
+        await user.tab();
+
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+        expect(document.body).not.toHaveFocus();
+        expect(screen.getByRole('button', { name: 'Riduci la chat' })).toHaveFocus();
+
+        await user.click(trigger);
+        expect(screen.getByRole('menuitem', { name: 'Pulisci tutta la chat' })).toHaveFocus();
+
+        await user.tab({ shift: true });
+
+        expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+        expect(document.body).not.toHaveFocus();
+        expect(screen.getByRole('button', { name: 'Elemento precedente' })).toHaveFocus();
+    });
+
+    it('returns focus to "Altre azioni chat" trigger when ClearChatDialog closes via Escape or Annulla', async () => {
+        const user = userEvent.setup();
+
+        function UnmockedHarness() {
+            const [open, setOpen] = useState(false);
+            return (
+                <>
+                    <ChatHeader
+                        {...defaultProps}
+                        clearActionLabel="Ricomincia chat di Bagno"
+                        onRequestClear={() => setOpen(true)}
+                    />
+                    <ClearChatDialog
+                        open={open}
+                        onOpenChange={setOpen}
+                        roomLabel="Bagno"
+                        isClearing={false}
+                        errorMessage={null}
+                        onConfirm={jest.fn()}
+                    />
+                </>
+            );
+        }
+
+        render(<UnmockedHarness />);
+
+        const trigger = screen.getByRole('button', { name: 'Altre azioni chat' });
+
+        // Dismiss via Escape
+        await user.click(trigger);
+        await user.click(screen.getByRole('menuitem', { name: 'Ricomincia chat di Bagno' }));
+        expect(await screen.findByRole('dialog')).toBeInTheDocument();
+
+        await user.keyboard('{Escape}');
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        });
+        expect(trigger).toHaveFocus();
+
+        // Dismiss via Annulla
+        await user.click(trigger);
+        await user.click(screen.getByRole('menuitem', { name: 'Ricomincia chat di Bagno' }));
+        expect(await screen.findByRole('dialog')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Annulla' }));
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        });
+        expect(trigger).toHaveFocus();
     });
 });

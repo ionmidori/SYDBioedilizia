@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import {
     Dialog,
@@ -48,6 +49,31 @@ export function ClearChatDialog({
     const confirmIdleLabel = scopedRoomLabel ? 'Ricomincia stanza' : 'Pulisci chat';
     const confirmLabel = isClearing ? 'Pulizia in corso…' : confirmIdleLabel;
 
+    const openerRef = useRef<HTMLElement | null>(null);
+    const wasOpenRef = useRef(false);
+
+    // Controlled Radix Dialog without <DialogTrigger> leaves Radix's internal triggerRef null,
+    // so capture the opener before FocusScope moves focus in and restore it after FocusScope
+    // tears down its focusin trap when the modal closes.
+    useLayoutEffect(() => {
+        if (open && !wasOpenRef.current) {
+            openerRef.current =
+                document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        }
+        wasOpenRef.current = open;
+    }, [open]);
+
+    useEffect(() => {
+        if (!open) return;
+        return () => {
+            const opener = openerRef.current;
+            openerRef.current = null;
+            if (opener && opener.isConnected) {
+                opener.focus();
+            }
+        };
+    }, [open]);
+
     const handleOpenChange = (next: boolean) => {
         if (!isClearing) {
             onOpenChange(next);
@@ -58,6 +84,9 @@ export function ClearChatDialog({
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent
                 className="sm:max-w-md bg-surface border-line text-ink rounded-2xl"
+                onCloseAutoFocus={(e) => {
+                    e.preventDefault();
+                }}
                 onEscapeKeyDown={(e) => {
                     if (isClearing) e.preventDefault();
                 }}
