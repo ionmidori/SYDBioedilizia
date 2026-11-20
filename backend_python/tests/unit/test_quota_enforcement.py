@@ -152,6 +152,59 @@ class TestCheckQuotaReasons:
 
         assert (decision.allowed, decision.reason, decision.period) == (True, QuotaReason.OK, None)
 
+    async def test_check_log_names_the_tool_and_limits_but_not_the_user(self, caplog: pytest.LogCaptureFixture):
+        # Without a project the quota doc id is "<uid>_<tool>": the uid must not reach the logs.
+        snap = MagicMock(exists=False)
+
+        with caplog.at_level("INFO", logger=quota.__name__), \
+             patch.object(quota, "get_async_firestore_client", return_value=self._db_returning(snap)):
+            await check_quota("authenticatedUser123", "generate_render")
+
+        checks = [r.getMessage() for r in caplog.records if r.getMessage().startswith("[Quota] Checking")]
+        assert checks == ["[Quota] Checking generate_render (auth). Limit: 2/day, 7/week"]
+        assert all("authenticatedUser123" not in r.getMessage() for r in caplog.records)
+
+    @pytest.mark.parametrize(
+        "stored",
+        [
+            {"bypass_quota": True},
+            {"override_limit": 1, "count": 1, "window_start": utc_now() - timedelta(hours=1)},
+            {"count": 2, "window_start": utc_now() - timedelta(hours=1)},
+        ],
+        ids=["bypass", "override-and-daily-limit", "daily-limit"],
+    )
+    async def test_override_and_limit_logs_do_not_name_the_user(self, caplog: pytest.LogCaptureFixture, stored):
+        snap = MagicMock(exists=True)
+        snap.to_dict.return_value = stored
+
+        with caplog.at_level("INFO", logger=quota.__name__), \
+             patch.object(quota, "get_async_firestore_client", return_value=self._db_returning(snap)):
+            await check_quota("authenticatedUser123", "generate_render")
+
+        assert caplog.records
+        assert all("authenticatedUser123" not in r.getMessage() for r in caplog.records)
+
+    async def test_weekly_limit_log_does_not_name_the_user(self, caplog: pytest.LogCaptureFixture):
+        snap = MagicMock(exists=True)
+        snap.to_dict.return_value = {"count": 7, "window_start": utc_now() - timedelta(hours=1)}
+
+        with caplog.at_level("INFO", logger=quota.__name__), \
+             patch.object(quota, "get_async_firestore_client", return_value=self._db_returning(snap)):
+            decision = await check_quota("authenticatedUser123", "generate_render")
+
+        assert decision.period == "weekly"
+        assert all("authenticatedUser123" not in r.getMessage() for r in caplog.records)
+
+    async def test_increment_failure_log_does_not_name_the_user(self, caplog: pytest.LogCaptureFixture):
+        db = MagicMock()  # its calls cannot be awaited: every Firestore write fails
+
+        with caplog.at_level("INFO", logger=quota.__name__), \
+             patch.object(quota, "get_async_firestore_client", return_value=db):
+            await quota.increment_quota("authenticatedUser123", "generate_render")
+
+        assert any("Error incrementing generate_render" in r.getMessage() for r in caplog.records)
+        assert all("authenticatedUser123" not in r.getMessage() for r in caplog.records)
+
     async def test_client_initialisation_failure_is_unavailable_too(self):
         # Credentials / network problems surface when the client is created.
         with patch.object(quota, "get_async_firestore_client", side_effect=ValueError("bad credentials")):
