@@ -31,6 +31,7 @@ import { pendingMessageStore } from '@/lib/auth/pending-message';
 import { isChatWindowOpen, reopenChatOnNextPage, takeReopenChat } from '@/lib/chat/chat-window-state';
 import { GUEST_SESSION_KEY } from '@/lib/chat-session-keys';
 import { mapAuthError } from '@/utils/auth-utils';
+import { hasAdminRoleClaim, isAnonymousToken, isTokenExpired } from '@/lib/security/jwt-claims';
 
 /**
  * 'redirecting': the browser is leaving for the provider; the login completes
@@ -50,6 +51,13 @@ interface AuthContextValue {
     idToken: string | null;
     error: Error | null;
     isAnonymous: boolean;
+    /**
+     * UX hint only: a registered user whose current, unexpired ID token carries
+     * `role=admin`. The signature is NOT verified here (same rule as `proxy.ts`):
+     * it only decides whether to show a link. Every admin capability is enforced
+     * by the backend (`require_admin`).
+     */
+    isAdmin: boolean;
 
     // Methods
     signInAnonymously: () => Promise<void>;
@@ -413,6 +421,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, []);
 
+    // Derived during render (no state, no effect): follows `user` and `idToken`,
+    // so it flips with every token rotation and is false the moment logout()
+    // clears them.
+    const isAdmin = Boolean(
+        user &&
+            !user.isAnonymous &&
+            idToken &&
+            !isTokenExpired(idToken) &&
+            !isAnonymousToken(idToken) &&
+            hasAdminRoleClaim(idToken),
+    );
+
     const value: AuthContextValue = {
         user,
         loading,
@@ -420,6 +440,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         idToken,
         error,
         isAnonymous: user?.isAnonymous ?? false,
+        isAdmin,
         signInAnonymously,
         loginWithGoogle,
         logout,
