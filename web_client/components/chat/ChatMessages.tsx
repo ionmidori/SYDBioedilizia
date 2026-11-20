@@ -26,6 +26,10 @@ interface ChatMessagesProps {
 
     messagesContainerRef: RefObject<HTMLDivElement | null>;
     messagesEndRef: RefObject<HTMLDivElement | null>;
+
+    /** When viewing a single room tab with 0 messages, show a focused empty state. */
+    activeRoomLabel?: string | null;
+    onShowAllMessages?: () => void;
 }
 
 const scrollStyle = { WebkitOverflowScrolling: 'touch' as const };
@@ -44,6 +48,8 @@ const ChatMessagesComponent = ({
     data, // Capture data
     messagesContainerRef,
     messagesEndRef,
+    activeRoomLabel,
+    onShowAllMessages,
 }: ChatMessagesProps) => {
 
     const historyById = React.useMemo(
@@ -92,23 +98,53 @@ const ChatMessagesComponent = ({
             className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-line-strong/30 hover:scrollbar-thumb-line-strong/50 scrollbar-track-transparent overscroll-contain touch-pan-y"
             style={scrollStyle}
         >
-            {/* No `layout` / popLayout: messages never reorder, and layout (FLIP)
-                animations scale content on every height change while a reply streams. */}
+            {/* Keep this flex-col div as the persistent firstElementChild so
+                useChatScroll's ResizeObserver never detaches when toggling the room empty state. */}
             <div className="flex flex-col space-y-6">
-                <AnimatePresence initial={false}>
-                    {messages.map((msg, idx) => (
-                        <MessageItem
-                            key={msg.id || idx}
-                            message={msg}
-                            sessionId={sessionId || ""}
-                            onImageClick={onImageClick || noopImageClick}
-                            onQuickPrompt={msg.id === 'welcome-msg' && !isLoading ? onQuickPrompt : undefined}
-                            historyMessage={msg.id ? historyById.get(msg.id) : undefined}
-                            animate={!!msg.id && liveReplyIds.has(msg.id)}
-                            showConfirmations={idx === confirmationsIndex}
-                        />
-                    ))}
-                </AnimatePresence>
+                {activeRoomLabel && (
+                    <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                        {messages.length === 0
+                            ? `Stanza ${activeRoomLabel}: nessun messaggio`
+                            : `Stanza ${activeRoomLabel}: ${messages.length} ${messages.length === 1 ? 'messaggio' : 'messaggi'}`}
+                    </span>
+                )}
+                {!isLoading && messages.length === 0 && activeRoomLabel ? (
+                    <div
+                        data-testid="room-empty-state"
+                        className="my-10 mx-auto max-w-xs px-4 text-center space-y-3"
+                    >
+                        <p className="text-base font-semibold text-ink text-balance">
+                            Nessun messaggio ancora in {activeRoomLabel}
+                        </p>
+                        <p className="text-sm text-ink-muted leading-relaxed">
+                            Scrivi un messaggio o carica una foto per iniziare in questa stanza.
+                        </p>
+                        {onShowAllMessages && (
+                            <button
+                                type="button"
+                                onClick={onShowAllMessages}
+                                className="inline-flex items-center justify-center rounded-full border border-line bg-surface px-4 h-11 md:h-9 text-sm font-medium text-ink hover:border-primary hover:bg-primary-subtle/50 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                                Mostra tutti i messaggi
+                            </button>
+                        )}
+                    </div>
+                ) : (
+                    <AnimatePresence initial={false}>
+                        {messages.map((msg, idx) => (
+                            <MessageItem
+                                key={msg.id || idx}
+                                message={msg}
+                                sessionId={sessionId || ""}
+                                onImageClick={onImageClick || noopImageClick}
+                                onQuickPrompt={msg.id === 'welcome-msg' && !isLoading ? onQuickPrompt : undefined}
+                                historyMessage={msg.id ? historyById.get(msg.id) : undefined}
+                                animate={!!msg.id && liveReplyIds.has(msg.id)}
+                                showConfirmations={idx === confirmationsIndex}
+                            />
+                        ))}
+                    </AnimatePresence>
+                )}
             </div>
 
             {/* AI Processing State - Dynamic Status */}

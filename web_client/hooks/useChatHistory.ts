@@ -173,6 +173,16 @@ export function useChatHistory(
                             // Parse timestamp
                             const createdAt = data.timestamp?.toDate() || snapshotTime;
 
+                            // Hydrate room attribution from Firestore metadata.room_id
+                            const rawRoomId =
+                                data.metadata && typeof data.metadata === 'object'
+                                    ? (data.metadata as { room_id?: unknown }).room_id
+                                    : undefined;
+                            const roomId =
+                                typeof rawRoomId === 'string' && rawRoomId.trim().length > 0
+                                    ? rawRoomId.trim()
+                                    : undefined;
+
                             return {
                                 id: doc.id,
                                 role: (data.role || 'user').toLowerCase() as 'user' | 'assistant' | 'system' | 'tool',
@@ -182,7 +192,8 @@ export function useChatHistory(
                                 toolInvocations,
                                 tool_call_id: data.tool_call_id,
                                 attachments,
-                                rating: data.rating
+                                rating: data.rating,
+                                roomId,
                             } as Message;
                         });
 

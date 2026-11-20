@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import React, { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { motion } from 'framer-motion';
-import { Bath, BedDouble, CookingPot, DoorOpen, House, Loader2, Plus, Sofa, type LucideIcon } from 'lucide-react';
+import { Bath, BedDouble, CookingPot, DoorOpen, House, LayoutGrid, Loader2, Plus, Sofa, type LucideIcon } from 'lucide-react';
 import { ResponsiveDrawer } from '@/components/ui/responsive-drawer';
 import { Button } from '@/components/ui/button';
 import { roomsApi } from '@/lib/rooms-api';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import type { RoomChip } from '@/hooks/useProjectRooms';
+import type { RoomViewFilter } from '@/lib/chat/room-filter';
 import { ROOM_TYPES, type RoomType } from '@/types/room';
 
 export const ROOM_TYPE_LABELS: Record<RoomType, string> = {
@@ -30,7 +31,7 @@ const ROOM_TYPE_ICONS: Record<RoomType, LucideIcon> = {
 };
 
 const CHIP_CLASS = cn(
-    'inline-flex items-center gap-1.5 shrink-0 snap-start rounded-full border px-3',
+    'inline-flex items-center gap-1.5 shrink-0 snap-start scroll-mx-4 rounded-full border px-3',
     'h-11 md:h-9 text-sm font-medium whitespace-nowrap transition-colors',
     'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 );
@@ -39,45 +40,124 @@ interface RoomChipsProps {
     projectId: string;
     rooms: RoomChip[];
     activeRoomId: string | null;
+    /** Currently selected view filter (`'all'` or `room_id`). Defaults to `activeRoomId ?? 'all'`. */
+    viewFilter?: RoomViewFilter;
+    /** Optional per-room message counts for subtle badge display. */
+    roomMessageCounts?: ReadonlyMap<string, number>;
     onSelect: (roomId: string) => void;
+    /** Optional view-filter callback; if provided, renders the leading "Tutte" chip. */
+    onSelectFilter?: (filter: RoomViewFilter) => void;
 }
 
 /**
  * Room chips above the composer (Phase 138: one chat for the whole home).
  *
- * The active room is highlighted: the next message and the photos/videos
- * uploaded now belong to it. "Nuova stanza" creates a room (type + name)
- * through the backend and makes it active; the list itself is live
- * (`useProjectRooms`). Horizontal scroll on mobile, 44px touch targets.
+ * When `onSelectFilter` is supplied, a leading "Tutte" chip widens the chat to
+ * every message in the project, while tapping a room filters the visible thread
+ * to that room AND makes it the active target for new messages/uploads.
+ * Horizontal scroll on mobile, 44px touch targets.
  */
-export function RoomChips({ projectId, rooms, activeRoomId, onSelect }: RoomChipsProps) {
+function RoomChipsComponent({
+    projectId,
+    rooms,
+    activeRoomId,
+    viewFilter,
+    roomMessageCounts,
+    onSelect,
+    onSelectFilter,
+}: RoomChipsProps) {
     const [isCreating, setIsCreating] = useState(false);
+    const effectiveFilter: RoomViewFilter = viewFilter ?? activeRoomId ?? 'all';
+
+    const handleRoomClick = (roomId: string) => {
+        if (onSelectFilter) {
+            onSelectFilter(roomId);
+        } else {
+            onSelect(roomId);
+        }
+    };
+
+    // WCAG 2.2 toolbar keyboard navigation: ArrowLeft / ArrowRight / Home / End
+    const handleToolbarKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'Home' && e.key !== 'End') return;
+        const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
+        const currentIdx = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        if (currentIdx === -1 || buttons.length === 0) return;
+
+        e.preventDefault();
+        let nextIdx = currentIdx;
+        if (e.key === 'ArrowRight') nextIdx = (currentIdx + 1) % buttons.length;
+        else if (e.key === 'ArrowLeft') nextIdx = (currentIdx - 1 + buttons.length) % buttons.length;
+        else if (e.key === 'Home') nextIdx = 0;
+        else if (e.key === 'End') nextIdx = buttons.length - 1;
+        buttons[nextIdx]?.focus();
+    };
 
     return (
         <div
             className="flex gap-2 overflow-x-auto scrollbar-hide snap-x px-4 pt-2 pb-1 flex-shrink-0"
             role="toolbar"
             aria-label="Stanze del progetto"
+            onKeyDown={handleToolbarKeyDown}
         >
+            {onSelectFilter && (
+                <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => onSelectFilter('all')}
+                    aria-pressed={effectiveFilter === 'all'}
+                    className={cn(
+                        CHIP_CLASS,
+                        effectiveFilter === 'all'
+                            ? 'bg-primary text-on-primary border-primary'
+                            : 'bg-surface text-ink border-line hover:border-primary hover:bg-primary-subtle/50',
+                    )}
+                >
+                    <LayoutGrid className="w-4 h-4" aria-hidden="true" />
+                    <span>Tutte</span>
+                </motion.button>
+            )}
             {rooms.map((room) => {
                 const Icon = ROOM_TYPE_ICONS[room.room_type];
-                const isActive = room.room_id === activeRoomId;
+                const isSelected = effectiveFilter === room.room_id;
+                const isSendTargetWhileAll = effectiveFilter === 'all' && room.room_id === activeRoomId;
+                const count = roomMessageCounts?.get(room.room_id) ?? 0;
+                const ariaParts = [room.label];
+                if (count > 0) ariaParts.push(count === 1 ? '1 messaggio' : `${count} messaggi`);
+                if (isSendTargetWhileAll) ariaParts.push('stanza attiva per i nuovi messaggi');
                 return (
                     <motion.button
                         key={room.room_id}
                         type="button"
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => onSelect(room.room_id)}
-                        aria-pressed={isActive}
+                        onClick={() => handleRoomClick(room.room_id)}
+                        aria-pressed={isSelected}
+                        aria-label={ariaParts.join(', ')}
+                        title={isSendTargetWhileAll ? 'Stanza attiva per i nuovi messaggi' : undefined}
                         className={cn(
                             CHIP_CLASS,
-                            isActive
+                            isSelected
                                 ? 'bg-primary text-on-primary border-primary'
-                                : 'bg-surface text-ink border-line hover:border-primary hover:bg-primary-subtle/50',
+                                : isSendTargetWhileAll
+                                    ? 'bg-primary-subtle/40 text-ink border-primary/50 hover:border-primary'
+                                    : 'bg-surface text-ink border-line hover:border-primary hover:bg-primary-subtle/50',
                         )}
                     >
                         <Icon className="w-4 h-4" aria-hidden="true" />
                         <span className="max-w-[10rem] truncate">{room.label}</span>
+                        {count > 0 && (
+                            <span
+                                aria-hidden="true"
+                                className={cn(
+                                    'text-xs tabular-nums leading-none px-1.5 py-0.5 rounded-full font-semibold',
+                                    isSelected
+                                        ? 'bg-canvas text-primary-ink'
+                                        : 'bg-primary-subtle text-primary-ink',
+                                )}
+                            >
+                                {count}
+                            </span>
+                        )}
                     </motion.button>
                 );
             })}
@@ -104,7 +184,7 @@ export function RoomChips({ projectId, rooms, activeRoomId, onSelect }: RoomChip
                     <NewRoomForm
                         projectId={projectId}
                         onCreated={(roomId) => {
-                            onSelect(roomId);
+                            handleRoomClick(roomId);
                             setIsCreating(false);
                         }}
                     />
@@ -113,6 +193,8 @@ export function RoomChips({ projectId, rooms, activeRoomId, onSelect }: RoomChip
         </div>
     );
 }
+
+export const RoomChips = React.memo(RoomChipsComponent);
 
 function NewRoomForm({ projectId, onCreated }: { projectId: string; onCreated: (roomId: string) => void }) {
     const [roomType, setRoomType] = useState<RoomType>('bagno');
