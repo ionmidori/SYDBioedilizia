@@ -381,6 +381,7 @@ export function Navbar() {
                                         <div className="w-full flex justify-center">
                                             <SignInButton
                                                 className="w-full justify-between"
+                                                onNavigate={() => setMobileMenuOpen(false)}
                                                 onLoginClick={() => {
                                                     triggerHaptic();
                                                     setMobileMenuOpen(false);

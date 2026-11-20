@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, render } from '@testing-library/react';
-import { onAuthStateChanged, onIdTokenChanged, signInAnonymously, signOut, type User } from 'firebase/auth';
+import { onAuthStateChanged, signInAnonymously, signOut, type User } from 'firebase/auth';
 import { AuthProvider, useAuthContext } from '../AuthProvider';
 
 jest.mock('firebase/auth', () => ({
