@@ -79,6 +79,8 @@ class _BriefDraft(BaseModel):
     floor_mq: float | None = Field(default=None, description="Superficie del pavimento in metri quadrati")
     walls_mq: float | None = Field(default=None, description="Superficie delle pareti in metri quadrati")
     height_m: float | None = Field(default=None, description="Altezza del soffitto in metri")
+    length_m: float | None = Field(default=None, description="Lunghezza della stanza in metri")
+    width_m: float | None = Field(default=None, description="Larghezza della stanza in metri")
     surfaces: str | None = Field(default=None, description="Pavimenti, pareti, soffitti: materiali e stato")
     systems: str | None = Field(default=None, description="Impianti elettrico, idraulico, riscaldamento")
     fixtures: str | None = Field(default=None, description="Porte, finestre, sanitari, elementi fissi")
@@ -187,6 +189,11 @@ def _fit_measure(value: float | None, upper: float) -> float | None:
     return value if value is not None and 0 <= value <= upper else None
 
 
+def _fit_dimension(value: float | None) -> float | None:
+    """A room dimension in metres: above 0 and at most 100 (`RoomBrief`)."""
+    return value if value is not None and 0 < value <= 100 else None
+
+
 def _fit_brief(draft: _BriefDraft) -> RoomBrief:
     """The model's brief within RoomBrief's limits: an overlong text is cut and
     an impossible measure dropped, so one excess never freezes the brief."""
@@ -194,6 +201,8 @@ def _fit_brief(draft: _BriefDraft) -> RoomBrief:
         floor_mq=_fit_measure(draft.floor_mq, 10_000),
         walls_mq=_fit_measure(draft.walls_mq, 10_000),
         height_m=_fit_measure(draft.height_m, 20),
+        length_m=_fit_dimension(draft.length_m),
+        width_m=_fit_dimension(draft.width_m),
         surfaces=_fit_text(draft.surfaces, 1000),
         systems=_fit_text(draft.systems, 1000),
         fixtures=_fit_text(draft.fixtures, 1000),

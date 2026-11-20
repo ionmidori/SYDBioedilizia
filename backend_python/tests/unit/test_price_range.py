@@ -20,7 +20,7 @@ def policy() -> PriceRangePolicy:
         version="test",
         by_source={
             "confirmed": Decimal("0.05"), "declared": Decimal("0.10"), "photo": Decimal("0.15"),
-            "brief": Decimal("0.15"), "estimated": Decimal("0.25"),
+            "brief": Decimal("0.15"), "estimated": Decimal("0.25"), "calculated": Decimal("0.10"),
         },
         no_measure=Decimal("0.05"),
         model_qty=Decimal("0.25"),
@@ -130,6 +130,11 @@ def test_policy_file_valid() -> None:
     assert policy.version
     assert set(policy.by_source) == set(get_args(StoredMeasureSource))
     assert policy.by_source["confirmed"] < policy.by_source["estimated"]
+
+
+def test_a_measure_the_code_calculated_weighs_like_a_declared_one() -> None:
+    policy = load_price_range_policy()
+    assert policy.by_source["calculated"] == policy.by_source["declared"]
 
 
 def test_policy_needs_every_source_and_fractions(policy: PriceRangePolicy) -> None:

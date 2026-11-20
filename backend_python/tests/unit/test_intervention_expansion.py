@@ -3,6 +3,7 @@
 The model chooses packages, conditions and measures; the code computes every
 line from the library formulas. Real bundled library and seed price book.
 """
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -19,6 +20,7 @@ from src.services.intervention_expansion import (
     evaluate_formula,
     expand,
     resolve_measures,
+    spec_from_analysis,
 )
 
 
@@ -186,6 +188,49 @@ def test_resolve_measures_prefers_spec_then_brief() -> None:
     ])
     assert resolve_measures(twice, None) == {}, "two values of a measure (two rooms?) are not used"
     assert resolve_measures(twice, RoomBrief(floor_mq=9)) == {"mq": Decimal("9")}, "the room brief decides"
+
+
+def test_measures_follow_the_order_of_the_sources() -> None:
+    """client (declared, brief) > calculated from the dimensions > photo > estimate."""
+    brief = RoomBrief(length_m=4, width_m=5, height_m=3)
+    # The model only estimated the floor: the dimensions the client gave win.
+    estimated = InsightAnalysis(summary="s", measures=[SpecMeasure(name="mq", value=33, source="estimated")])
+    assert resolve_measures(estimated, brief)["mq"] == Decimal("20")
+    photo = InsightAnalysis(summary="s", measures=[SpecMeasure(name="mq", value=33, source="photo")])
+    assert resolve_measures(photo, brief)["mq"] == Decimal("20")
+    # What the client declared stays above the calculation.
+    declared = InsightAnalysis(summary="s", measures=[SpecMeasure(name="mq", value=18, source="declared")])
+    assert resolve_measures(declared, brief)["mq"] == Decimal("18")
+    # The floor the client wrote on the brief is above the calculation too.
+    assert resolve_measures(estimated, RoomBrief(floor_mq=19, length_m=4, width_m=5))["mq"] == Decimal("19")
+
+
+def test_dimensions_fill_only_the_missing_measures() -> None:
+    analysis = InsightAnalysis(summary="s", measures=[SpecMeasure(name="mq_pareti", value=40, source="declared")])
+    measures = resolve_measures(analysis, RoomBrief(length_m=4, width_m=5))
+    assert measures == {
+        "mq_pareti": Decimal("40"), "mq": Decimal("20"), "ml_perimetro": Decimal("18"),
+    }
+
+
+def test_the_height_of_the_brief_is_used_and_default_otherwise() -> None:
+    analysis = InsightAnalysis(summary="s")
+    assert resolve_measures(analysis, RoomBrief(length_m=4, width_m=5, height_m=3))["mq_pareti"] == Decimal("54")
+    assert resolve_measures(analysis, RoomBrief(length_m=4, width_m=5))["mq_pareti"] == Decimal("48.60")
+
+
+def test_one_dimension_alone_derives_nothing() -> None:
+    assert resolve_measures(InsightAnalysis(summary="s"), RoomBrief(width_m=5)) == {}
+
+
+def test_the_stored_spec_tells_calculated_from_brief_and_model_sources() -> None:
+    analysis = InsightAnalysis(summary="s", measures=[SpecMeasure(name="n_porte", value=2, source="estimated")])
+    brief = RoomBrief(walls_mq=30, length_m=4, width_m=5)
+    measures = resolve_measures(analysis, brief)
+    spec = spec_from_analysis(analysis, measures, library_version="1", now=datetime(2026, 11, 20, tzinfo=UTC), brief=brief)
+    assert {m.name: m.source for m in spec.measures} == {
+        "n_porte": "estimated", "mq_pareti": "brief", "mq": "calculated", "ml_perimetro": "calculated",
+    }
 
 
 def test_spec_measure_validation() -> None:

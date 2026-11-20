@@ -33,7 +33,8 @@ REGOLE
 1. Usa solo fatti detti dal cliente o analisi di SYD che il cliente non ha smentito. Le misure date dal
    cliente prevalgono sulle stime fatte dalle foto.
 2. Parti dalla scheda attuale: tieni ogni fatto ancora valido, correggi quelli smentiti, aggiungi i nuovi.
-3. Misure in numeri: floor_mq e walls_mq in metri quadrati, height_m in metri.
+3. Misure in numeri: floor_mq e walls_mq in metri quadrati; height_m, length_m e width_m in metri
+   (lunghezza e larghezza solo se il cliente le ha dette, es. "4 per 5": mai ricavarle dai metri quadrati).
 4. surfaces, systems, fixtures: frasi brevi in italiano (stato attuale e cosa cambia), al massimo 1000 caratteri.
 5. criticalities, decisions, open_questions: voci brevi in italiano (al massimo 300 caratteri l'una, 20 voci);
    togli una domanda aperta quando il cliente ha risposto.

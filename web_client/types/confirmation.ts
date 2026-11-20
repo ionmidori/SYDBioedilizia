@@ -14,7 +14,7 @@ const measureValueSchema = z.number().min(0).max(MEASURE_MAX);
 // _MAX_CHOICES in schemas/confirmation.py (the measures are checked by name there).
 const MAX_CHOICES = 32;
 
-export const measureSourceSchema = z.enum(['declared', 'photo', 'estimated', 'brief', 'confirmed']);
+export const measureSourceSchema = z.enum(['declared', 'photo', 'estimated', 'brief', 'confirmed', 'calculated']);
 export type MeasureSource = z.infer<typeof measureSourceSchema>;
 
 // ElementAction in schemas/assembly_library.py.

@@ -11,6 +11,8 @@ const ROOM = {
         floor_mq: null,
         walls_mq: null,
         height_m: null,
+        length_m: null,
+        width_m: null,
         surfaces: null,
         systems: null,
         fixtures: null,
@@ -37,6 +39,8 @@ describe('room schemas (Golden Sync with schemas/room.py)', () => {
         ['a room id with a slash', { room_id: 'a/b' }],
         ['an unknown field', { extra: 1 }],
         ['a negative floor area', { brief: { ...ROOM.brief, floor_mq: -1 } }],
+        ['a zero length', { brief: { ...ROOM.brief, length_m: 0 } }],
+        ['a width over 100 m', { brief: { ...ROOM.brief, width_m: 100.5 } }],
     ])('rejects %s', (_label, patch) => {
         expect(roomSchema.safeParse({ ...ROOM, ...patch }).success).toBe(false);
     });

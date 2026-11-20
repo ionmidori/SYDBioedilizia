@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import ast
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Context, Decimal, DivisionByZero, InvalidOperation, Overflow
@@ -35,12 +35,14 @@ from src.schemas.intervention_spec import (
     StoredElementChoice,
     StoredExtraItem,
     StoredMeasure,
+    StoredMeasureSource,
     StoredPackage,
 )
 from src.schemas.quote import ManualWorkOriginType
 from src.schemas.room import RoomBrief
 from src.services.assembly_library import referenced_skus
 from src.services.insight_engine import InsightAnalysis, PackageChoice, SKUItemSuggestion, SpecMeasure
+from src.services.room_geometry import DEFAULT_HEIGHT_M, derive_measures, height_assumed
 
 logger = get_logger(__name__)
 
@@ -225,14 +227,80 @@ def _spec_measures(analysis: InsightAnalysis) -> dict[str, SpecMeasure]:
     return {name: measures[0] for name, measures in _measure_values(analysis).items() if name not in conflicts}
 
 
+# Order of trust of a measure's source: the client (declared, on the brief), then what the
+# code calculated from the room's dimensions, then the photo, then an estimate. "confirmed"
+# is the card's: `expansion_inputs` applies it over whatever is resolved here.
+_SOURCE_RANK: dict[StoredMeasureSource, int] = {
+    "confirmed": 0, "declared": 1, "brief": 2, "calculated": 3, "photo": 4, "estimated": 5,
+}
+
+
+def _positive(value: float | None) -> Decimal | None:
+    return to_decimal(value) if value is not None and value > 0 else None
+
+
+def _resolved(analysis: InsightAnalysis, brief: RoomBrief | None) -> dict[str, tuple[Decimal, StoredMeasureSource]]:
+    """Each measure of the room with its value and source, the most trusted one of each name."""
+    chosen: dict[str, tuple[Decimal, StoredMeasureSource]] = {}
+
+    def offer(name: str, value: Decimal, source: StoredMeasureSource) -> None:
+        if name not in chosen or _SOURCE_RANK[source] < _SOURCE_RANK[chosen[name][1]]:
+            chosen[name] = (value, source)
+
+    for name, measure in _spec_measures(analysis).items():
+        offer(name, to_decimal(measure.value), measure.source)
+    for name, (value, source) in _from_brief(brief).items():
+        offer(name, value, source)
+    return chosen
+
+
+def _from_brief(brief: RoomBrief | None) -> dict[str, tuple[Decimal, StoredMeasureSource]]:
+    """What the room brief gives: its floor and walls, and what the code calculates from its dimensions."""
+    found: dict[str, tuple[Decimal, StoredMeasureSource]] = {}
+    if brief is None:
+        return found
+    for name, floor_or_walls in (("mq", brief.floor_mq), ("mq_pareti", brief.walls_mq)):
+        if (value := _positive(floor_or_walls)) is not None:
+            found[name] = (value, "brief")
+    derived = derive_measures(_positive(brief.length_m), _positive(brief.width_m), _positive(brief.height_m))
+    for name, value in derived.items():
+        found.setdefault(name, (value, "calculated"))
+    return found
+
+
+def brief_measures(brief: RoomBrief | None) -> set[str]:
+    """Names of the measures the room brief gives, directly or by its dimensions."""
+    return set(_from_brief(brief))
+
+
+# The measures a room's first quote cannot do without: floor and walls (what most packages use).
+MAIN_MEASURES: tuple[str, ...] = ("mq", "mq_pareti")
+
+
+def main_measures_covered(missing: Collection[str], given: Collection[str]) -> bool:
+    """True when the client has already given measures and none of the `missing` ones is
+    still open: a photo estimate adds nothing the room needs."""
+    return bool(given) and all(name in given for name in missing)
+
+
 def resolve_measures(analysis: InsightAnalysis, brief: RoomBrief | None) -> dict[str, Decimal]:
-    """The measures of the room: the spec first, then the room brief (floor, walls)."""
-    measures = {name: to_decimal(m.value) for name, m in _spec_measures(analysis).items()}
-    if brief is not None:
-        for name, value in (("mq", brief.floor_mq), ("mq_pareti", brief.walls_mq)):
-            if name not in measures and value is not None and value > 0:
-                measures[name] = to_decimal(value)
-    return measures
+    """The measures of the room, by order of source: what the client gave (the spec's
+    declared ones, the brief's floor and walls), then what the code calculates from the
+    brief's dimensions (`derive_measures`), then the model's photo reading and estimates."""
+    return {name: value for name, (value, _) in _resolved(analysis, brief).items()}
+
+
+def calculated_notes(analysis: InsightAnalysis, brief: RoomBrief | None) -> list[str]:
+    """Checks for the team when the walls were calculated from the room's dimensions:
+    they are gross (doors and windows not subtracted) and the height may be assumed."""
+    resolved = _resolved(analysis, brief)
+    if brief is None or resolved.get("mq_pareti", (None, None))[1] != "calculated":
+        return []
+    notes = ["Pareti lorde, calcolate dalle dimensioni della stanza: porte e finestre non sono sottratte"]
+    if height_assumed(_positive(brief.height_m)):
+        height = f"{DEFAULT_HEIGHT_M:.2f}".replace(".", ",")
+        notes.append(f"Altezza della stanza non indicata dal cliente: assunta {height} m per le pareti")
+    return notes
 
 
 # ── Expansion ─────────────────────────────────────────────────────────────────
@@ -609,21 +677,22 @@ def expand(
 
 
 def spec_from_analysis(
-    analysis: InsightAnalysis, measures: Mapping[str, Decimal], *, library_version: str, now: datetime
+    analysis: InsightAnalysis,
+    measures: Mapping[str, Decimal],
+    *,
+    library_version: str,
+    now: datetime,
+    brief: RoomBrief | None = None,
 ) -> RoomInterventionSpec:
     """The spec to store on the room: what `expand` read from the analysis.
 
-    `measures` are the ones the expansion used (`resolve_measures`): each keeps the
-    model's source, or "brief" when it came from the room brief. Packages are merged
+    `measures` are the ones the expansion used (`resolve_measures`, with the same
+    `brief`): each keeps its source ("brief", "calculated" or the model's). Packages are merged
     like `expand` merges them, and only kept or reused elements are stored."""
-    from_model = _spec_measures(analysis)
+    sources: dict[str, StoredMeasureSource] = {name: source for name, (_, source) in _resolved(analysis, brief).items()}
     return RoomInterventionSpec(
         measures=[
-            StoredMeasure(
-                name=name,
-                value=float(value),
-                source=from_model[name].source if name in from_model else "brief",
-            )
+            StoredMeasure(name=name, value=float(value), source=sources.get(name, "brief"))
             for name, value in measures.items()
         ],
         packages=[

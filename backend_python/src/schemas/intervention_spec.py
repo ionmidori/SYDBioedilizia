@@ -21,7 +21,9 @@ from src.schemas.assembly_library import ElementAction
 
 # "brief": the measure came from the room brief (scheda stanza), not from the model.
 # "confirmed": the client confirmed it on the card; only the card writes it.
-StoredMeasureSource = Literal["declared", "photo", "estimated", "brief", "confirmed"]
+# "calculated": the code derived it from the room's dimensions (`services/room_geometry.py`).
+# Order of trust: client (confirmed, declared) > calculated > photo, estimated.
+StoredMeasureSource = Literal["declared", "photo", "estimated", "brief", "confirmed", "calculated"]
 # Same bound as RoomBrief and SpecMeasure: a home measure.
 MeasureValue = Annotated[float, Field(ge=0, le=10_000)]
 

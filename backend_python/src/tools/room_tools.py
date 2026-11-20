@@ -54,6 +54,8 @@ def brief_lines(room: RoomSchema, *, open_questions: bool = False, photo_estimat
         ("Pavimento (mq)", brief.floor_mq),
         ("Pareti (mq)", brief.walls_mq),
         ("Altezza (m)", brief.height_m),
+        ("Lunghezza (m)", brief.length_m),
+        ("Larghezza (m)", brief.width_m),
         ("Superfici", brief.surfaces),
         ("Impianti", brief.systems),
         ("Elementi fissi", brief.fixtures),

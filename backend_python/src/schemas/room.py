@@ -64,6 +64,8 @@ class RoomBrief(BaseModel):
     floor_mq: float | None = Field(default=None, ge=0, le=10_000, description="Floor area (m²)")
     walls_mq: float | None = Field(default=None, ge=0, le=10_000, description="Wall area (m²)")
     height_m: float | None = Field(default=None, ge=0, le=20, description="Ceiling height (m)")
+    length_m: float | None = Field(default=None, gt=0, le=100, description="Room length (m), with the width the code derives the measures")
+    width_m: float | None = Field(default=None, gt=0, le=100, description="Room width (m)")
     surfaces: _BriefText | None = Field(default=None, description="Floors, walls, ceilings: materials and condition")
     systems: _BriefText | None = Field(default=None, description="Electrical, plumbing, heating")
     fixtures: _BriefText | None = Field(default=None, description="Doors, windows, sanitary ware, fitted elements")
