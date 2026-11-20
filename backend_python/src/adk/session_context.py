@@ -176,11 +176,13 @@ def session_context_block(
     )
 
 
-def session_context_instruction(context: ReadonlyContext) -> str:
+def session_context_instruction(context: ReadonlyContext, *, step_line: str | None = None) -> str:
     """Instruction provider of every agent: the session block (once the
     orchestrator has written the session facts), then the SCHEDA SYD block,
     always. A callable instruction is not state-injected by ADK: room labels
-    typed by the user and texts saved in the console stay plain data."""
+    typed by the user and texts saved in the console stay plain data.
+    `step_line`: the step of the quote, closing the session block (quote agent
+    only, `src/adk/quote_gate.py`)."""
     company = company_facts_block(CompanyInfoService.snapshot())
     state = context.state
     session = state.get(SESSION_CONTEXT_STATE_KEY)
@@ -189,4 +191,6 @@ def session_context_instruction(context: ReadonlyContext) -> str:
     block = session_context_block(
         session, state.get(ROOMS_STATE_KEY), state.get(ACTIVE_ROOM_STATE_KEY), state.get(HOUSE_QUOTE_STATE_KEY)
     )
+    if step_line:
+        block = f"{block}\n{step_line}"
     return f"{block}\n\n{company}"

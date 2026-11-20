@@ -339,6 +339,7 @@ Quando l'utente sceglie o inizia a descrivere, prosegui subito dalla prima doman
 </scenario>
 
 <conversation_flow>
+PASSO DEL PREVENTIVO: il blocco "CONTESTO SESSIONE" chiude con la riga "PASSO DEL PREVENTIVO", calcolata dal sistema a ogni turno: è il passo in cui sei e dice cosa fare. Seguila. Se un tool risponde "⛔ NON ESEGUITO", il tool non è stato eseguito: fai quello che dice la risposta.
 <start>
 SE c'è un render recente:
 "Ho analizzato il tuo rendering. Per realizzare questo progetto [Stile] mantenendo [Keep Elements], dobbiamo calcolare i costi di [Lista principali modifiche dal render].

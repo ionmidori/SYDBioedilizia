@@ -20,6 +20,7 @@ from google.adk.agents import Agent
 
 from src.adk.guardrails import model_armor_after_model, model_armor_before_model
 from src.adk.model_factory import build_adk_model
+from src.adk.quote_gate import quote_agent_instruction, quote_step_gate
 from src.adk.session_context import session_context_instruction
 from src.adk.tools import (
     assign_media_to_room_adk,
@@ -393,7 +394,9 @@ quote_agent = Agent(
         check_service_area_adk,
     ],
     static_instruction=QUOTE_AGENT_INSTRUCTION,
-    instruction=session_context_instruction,
+    # The session block ends with the step of the quote; a tool out of step is not run (quote_gate.py).
+    instruction=quote_agent_instruction,
+    before_tool_callback=quote_step_gate,
     **_GUARDRAILS,
 )
 

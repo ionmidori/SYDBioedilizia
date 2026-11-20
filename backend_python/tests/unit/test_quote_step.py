@@ -217,7 +217,14 @@ def test_a_question_about_a_number_is_not_the_phone_question():
 
 
 def test_a_phone_saved_in_this_turn_registers():
-    assert _step(phone_on_file=False, turn_calls=("save_contact_phone",)) is QuoteStep.REGISTRA
+    """The client confirms and leaves the number in the same message."""
+    facts = {"phone_on_file": False, "last_reply": REGISTER_ASK, "client_words": "sì, il mio numero è 3331234567"}
+    assert _step(**facts, turn_calls=("save_contact_phone",)) is QuoteStep.REGISTRA
+
+
+def test_a_phone_saved_while_collecting_does_not_skip_the_confirmation():
+    words = "bagno 6 m², rifare il pavimento, il mio numero è 3331234567"
+    assert _step(phone_on_file=False, client_words=words, turn_calls=("save_contact_phone",)) is QuoteStep.RACCOLTA
 
 
 # ── SCHEDA ────────────────────────────────────────────────────────────────────

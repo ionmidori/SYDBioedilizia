@@ -15,6 +15,7 @@ from google.adk.events import Event
 from google.genai import types
 
 from src.adk.video_attachments import is_skipped_video_note
+from src.services.quote_step import STEP_REFUSED_PREFIX
 
 
 def message_text(content: types.Content | None) -> str:
@@ -24,14 +25,49 @@ def message_text(content: types.Content | None) -> str:
     return " ".join(p.text for p in content.parts if p.text and not p.thought).strip()
 
 
-def tool_calls(event: Event) -> list[str]:
-    """Names of the tools the event calls."""
-    return [p.function_call.name or "" for p in (event.content.parts or []) if p.function_call] if event.content else []
+def _parts(events: Sequence[Event], invocation_id: str) -> list[types.Part]:
+    return [p for e in events if e.invocation_id == invocation_id and e.content for p in e.content.parts or []]
 
 
-def turn_calls(events: Sequence[Event], invocation_id: str) -> list[str]:
-    """Tools called so far in this turn, in order."""
-    return [name for e in events if e.invocation_id == invocation_id for name in tool_calls(e)]
+def _refused(response: types.FunctionResponse) -> bool:
+    """The step gate answered instead of the tool (src/adk/quote_gate.py)."""
+    result = (response.response or {}).get("result")
+    return isinstance(result, str) and result.startswith(STEP_REFUSED_PREFIX)
+
+
+def _turn_call_list(events: Sequence[Event], invocation_id: str) -> tuple[list[types.FunctionCall], set[str]]:
+    """The turn's calls in order, without those the step gate refused (they did not
+    run: the step must not move on because of them), and the ids already answered."""
+    parts = _parts(events, invocation_id)
+    responses = [p.function_response for p in parts if p.function_response]
+    refused = {r.id for r in responses if r.id and _refused(r)}
+    answered = {r.id for r in responses if r.id}
+    calls = [p.function_call for p in parts if p.function_call and p.function_call.id not in refused]
+    return calls, answered
+
+
+def turn_calls(events: Sequence[Event], invocation_id: str, *, answered_only: bool = False) -> list[str]:
+    """Tools called so far in this turn, in order. `answered_only`: only the calls
+    whose tool has answered. For the step gate: ADK stores a model response with
+    all its parallel calls before running them, so the others have neither run nor
+    been checked yet (a call without an id is an old event: kept)."""
+    calls, answered = _turn_call_list(events, invocation_id)
+    return [
+        c.name or "" for c in calls
+        if not answered_only or c.id is None or c.id in answered
+    ]
+
+
+def calls_before(events: Sequence[Event], invocation_id: str, call_id: str | None) -> list[str]:
+    """The turn's calls before `call_id`, run or still waiting (refused ones left
+    out): of two parallel registrations, the first one goes."""
+    calls, _ = _turn_call_list(events, invocation_id)
+    names: list[str] = []
+    for call in calls:
+        if call_id is not None and call.id == call_id:
+            break
+        names.append(call.name or "")
+    return names
 
 
 def _previous_turn(events: Sequence[Event], invocation_id: str) -> str | None:
@@ -65,8 +101,7 @@ def tool_responses(events: Sequence[Event], invocation_id: str, name: str) -> li
     `str` result as {"result": ...})."""
     return [
         str(response.get("result", response))
-        for e in events if e.invocation_id == invocation_id and e.content
-        for p in e.content.parts or []
+        for p in _parts(events, invocation_id)
         if p.function_response and p.function_response.name == name
         and (response := p.function_response.response) is not None
     ]
