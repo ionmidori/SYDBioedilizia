@@ -236,6 +236,7 @@ async def check_quota(
 
     try:
         db = get_async_firestore_client()
+        # Never log doc_id: without a project it is "<uid>_<tool>".
         doc_id = _build_quota_doc_id(user_id, tool_name, project_id)
         quota_ref = db.collection("usage_quotas").document(doc_id)
         doc = await quota_ref.get()
@@ -245,13 +246,13 @@ async def check_quota(
         if doc.exists:
             data = doc.to_dict() or {}
             if data.get("bypass_quota") is True:
-                logger.info(f"[Quota] 🛑 BYPASS ACTIVE for {doc_id} on {tool_name}")
+                logger.info(f"[Quota] 🛑 BYPASS ACTIVE on {tool_name}")
                 return QuotaDecision(True, 9999, now + timedelta(days=365))
 
             override_limit = data.get("override_limit")
             if override_limit is not None:
                 custom_limit = int(override_limit)
-                logger.info(f"[Quota] 🔧 CUSTOM LIMIT ACTIVE for {doc_id}: {custom_limit}")
+                logger.info(f"[Quota] 🔧 CUSTOM LIMIT ACTIVE on {tool_name}: {custom_limit}")
 
         # Determine limits
         is_authenticated = _is_authenticated_user(user_id)
@@ -267,8 +268,8 @@ async def check_quota(
             return QuotaDecision(False, 0, now + timedelta(hours=QUOTA_WINDOW_HOURS), QuotaReason.NOT_AVAILABLE)
 
         logger.info(
-            f"[Quota] Checking {doc_id} ({'auth' if is_authenticated else 'anon'}) "
-            f"for {tool_name}. Limit: {daily_limit}/day, {weekly_limit}/week"
+            f"[Quota] Checking {tool_name} ({'auth' if is_authenticated else 'anon'}). "
+            f"Limit: {daily_limit}/day, {weekly_limit}/week"
         )
 
         # Check weekly limit (if applicable)
@@ -289,7 +290,7 @@ async def check_quota(
                 if w_start is not None and now < w_start + timedelta(hours=QUOTA_WINDOW_WEEKLY_HOURS):
                     if w_count >= weekly_limit and custom_limit is None:
                          reset_at = w_start + timedelta(hours=QUOTA_WINDOW_WEEKLY_HOURS)
-                         logger.warning(f"[Quota] Weekly limit reached for {doc_id}")
+                         logger.warning(f"[Quota] Weekly limit reached on {tool_name}")
                          return QuotaDecision(False, 0, reset_at, QuotaReason.LIMIT_REACHED, "weekly")
 
         def _fresh_window() -> QuotaDecision:
@@ -320,7 +321,7 @@ async def check_quota(
 
         if not allowed:
             logger.warning(
-                f"[Quota] Daily limit reached for {doc_id} ({count}/{daily_limit})"
+                f"[Quota] Daily limit reached on {tool_name} ({count}/{daily_limit})"
             )
             return QuotaDecision(False, remaining, reset_at, QuotaReason.LIMIT_REACHED, "daily")
 
@@ -448,4 +449,4 @@ async def _increment_counter(
         await _atomic_reset_or_create(db.transaction())
 
     except Exception as e:  # noqa: BLE001
-        logger.error(f"[Quota] Error incrementing {tool_name} for {user_id}: {e}")
+        logger.error(f"[Quota] Error incrementing {tool_name}: {e}")
