@@ -103,10 +103,11 @@ export function useChatHistory(
                 // CRITICAL FIX: If component unmounted while waiting for import, abort!
                 if (!isMounted) return;
 
+                const scanLimit = Math.max(limit * 4, 200);
                 const q = query(
                     collection(db, 'sessions', sessionId as string, 'messages'),
                     orderBy('timestamp', 'desc'),
-                    firestoreLimit(limit)
+                    firestoreLimit(scanLimit)
                 );
 
                 const subscribe = () => {
@@ -198,6 +199,10 @@ export function useChatHistory(
                             } as Message];
                         });
 
+                        // Keep only the newest `limit` non-archived docs (snapshot.docs are DESC)
+                        // before sorting ASC and linking tool calls.
+                        const activeMessages = rawMessages.slice(0, limit);
+
                         // 3. Consistent Sorting Logic
                         // Sort by timestamp ASCENDING (Oldest first).
                         // Tie-breaker: role priority (user < assistant) for messages within 500ms.
@@ -209,7 +214,7 @@ export function useChatHistory(
                             assistant: 2,
                             tool: 3
                         };
-                        const messages = rawMessages.sort((a, b) => {
+                        const messages = activeMessages.sort((a, b) => {
                             const timeA = (a.createdAt as Date).getTime();
                             const timeB = (b.createdAt as Date).getTime();
                             const diff = timeA - timeB;

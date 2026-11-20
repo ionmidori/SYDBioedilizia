@@ -628,5 +628,129 @@ describe('ChatWidget', () => {
             );
             expect(screen.getByRole('heading', { name: 'Pulire tutta la chat?' })).toBeInTheDocument();
         });
+
+        test('does not write clearAnnouncement to the new session when sessionId changes while clearChat resolves', async () => {
+            const user = userEvent.setup();
+            mockMessages.current = [
+                { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Ciao SYD' }] },
+            ];
+            let resolveClear!: (value: { mode: string; room_id: null; affected_count: number; rooms_reset: number }) => void;
+            mockClearChat.mockReturnValueOnce(
+                new Promise((resolve) => {
+                    resolveClear = resolve;
+                }),
+            );
+
+            const view = render(<ChatWidget variant="inline" />);
+
+            const headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as {
+                onRequestClear?: () => void;
+            };
+            act(() => {
+                headerProps.onRequestClear?.();
+            });
+
+            await user.click(await screen.findByRole('button', { name: 'Pulisci chat' }));
+
+            // Switch session while clearChat is still pending
+            mockSessionId.current = 'chat-session-new';
+            view.rerender(<ChatWidget variant="inline" />);
+
+            await act(async () => {
+                resolveClear({
+                    mode: 'hard_delete',
+                    room_id: null,
+                    affected_count: 1,
+                    rooms_reset: 0,
+                });
+                await Promise.resolve();
+            });
+
+            expect(screen.queryByRole('status')).not.toBeInTheDocument();
+            expect(screen.queryByRole('heading', { name: 'Pulire tutta la chat?' })).not.toBeInTheDocument();
+        });
+
+        test('does not write clearError to the new session when sessionId changes while clearChat rejects', async () => {
+            const user = userEvent.setup();
+            mockMessages.current = [
+                { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Ciao SYD' }] },
+            ];
+            let rejectClear!: (reason: unknown) => void;
+            mockClearChat.mockReturnValueOnce(
+                new Promise((_resolve, reject) => {
+                    rejectClear = reject;
+                }),
+            );
+
+            const view = render(<ChatWidget variant="inline" />);
+
+            const headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as {
+                onRequestClear?: () => void;
+            };
+            act(() => {
+                headerProps.onRequestClear?.();
+            });
+
+            await user.click(await screen.findByRole('button', { name: 'Pulisci chat' }));
+
+            // Switch session while clearChat is still pending
+            mockSessionId.current = 'chat-session-new';
+            view.rerender(<ChatWidget variant="inline" />);
+
+            await act(async () => {
+                rejectClear({
+                    error_code: 'INTERNAL_ERROR',
+                    message: 'Errore sessione precedente.',
+                });
+                await Promise.resolve();
+            });
+
+            expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+            expect(screen.queryByRole('heading', { name: 'Pulire tutta la chat?' })).not.toBeInTheDocument();
+        });
+
+        test('normalizes whitespace-only room label and clears clearAnnouncement on session switch', async () => {
+            const user = userEvent.setup();
+            mockUserChatId.current = 'proj-1';
+            mockRooms.current = [
+                { room_id: 'r-blank', label: '   ', room_type: 'altro' },
+            ];
+            mockActiveRoomId.current = 'r-blank';
+            mockMessages.current = [
+                { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Msg' }] },
+            ];
+            mockHistoryMessages.current = [
+                { id: 'm1', role: 'user', content: 'Msg', roomId: 'r-blank' },
+            ];
+
+            const view = render(<ChatWidget variant="inline" />);
+
+            const blankRoomButton = screen.getAllByRole('button').find((btn) =>
+                btn.getAttribute('aria-pressed') === 'false',
+            );
+            expect(blankRoomButton).toBeDefined();
+            await user.click(blankRoomButton!);
+
+            const headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as {
+                clearActionLabel?: string;
+                onRequestClear?: () => void;
+            };
+            expect(headerProps.clearActionLabel).toBe('Pulisci tutta la chat');
+
+            act(() => {
+                headerProps.onRequestClear?.();
+            });
+            await user.click(await screen.findByRole('button', { name: 'Pulisci chat' }));
+
+            await waitFor(() => {
+                expect(screen.getByRole('status')).toHaveTextContent('Chat pulita.');
+            });
+
+            // Switching session must clear the previous announcement
+            mockSessionId.current = 'chat-session-after-clear';
+            view.rerender(<ChatWidget variant="inline" />);
+
+            expect(screen.queryByRole('status')).not.toBeInTheDocument();
+        });
     });
 });

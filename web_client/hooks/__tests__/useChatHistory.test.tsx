@@ -292,4 +292,44 @@ describe('useChatHistory', () => {
             expect(result.current.historyMessages.map((m) => m.id)).toEqual(['msg-2']);
         });
     });
+
+    it('over-scans Firestore with Math.max(limit * 4, 200) and keeps the newest active messages when newer docs are archived', async () => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { limit: firestoreLimit } = require('firebase/firestore');
+
+        const { result } = renderHook(() => useChatHistory(mockSessionId, { limit: 2 }));
+
+        // Snapshot docs arrive in DESC order (newest -> oldest):
+        // 6 newer archived docs followed by 3 active docs.
+        await waitAndFire([
+            { id: 'arch-6', role: 'assistant', content: 'A6', archived: true, timestamp: { toDate: () => new Date('2026-01-09') } },
+            { id: 'arch-5', role: 'user', content: 'A5', archived: true, timestamp: { toDate: () => new Date('2026-01-08') } },
+            { id: 'arch-4', role: 'assistant', content: 'A4', archived: true, timestamp: { toDate: () => new Date('2026-01-07') } },
+            { id: 'arch-3', role: 'user', content: 'A3', archived: true, timestamp: { toDate: () => new Date('2026-01-06') } },
+            { id: 'arch-2', role: 'assistant', content: 'A2', archived: true, timestamp: { toDate: () => new Date('2026-01-05') } },
+            { id: 'arch-1', role: 'user', content: 'A1', archived: true, timestamp: { toDate: () => new Date('2026-01-04') } },
+            { id: 'active-3', role: 'assistant', content: 'Newest active', archived: false, timestamp: { toDate: () => new Date('2026-01-03') } },
+            { id: 'active-2', role: 'user', content: 'Second newest active', archived: false, timestamp: { toDate: () => new Date('2026-01-02') } },
+            { id: 'active-1', role: 'user', content: 'Oldest active', archived: false, timestamp: { toDate: () => new Date('2026-01-01') } },
+        ]);
+
+        await waitFor(() => {
+            expect(result.current.historyLoaded).toBe(true);
+        });
+
+        expect(firestoreLimit).toHaveBeenCalledWith(200);
+        // Only the 2 newest active docs are kept, sorted ASC (oldest -> newest)
+        expect(result.current.historyMessages.map((m) => m.id)).toEqual(['active-2', 'active-3']);
+    });
+
+    it('scales scanLimit to limit * 4 when limit * 4 exceeds 200', async () => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { limit: firestoreLimit } = require('firebase/firestore');
+
+        renderHook(() => useChatHistory(mockSessionId, { limit: 60 }));
+
+        await waitAndFire([]);
+
+        expect(firestoreLimit).toHaveBeenCalledWith(240);
+    });
 });

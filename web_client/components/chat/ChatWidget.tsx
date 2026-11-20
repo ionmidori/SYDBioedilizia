@@ -100,6 +100,10 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
     const [isClearing, setIsClearing] = useState(false);
     const [clearError, setClearError] = useState<string | null>(null);
     const [clearAnnouncement, setClearAnnouncement] = useState<string | null>(null);
+    const sessionIdRef = useRef<string | null>(sessionId);
+    useEffect(() => {
+        sessionIdRef.current = sessionId;
+    }, [sessionId]);
 
     // Per-room view filter (decoupled from activeRoomId send target)
     const { roomFilter, selectFilter, filteredRoomLabel } = useRoomFilter({
@@ -107,6 +111,7 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
         rooms,
         onSelectActiveRoom: setActiveRoomId,
     });
+    const activeRoomLabel = filteredRoomLabel?.trim() || null;
     const handleShowAllMessages = useCallback(() => selectFilter('all'), [selectFilter]);
 
     // Optimistic room attribution for newly sent / streaming messages before
@@ -122,7 +127,9 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
         setOptimisticRoomById(new Map());
         setInFlightRoomId(null);
         setClearDialogOpen(false);
+        setIsClearing(false);
         setClearError(null);
+        setClearAnnouncement(null);
     }
 
     if (prevIsLoading !== isLoading) {
@@ -172,8 +179,8 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
         [messages, historyById, optimisticRoomById],
     );
 
-    const clearActionLabel = filteredRoomLabel
-        ? `Ricomincia chat di ${filteredRoomLabel}`
+    const clearActionLabel = activeRoomLabel
+        ? `Ricomincia chat di ${activeRoomLabel}`
         : 'Pulisci tutta la chat';
     const hasClearableMessages = filteredMessages.some((m) => m.id !== 'welcome-msg');
     const canClear = Boolean(sessionId) && !isLoading && hasClearableMessages;
@@ -297,12 +304,14 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
     );
 
     const handleConfirmClear = useCallback(async () => {
+        const targetSessionId = sessionId;
         const targetRoomId = roomFilter === 'all' ? null : roomFilter;
-        const targetRoomLabel = filteredRoomLabel;
+        const targetRoomLabel = activeRoomLabel;
         setIsClearing(true);
         setClearError(null);
         try {
             await clearChat(targetRoomId);
+            if (sessionIdRef.current !== targetSessionId) return;
             if (targetRoomId === null) {
                 setOptimisticRoomById(new Map());
             } else {
@@ -328,11 +337,14 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
                 targetRoomLabel ? `Chat di ${targetRoomLabel} ricominciata.` : 'Chat pulita.',
             );
         } catch (err: unknown) {
+            if (sessionIdRef.current !== targetSessionId) return;
             setClearError(describeApiError(err));
         } finally {
-            setIsClearing(false);
+            if (sessionIdRef.current === targetSessionId) {
+                setIsClearing(false);
+            }
         }
-    }, [clearChat, roomFilter, filteredRoomLabel, clearQueue, dismissNotice]);
+    }, [sessionId, clearChat, roomFilter, activeRoomLabel, clearQueue, dismissNotice]);
     // 🔥 FIX: Enable keyboard tracking for both floating and inline variants
     const { isMobile, keyboardHeight } = useMobileViewport(isOpen, chatContainerRef, isInline);
 
@@ -614,7 +626,7 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
             <ClearChatDialog
                 open={clearDialogOpen}
                 onOpenChange={handleClearDialogOpenChange}
-                roomLabel={filteredRoomLabel}
+                roomLabel={activeRoomLabel}
                 isClearing={isClearing}
                 errorMessage={clearError}
                 onConfirm={handleConfirmClear}

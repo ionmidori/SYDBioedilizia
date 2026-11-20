@@ -54,6 +54,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         refreshUserChat,
         resetToNewGuestSession,
     } = useChatSession();
+    const sessionIdRef = useRef<string | null>(sessionId);
+    useEffect(() => {
+        sessionIdRef.current = sessionId;
+    }, [sessionId]);
 
     // -- ADK CUSTOM-DATA STREAM (status / interrupt / ui_widget / artifact) --
     const { streamData, onData } = useAdkStreamEvents(sessionId);
@@ -303,11 +307,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const clearChat = useCallback(async (roomId?: string | null): Promise<ClearChatResponse> => {
-        if (!sessionId) {
+        const targetSessionId = sessionId;
+        if (!targetSessionId) {
             throw new Error('Sessione chat non disponibile.');
         }
         const normalizedRoomId = roomId ?? null;
-        const result = await chatClearApi.clearChat(sessionId, { room_id: normalizedRoomId });
+        const result = await chatClearApi.clearChat(targetSessionId, { room_id: normalizedRoomId });
+        if (sessionIdRef.current !== targetSessionId) {
+            return result;
+        }
         setChatNotice(null);
         setClearGeneration((g) => g + 1);
         if (normalizedRoomId === null) {
