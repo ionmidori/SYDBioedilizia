@@ -16,6 +16,8 @@ from unittest.mock import MagicMock
 
 import pytest
 from google.adk.evaluation.eval_set import EvalSet
+from google.genai import types
+from src.core.exceptions import RoomNotFoundError
 
 EVALS_DIR = Path(__file__).parent
 
@@ -150,7 +152,7 @@ class TestMultiRoomEval:
         assert session.state["syd_session_context"]["is_guest"] is False
 
     def test_agent_module_exposes_the_production_app(self) -> None:
-        """Same plugins as production (+ the reply recorder), the session block as
+        """Same plugins as production (+ the recorders), the session block as
         the agents' instruction, compaction at the eval threshold."""
         from google.adk.apps.app import App
         from src.adk.app_factory import build_app
@@ -159,7 +161,8 @@ class TestMultiRoomEval:
 
         assert isinstance(agent.app, App)
         production = [p.name for p in build_app().plugins]
-        assert [p.name for p in agent.app.plugins] == [*production, "eval_response_recorder", "eval_tool_call_recorder"]
+        recorders = ["eval_response_recorder", "eval_tool_call_recorder", "eval_instruction_recorder"]
+        assert [p.name for p in agent.app.plugins] == [*production, *recorders]
         assert agent.root_agent is agent.app.root_agent
         assert agent.root_agent.instruction is session_context_instruction
         compaction = agent.app.events_compaction_config
@@ -275,6 +278,149 @@ class TestFloorAreaAskedEval:
             "turn 1 does not ask the floor area", "turn 2 asks the floor area again",
             "turn 2 does not say the area will be estimated",
         ]
+
+
+class TestSingleFlowAgentModule:
+    """google-adk 2.x loads an eval agent only from a module named `.agent` (or with an `agent`
+    member): the quote, triage and design flows failed to load before any model call."""
+
+    def test_the_module_is_one_adk_can_load_and_exposes_the_production_agents(self) -> None:
+        import importlib
+
+        from src.adk.agents import root_agent
+        from tests.evals import run_evals
+
+        assert run_evals.AGENT_MODULE.endswith(".agent")
+        assert importlib.import_module(run_evals.AGENT_MODULE).root_agent is root_agent
+
+
+class TestRoomPlaybookEvals:
+    """Strada B PR C: the bathroom checklist comes from the room playbook (dynamic instruction),
+    not from the static prompt. What is checked is that it reaches the quote agent (the model
+    then asks one category per turn, as the prompt says); the open space of a project with a
+    bathroom does not get it."""
+
+    DIR = EVALS_DIR / "multi_room"
+    MARKER = "CHECKLIST TECNICA — BAGNO"
+    ASKS = "Certo! Il bagno va rifatto tutto o solo in parte? Quanti metri quadri è?"
+
+    @classmethod
+    def _run(cls, replies: list[str], tools: list[list[str]], seen: list[tuple[str, str]]):
+        from types import SimpleNamespace
+
+        from tests.evals.multi_room.fakes import InstructionRecorder, ResponseRecorder
+
+        responses = ResponseRecorder()
+        responses.texts = {f"inv{i}": [reply] for i, reply in enumerate(replies)}
+        instructions = InstructionRecorder()
+        instructions.requests = list(seen)
+        calls = [[("quote", t) for t in turn] for turn in tools]
+        return SimpleNamespace(
+            responses=responses,
+            tool_calls=SimpleNamespace(turns=lambda: calls),
+            instructions=instructions,
+            submissions=SimpleNamespace(problems=lambda expected: []),
+        )
+
+    @pytest.mark.parametrize("name", ["bathroom_checklist", "guest_bathroom_checklist", "open_space_with_bathroom"])
+    def test_the_sets_load_and_start_with_one_vague_request(self, name: str) -> None:
+        sets = EvalSet.model_validate_json((self.DIR / f"{name}.test.json").read_text(encoding="utf-8"))
+        assert len(sets.eval_cases) == 1 and len(sets.eval_cases[0].conversation) == 1
+
+    def test_the_bathroom_sets_do_not_name_the_checklist_points(self) -> None:
+        for name in ("bathroom_checklist", "guest_bathroom_checklist"):
+            case = EvalSet.model_validate_json((self.DIR / f"{name}.test.json").read_text(encoding="utf-8")).eval_cases[0]
+            text = case.conversation[0].user_content.parts[0].text.lower()
+            assert "bagno" in text
+            assert not any(w in text for w in ("doccia", "vasca", "piastrell", "sanitari", "mq", "metri"))
+
+    def test_the_guest_set_is_a_guest_and_the_others_are_registered(self) -> None:
+        from tests.evals.multi_room.fakes import GUEST_SETS
+
+        assert "guest_bathroom_checklist.test.json" in GUEST_SETS
+        assert "bathroom_checklist.test.json" not in GUEST_SETS
+
+    def test_the_open_space_set_has_a_bathroom_in_the_index_and_the_kitchen_active(self) -> None:
+        case = EvalSet.model_validate_json((self.DIR / "open_space_with_bathroom.test.json").read_text(encoding="utf-8")).eval_cases[0]
+        state = case.session_input.state
+        assert {r["room_type"] for r in state["syd_rooms"]} == {"cucina", "bagno"}
+        assert state["syd_active_room_id"] == "r_cucina"
+
+    def test_the_bathroom_check_passes_when_the_checklist_reached_the_quote_agent(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        run = self._run([self.ASKS], [["select_room"]], [("quote", f"## {self.MARKER} (guida)")])
+        assert BACKEND_CHECKS["bathroom_checklist.test.json"](run) == []
+
+    def test_the_bathroom_check_reports_the_quote_before_it_and_a_checklist_that_never_came(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        run = self._run(["Preparo la richiesta."], [["select_room", "suggest_quote_items"]], [("quote", "niente")])
+        problems = BACKEND_CHECKS["bathroom_checklist.test.json"](run)
+        assert [p.split(" ")[0] for p in problems] == ["suggest_quote_items", "the", "the"]
+        assert "never reached the quote agent" in problems[1] and "asks nothing" in problems[2]
+
+    def test_a_checklist_seen_by_another_agent_does_not_count(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        run = self._run([self.ASKS], [[]], [("triage", self.MARKER)])
+        assert any("never reached" in p for p in BACKEND_CHECKS["bathroom_checklist.test.json"](run))
+
+    def test_the_guest_check_wants_the_checklist_and_no_login_yet(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        seen = [("quote", self.MARKER)]
+        assert BACKEND_CHECKS["guest_bathroom_checklist.test.json"](self._run([self.ASKS], [["select_room"]], seen)) == []
+        problems = BACKEND_CHECKS["guest_bathroom_checklist.test.json"](
+            self._run([self.ASKS], [["select_room", "request_login"]], [("quote", "niente")])
+        )
+        assert any("login requests" in p for p in problems) and any("never reached" in p for p in problems)
+
+    def test_the_open_space_check_flags_a_checklist_that_reached_an_agent(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        check = BACKEND_CHECKS["open_space_with_bathroom.test.json"]
+        assert check(self._run([self.ASKS], [[]], [("quote", "contesto senza guida")])) == []
+        problems = check(self._run([self.ASKS], [[]], [("quote", f"## {self.MARKER}")]))
+        assert len(problems) == 1 and "quote" in problems[0]
+
+    async def test_the_recorder_reads_the_dynamic_instruction_not_the_static_prompt(self) -> None:
+        """The static prompt names the checklist («CHECKLIST TECNICA — BAGNO», the pointer sentence of
+        modes.py), so a marker in the system instruction proves nothing: only the contents count."""
+        from types import SimpleNamespace
+
+        from google.adk.models.llm_request import LlmRequest
+        from tests.evals.multi_room.fakes import InstructionRecorder
+
+        recorder = InstructionRecorder()
+        request = LlmRequest(
+            contents=[types.Content(role="user", parts=[types.Part(text=f"blocco ## {self.MARKER}")])],
+            config=types.GenerateContentConfig(system_instruction="prompt statico"),
+        )
+        await recorder.before_model_callback(callback_context=SimpleNamespace(agent_name="quote"), llm_request=request)
+        static_only = LlmRequest(config=types.GenerateContentConfig(system_instruction=f"{self.MARKER} nel prefisso"))
+        await recorder.before_model_callback(callback_context=SimpleNamespace(agent_name="design"), llm_request=static_only)
+        assert recorder.agents_with(self.MARKER) == {"quote"}
+        assert recorder.agents_with("assente") == set()
+        recorder.reset()
+        assert recorder.agents_with(self.MARKER) == set()
+
+    def test_the_quote_static_prompt_points_to_the_checklist_by_its_title(self) -> None:
+        """Why the recorder must skip the system instruction: the title is in the static prompt too."""
+        from src.adk.agents import quote_agent
+
+        assert self.MARKER in str(quote_agent.static_instruction)
+
+    async def test_the_fake_repository_renames_a_room_like_the_real_one(self) -> None:
+        from src.schemas.room import RoomUpdate
+        from tests.evals.multi_room.fakes import FakeRoomRepository
+
+        repo = FakeRoomRepository()
+        room = await repo.update_room("p", "r_cucina", RoomUpdate(label="Open space"))
+        assert room.label == "Open space" and room.room_type == "cucina"
+        assert [r.label for r in await repo.list_rooms("p")] == ["Open space", "Bagno"]
+        with pytest.raises(RoomNotFoundError):
+            await repo.update_room("p", "r_nope", RoomUpdate(label="X"))
 
 
 class TestMultiRoomQuoteEval:

@@ -44,7 +44,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(messa
 logger = logging.getLogger("syd.evals")
 
 EVALS_DIR = Path(__file__).parent
-AGENT_MODULE = "src.adk.agents"
+AGENT_MODULE = "tests.evals.agent"
 # Multi-room chat (Phase 138): own agent module (the production App, src/adk/app_factory.py)
 # and an in-memory backend that records renders, quotes, submissions and replies.
 MULTI_ROOM_DIR = EVALS_DIR / "multi_room"
