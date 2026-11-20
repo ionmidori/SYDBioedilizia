@@ -482,3 +482,9 @@ def test_facts_ignore_a_register_reply_of_an_older_turn():
         text_event("user", "ok", TURN),
     ]
     assert quote_facts(events, TURN, user_message("ok"), {}).last_register_reply == ""
+
+
+def test_the_forward_step_asks_the_floor_area_of_a_new_room_first():
+    """Test chat of 19/11 (salone sent with no m²): the step line is read last, so it must say it."""
+    guide = quote_step_module.step_guide(QuoteStep.INOLTRO, None)
+    assert "m² del pavimento" in guide and "chiedili prima" in guide and "nel turno della risposta" in guide

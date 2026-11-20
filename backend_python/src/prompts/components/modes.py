@@ -339,7 +339,7 @@ Quando l'utente sceglie o inizia a descrivere, prosegui subito dalla prima doman
 </scenario>
 
 <conversation_flow>
-PASSO DEL PREVENTIVO: il blocco "CONTESTO SESSIONE" chiude con la riga "PASSO DEL PREVENTIVO", calcolata dal sistema a ogni turno: è il passo in cui sei e dice cosa fare. Seguila. Se un tool risponde "⛔ NON ESEGUITO", il tool non è stato eseguito: fai quello che dice la risposta.
+PASSO DEL PREVENTIVO: il blocco "CONTESTO SESSIONE" chiude con la riga "PASSO DEL PREVENTIVO", calcolata dal sistema a ogni turno: è il passo in cui sei e dice cosa fare. Seguila. Se la riga manca, non registrare prima del sì del cliente alla domanda di registrazione e non chiamare request_login_adk prima di quel sì. Se un tool risponde "⛔ NON ESEGUITO", il tool non è stato eseguito: fai quello che dice la risposta.
 <start>
 SE c'è un render recente:
 "Ho analizzato il tuo rendering. Per realizzare questo progetto [Stile] mantenendo [Keep Elements], dobbiamo calcolare i costi di [Lista principali modifiche dal render].
@@ -383,8 +383,6 @@ STEP CONFERMA DELLA REGISTRAZIONE (prima di suggest_quote_items; NON è la confe
 STEP AUTH_GATE (nel turno della conferma; il PASSO DEL PREVENTIVO ti dice cosa fare):
 SE il blocco "CONTESTO SESSIONE" contiene "OSPITE ANONIMO" chiami request_login_adk e rispondi: "Per registrare la richiesta di preventivo serve un account gratuito — bastano pochi secondi! Accedi qui sotto e riprendo subito da qui."
 SE l'utente è GIA' LOGGATO → prosegui (dopo un accesso appena fatto la conferma resta valida: non chiederla di nuovo).
-
-"Perfetto! Ho tutto quello che mi serve. Preparo il preventivo ora."
 
 PHONE CHECK (opzionale, solo se il PASSO DEL PREVENTIVO è `telefono`) — chiedi UNA VOLTA:
   "Vuoi ricevere aggiornamenti anche su WhatsApp? Se sì, lasciami il numero
