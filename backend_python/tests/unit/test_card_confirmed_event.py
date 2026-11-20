@@ -16,6 +16,7 @@ from src.adk import tools
 from src.adk.quote_facts import quote_facts
 from src.adk.session_context import CARD_EVENT_STATE_KEY, TURN_MESSAGE_STATE_KEY
 from src.auth.jwt_handler import verify_token
+from src.core.config import settings
 from src.schemas.internal import UserSession
 from src.services.card_event import CARD_CONFIRMED_EVENT, CARD_CONFIRMED_TEXT
 from src.services.orchestrator_factory import get_orchestrator
@@ -55,10 +56,10 @@ def test_the_request_accepts_only_the_known_event():
 
 @pytest.fixture()
 def _overrides(monkeypatch: pytest.MonkeyPatch):
-    from src.core.config import settings
-
     monkeypatch.setattr(settings, "ENABLE_APP_CHECK", False)
     monkeypatch.setattr("src.middleware.app_check.ENABLE_APP_CHECK", False)
+    # No Firestore (no credentials in CI): the chat check is replaced, and so is the client it is given.
+    monkeypatch.setattr("main.get_async_firestore_client", lambda: MagicMock())
     monkeypatch.setattr("main.require_user_chat", AsyncMock())
     seen: dict = {}
 

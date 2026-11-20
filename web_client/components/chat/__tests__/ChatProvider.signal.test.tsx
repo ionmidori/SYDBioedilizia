@@ -7,6 +7,8 @@ import type { ChatContextType } from '@/types/chat-context';
 const mockSdkSendMessage = jest.fn();
 const mockSdkMessages: { current: unknown[] } = { current: [] };
 const mockActiveRoom: { current: string | null } = { current: null };
+const mockStatus: { current: string } = { current: 'ready' };
+const mockRegenerate = jest.fn();
 
 jest.mock('@/hooks/useAuth', () => ({
     useAuth: () => ({ user: { uid: 'u1', isAnonymous: false }, signInAnonymously: jest.fn() }),
@@ -34,9 +36,9 @@ jest.mock('@/hooks/use-confirmations', () => ({ useRefreshConfirmations: () => j
 jest.mock('@ai-sdk/react', () => ({
     useChat: () => ({
         messages: mockSdkMessages.current,
-        status: 'ready',
+        status: mockStatus.current,
         sendMessage: mockSdkSendMessage,
-        regenerate: jest.fn(),
+        regenerate: mockRegenerate,
         stop: jest.fn(),
         setMessages: jest.fn(),
         error: undefined,
@@ -59,12 +61,15 @@ function mount() {
         ctx = useChatContext();
         return null;
     }
-    render(
+    // A new element each time: React skips a render for the very same element.
+    const tree = () => (
         <ChatProvider>
             <Consumer />
-        </ChatProvider>,
+        </ChatProvider>
     );
-    return () => ctx!;
+    const view = render(tree());
+    const getCtx = () => ctx!;
+    return Object.assign(getCtx, { rerender: () => view.rerender(tree()) });
 }
 
 describe('ChatProvider.sendSignal (the card confirmed: the agent restarts by itself)', () => {
@@ -72,6 +77,7 @@ describe('ChatProvider.sendSignal (the card confirmed: the agent restarts by its
         jest.clearAllMocks();
         mockSdkMessages.current = [];
         mockActiveRoom.current = null;
+        mockStatus.current = 'ready';
         mockSdkSendMessage.mockResolvedValue(undefined);
     });
 
@@ -118,5 +124,58 @@ describe('ChatProvider.sendSignal (the card confirmed: the agent restarts by its
             await getCtx().sendSignal('card_confirmed');
         });
         expect(mockRecovery.lastTurn?.()).toBeNull();
+    });
+
+    test('waits for the turn in progress: a signal never starts while a reply is streaming', async () => {
+        mockStatus.current = 'streaming';
+        const getCtx = mount();
+        await act(async () => {
+            await getCtx().sendSignal('card_confirmed');
+        });
+        expect(mockSdkSendMessage).not.toHaveBeenCalled();
+
+        mockStatus.current = 'ready';
+        await act(async () => {
+            getCtx.rerender();
+        });
+
+        expect(mockSdkSendMessage).toHaveBeenCalledTimes(1);
+        expect(mockSdkSendMessage.mock.calls[0][1]).toEqual({ body: { event: 'card_confirmed' } });
+
+        await act(async () => {
+            getCtx.rerender();
+        });
+        expect(mockSdkSendMessage).toHaveBeenCalledTimes(1); // once, not again at the next render
+    });
+
+    test('"Riprova" after a signal sends the signal again, never the previous turn again', async () => {
+        const getCtx = mount();
+        await act(async () => {
+            await getCtx().sendMessage('Bagno 6 mq');
+            await getCtx().sendSignal('card_confirmed');
+        });
+        mockSdkSendMessage.mockClear();
+
+        await act(async () => {
+            await getCtx().reload();
+        });
+
+        expect(mockRegenerate).not.toHaveBeenCalled();
+        expect(mockSdkSendMessage).toHaveBeenCalledTimes(1);
+        expect(mockSdkSendMessage.mock.calls[0][1]).toEqual({ body: { event: 'card_confirmed' } });
+    });
+
+    test('"Riprova" after a normal turn still regenerates it', async () => {
+        const getCtx = mount();
+        await act(async () => {
+            await getCtx().sendSignal('card_confirmed');
+            await getCtx().sendMessage('Bagno 6 mq');
+        });
+
+        await act(async () => {
+            await getCtx().reload();
+        });
+
+        expect(mockRegenerate).toHaveBeenCalledTimes(1);
     });
 });

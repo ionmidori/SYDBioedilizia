@@ -399,8 +399,9 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
     // Typing Indicator
     const typingMessage = useTypingIndicator(isLoading);
 
-    // The last confirmation on the card: the agent restarts by itself, with a hidden turn. A refusal is
-    // not an error banner (nothing the client wrote was lost): the client can go on by writing.
+    // The last confirmation on the card: the agent restarts by itself, with a hidden turn (the chat
+    // waits for a reply in progress). A failure of the turn reaches the usual error banner, and its
+    // "Riprova" sends the signal again; a failure before the request starts is only logged here.
     const handleConfirmationsDone = useCallback(() => {
         scrollToBottom('smooth');
         if (activeRoomId) setInFlightRoomId(activeRoomId);
