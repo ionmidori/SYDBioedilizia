@@ -1,5 +1,6 @@
 import { UIMessage as Message } from 'ai'; // Vercel AI SDK Type
 import { Message as FirestoreMessage } from './chat';
+import type { ClearChatResponse } from './chat-clear';
 import { FormEvent, ChangeEvent } from 'react';
 import type { RoomChip } from '@/hooks/useProjectRooms';
 
@@ -129,4 +130,10 @@ export interface ChatContextType {
      * Make a room active (room chip tapped, room just created).
      */
     setActiveRoomId: (roomId: string) => void;
+
+    /**
+     * Clear one room's messages or the entire chat history (soft-archiving when
+     * an active quote covers the scope, otherwise hard-deleting).
+     */
+    clearChat: (roomId?: string | null) => Promise<ClearChatResponse>;
 }

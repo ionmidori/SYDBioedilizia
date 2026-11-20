@@ -38,6 +38,8 @@ export interface HistorySyncInput {
     sessionMatches: boolean;
     isFirstSync: boolean;
     welcomeInjected: boolean;
+    /** Allow Firestore history shorter than current SDK state (armed right after a chat clear). */
+    allowShrink?: boolean;
 }
 
 /**
@@ -56,6 +58,7 @@ export function planHistorySync(input: HistorySyncInput): SyncDecision {
         sessionMatches,
         isFirstSync,
         welcomeInjected,
+        allowShrink = false,
     } = input;
 
     // STALE DATA GUARD: historyMessages is only valid once loadedForSessionId matches
@@ -84,7 +87,7 @@ export function planHistorySync(input: HistorySyncInput): SyncDecision {
     }
 
     // Skip sync if we injected the welcome message and history is empty
-    if (welcomeInjected && historyLength === 0) {
+    if (welcomeInjected && historyLength === 0 && (!allowShrink || sdkMessages.length <= fullHistory.length)) {
         return { kind: 'noop', reason: 'welcome-only' };
     }
 
@@ -103,7 +106,7 @@ export function planHistorySync(input: HistorySyncInput): SyncDecision {
     // overwriting SDK optimistic messages when Firestore is behind.
     // Background task saves user message AFTER streaming completes,
     // so Firestore may temporarily have fewer messages than the SDK.
-    if (isRecentlyFinished && histLen < sdkLen) {
+    if (isRecentlyFinished && histLen < sdkLen && !allowShrink) {
         return { kind: 'noop', reason: 'awaiting-snapshot' };
     }
 

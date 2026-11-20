@@ -118,8 +118,9 @@ export function useChatHistory(
                         // This prevents micro-timestamp differences from breaking the tie-breaker.
                         const snapshotTime = new Date();
 
-                        const rawMessages = snapshot.docs.map(doc => {
+                        const rawMessages = snapshot.docs.flatMap<Message>(doc => {
                             const data = doc.data();
+                            if (data?.archived === true) return [];
 
                             // Parse tool_calls
                             let toolInvocations = undefined;
@@ -183,7 +184,7 @@ export function useChatHistory(
                                     ? rawRoomId.trim()
                                     : undefined;
 
-                            return {
+                            return [{
                                 id: doc.id,
                                 role: (data.role || 'user').toLowerCase() as 'user' | 'assistant' | 'system' | 'tool',
                                 content,
@@ -194,7 +195,7 @@ export function useChatHistory(
                                 attachments,
                                 rating: data.rating,
                                 roomId,
-                            } as Message;
+                            } as Message];
                         });
 
                         // 3. Consistent Sorting Logic

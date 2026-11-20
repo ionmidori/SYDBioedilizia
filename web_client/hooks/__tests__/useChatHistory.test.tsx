@@ -250,4 +250,46 @@ describe('useChatHistory', () => {
         expect(byId.get('msg-general')?.roomId).toBeUndefined();
         expect(byId.get('msg-blank')?.roomId).toBeUndefined();
     });
+
+    it('excludes docs with archived: true while keeping archived: false and legacy docs without archived', async () => {
+        const { result } = renderHook(() => useChatHistory(mockSessionId));
+
+        await waitAndFire([
+            { id: 'msg-archived', role: 'user', content: 'Archived', archived: true },
+            { id: 'msg-active', role: 'user', content: 'Active', archived: false },
+            { id: 'msg-legacy', role: 'assistant', content: 'Legacy' },
+        ]);
+
+        await waitFor(() => {
+            expect(result.current.historyLoaded).toBe(true);
+        });
+
+        expect(result.current.historyMessages.map((m) => m.id)).toEqual(['msg-active', 'msg-legacy']);
+    });
+
+    it('drops existing messages immediately when a subsequent snapshot updates them to archived: true', async () => {
+        const { result } = renderHook(() => useChatHistory(mockSessionId));
+
+        await waitAndFire([
+            { id: 'msg-1', role: 'user', content: 'Prima', timestamp: { toDate: () => new Date('2026-01-01') } },
+            { id: 'msg-2', role: 'assistant', content: 'Seconda', timestamp: { toDate: () => new Date('2026-01-02') } },
+        ]);
+
+        await waitFor(() => {
+            expect(result.current.historyMessages).toHaveLength(2);
+        });
+
+        act(() => {
+            mockOnSnapshotCallback?.(
+                makeSnapshot([
+                    { id: 'msg-1', role: 'user', content: 'Prima', archived: true, timestamp: { toDate: () => new Date('2026-01-01') } },
+                    { id: 'msg-2', role: 'assistant', content: 'Seconda', archived: false, timestamp: { toDate: () => new Date('2026-01-02') } },
+                ]),
+            );
+        });
+
+        await waitFor(() => {
+            expect(result.current.historyMessages.map((m) => m.id)).toEqual(['msg-2']);
+        });
+    });
 });
