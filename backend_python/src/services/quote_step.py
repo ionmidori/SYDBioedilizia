@@ -262,7 +262,9 @@ _GUIDE: dict[QuoteStep, str] = {
     ),
     QuoteStep.INOLTRO: (
         f"il cliente chiede una modifica a un preventivo già dal team: {REGISTER_TOOL} la inoltra (riporta la sua "
-        "risposta). Niente submit_quote_request."
+        "risposta). Se non l'hai ancora chiamato in questo turno e la modifica porta una stanza nuova di cui non "
+        "conosci i m² del pavimento, chiedili prima, una volta, e fermati: lo chiami nel turno della risposta, "
+        "anche se il cliente non li sa. Niente submit_quote_request."
     ),
 }
 _COLLECT_ON_DRAFT = (
