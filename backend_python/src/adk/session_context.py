@@ -28,16 +28,23 @@ sections, built from the company info edited in the admin console
 model call; reading it also renews it in the background once the TTL has
 expired (CompanyInfoService.snapshot), so no turn waits for Firestore.
 
+The playbook of the room the chat is about (`src/prompts/room_playbooks`) closes the
+instruction, after SCHEDA SYD: the checklist for the `quote` agent, what to look at
+in the photo for `triage`. The static prompt, the cached prefix, does not carry it.
+
 The prompt is not the control: premium tools re-check login server side
 (`tools._is_guest`) and ignore the model's session id (`tools._trusted_session_id`).
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from google.adk.agents.readonly_context import ReadonlyContext
 
 from src.adk.company_context import company_facts_block
+from src.prompts.room_playbooks import REGISTRY, playbooks_for
+from src.prompts.room_playbooks.schema import RoomPlaybook
+from src.schemas.room import DEFAULT_ROOM_ID
 from src.services.company_info_service import CompanyInfoService
 from src.services.quote_drafts import QuoteStatusView
 from src.services.quote_state import status_label_it
@@ -60,6 +67,15 @@ HOUSE_QUOTE_STATE_KEY = "syd_house_quote"
 CARD_PENDING_STATE_KEY = "syd_card_pending"
 
 _ROOM_TEXT_MAX = 120
+
+# Which part of the room playbook an agent reads, and the title the system gives it.
+PlaybookField = Literal["prompt_guidance", "vision_hints"]
+_PLAYBOOK_TITLE: dict[PlaybookField, str] = {
+    "prompt_guidance": "## CHECKLIST TECNICA — {room} (guida del sistema: se si parla di questa stanza, copri tutti i punti prima di generare il preventivo)",
+    "vision_hints": "## DA GUARDARE NELLA FOTO — {room} (guida del sistema)",
+}
+# Without an active room the playbooks come from the rooms of the project: more than two is noise.
+_PLAYBOOKS_MAX = 2
 
 # The login is asked once, at the confirmation (Phase 138 PR-6): asked earlier,
 # the guest left; asked by every agent, it showed up three times. The premium
@@ -176,13 +192,44 @@ def session_context_block(
     )
 
 
-def session_context_instruction(context: ReadonlyContext, *, step_line: str | None = None) -> str:
+def _room_playbooks(state: Any) -> tuple[RoomPlaybook, ...]:
+    """Playbooks of the room the chat is about: the active room's; in the general chat
+    ("Generale") or with no active room, those of the project's rooms, in index order.
+    With no named room at all (a guest, who has no rooms, or a project with only "Generale")
+    the room is unknown: all the playbooks, as when the checklist was in the static prompt."""
+    rooms = [room for room in state.get(ROOMS_STATE_KEY) or [] if isinstance(room, dict)]
+    active_id = state.get(ACTIVE_ROOM_STATE_KEY)
+    active = next((room for room in rooms if room.get("room_id") == active_id), None)
+    if active is not None and active_id != DEFAULT_ROOM_ID:
+        return playbooks_for(active.get("room_type"), active.get("label"))
+    found: list[RoomPlaybook] = []
+    for room in rooms:
+        found.extend(p for p in playbooks_for(room.get("room_type"), room.get("label")) if p not in found)
+    if not found and all(room.get("room_id") == DEFAULT_ROOM_ID for room in rooms):
+        found = list(REGISTRY.values())
+    return tuple(found[:_PLAYBOOKS_MAX])
+
+
+def room_playbook_block(state: Any, field: PlaybookField) -> str:
+    """The playbooks of the room as one block ("" when the room has none)."""
+    parts = [
+        f"{_PLAYBOOK_TITLE[field].format(room=playbook.room_key.upper())}\n"
+        f"{playbook.prompt_guidance if field == 'prompt_guidance' else playbook.vision_hints}"
+        for playbook in _room_playbooks(state)
+    ]
+    return "\n\n".join(parts)
+
+
+def session_context_instruction(
+    context: ReadonlyContext, *, step_line: str | None = None, playbook_field: PlaybookField | None = None
+) -> str:
     """Instruction provider of every agent: the session block (once the
     orchestrator has written the session facts), then the SCHEDA SYD block,
     always. A callable instruction is not state-injected by ADK: room labels
     typed by the user and texts saved in the console stay plain data.
     `step_line`: the step of the quote, closing the session block (quote agent
-    only, `src/adk/quote_gate.py`)."""
+    only, `src/adk/quote_gate.py`). `playbook_field`: the part of the room
+    playbook that closes the instruction (quote and triage agents)."""
     company = company_facts_block(CompanyInfoService.snapshot())
     state = context.state
     session = state.get(SESSION_CONTEXT_STATE_KEY)
@@ -193,4 +240,10 @@ def session_context_instruction(context: ReadonlyContext, *, step_line: str | No
     )
     if step_line:
         block = f"{block}\n{step_line}"
-    return f"{block}\n\n{company}"
+    playbook = room_playbook_block(state, playbook_field) if playbook_field else ""
+    return f"{block}\n\n{company}" + (f"\n\n{playbook}" if playbook else "")
+
+
+def triage_agent_instruction(context: ReadonlyContext) -> str:
+    """The triage agent's dynamic instruction: what to look at in the photo of this room."""
+    return session_context_instruction(context, playbook_field="vision_hints")

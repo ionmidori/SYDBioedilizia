@@ -57,7 +57,7 @@ def quote_agent_instruction(context: ReadonlyContext) -> str:
             line = step_line(quote_step(facts), _action(facts))
         except _READ_ERRORS as e:
             logger.warning(f"[QuoteGate] Step line not computed: {type(e).__name__}")
-    return session_context_instruction(context, step_line=line)
+    return session_context_instruction(context, step_line=line, playbook_field="prompt_guidance")
 
 
 async def quote_step_gate(tool: BaseTool, args: dict[str, Any], tool_context: ToolContext) -> dict[str, str] | None:

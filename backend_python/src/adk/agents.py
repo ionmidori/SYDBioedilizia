@@ -21,7 +21,7 @@ from google.adk.agents import Agent
 from src.adk.guardrails import model_armor_after_model, model_armor_before_model
 from src.adk.model_factory import build_adk_model
 from src.adk.quote_gate import quote_agent_instruction, quote_step_gate
-from src.adk.session_context import session_context_instruction
+from src.adk.session_context import session_context_instruction, triage_agent_instruction
 from src.adk.tools import (
     assign_media_to_room_adk,
     check_service_area_adk,
@@ -339,7 +339,7 @@ triage_agent = Agent(
         check_service_area_adk,
     ],
     static_instruction=TRIAGE_AGENT_INSTRUCTION,
-    instruction=session_context_instruction,
+    instruction=triage_agent_instruction,
     **_GUARDRAILS,
 )
 
