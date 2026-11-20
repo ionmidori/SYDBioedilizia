@@ -592,7 +592,7 @@ async def _single_unit(history: list[dict[str, Any]], session_id: str) -> _Quote
 
 def _brief_block(room: RoomSchema) -> str:
     """The room's brief (scheda stanza) as context, empty when nothing is known."""
-    lines = brief_lines(room, photo_estimate=False)
+    lines = brief_lines(room, photo_estimate=False, dimensions=False)
     return "\n\n## Scheda stanza\n" + "\n".join(lines) if lines else ""
 
 
@@ -727,7 +727,8 @@ async def _room_unit(
         # The client's measures come first: a photo estimate is for the team, not worth a model call.
         if _measures_covered(room):
             logger.info("[QuoteTool] Room measures already given: no photo measurement.", extra={"room_id": room.room_id})
-            return ""
+            # What the photos already gave stays in the analysis (no model call for it).
+            return photo_estimate_block(room.photo_estimate) if room.photo_estimate is not None else ""
         return await _run_measurement_vision(
             [_file_ref(f) for f in candidates], session_id, stored=room.photo_estimate
         )
@@ -825,9 +826,10 @@ def _build_spec(
     measures: Mapping[str, Decimal],
     library: AssemblyLibrary | None,
     expansion: Expansion,
+    calculation_notes: Sequence[str] = (),
 ) -> RoomInterventionSpec | None:
     """The spec of the model's analysis, with what the card asks for (missing
-    measures, conflicting values). None: no library, or it cannot be built.
+    measures, conflicting values) and the team's notes on calculated walls. None: no library, or it cannot be built.
     Best-effort: the quote never depends on it."""
     if library is None:
         return None
@@ -841,9 +843,11 @@ def _build_spec(
     conflicts = {name: [float(value) for value in values] for name, values in conflicting_measures(analysis).items()}
     # A package chosen twice is stored once: only this analysis can tell the team.
     repeated = [StoredAdminCheck(message=message) for message in repeated_packages(analysis, library).values()]
+    # Gross walls and an assumed height: the card's recalculation keeps them until the walls are confirmed.
+    calculated = [StoredAdminCheck(message=note, measure="mq_pareti") for note in calculation_notes]
     return fresh.model_copy(update={
         "missing_measures": list(expansion.missing_measures), "conflicts": conflicts,
-        "admin_checks": capped_checks(repeated),
+        "admin_checks": capped_checks([*calculated, *repeated]),
     })
 
 
@@ -949,8 +953,10 @@ async def _analyse(
     measures = resolve_measures(validated, unit.room.brief if unit.room else None)
     stored = before = stored_specs.get(unit.spec_key) if stored_specs is not None else None
     expansion = _expansion(validated, measures, library, stored)
+    brief = unit.room.brief if unit.room else None
+    calculation = calculated_notes(validated, brief, stored)
     # Built from the model's values: one that differs from a confirmed value is a proposal.
-    fresh = _build_spec(unit, validated, measures, library, expansion)
+    fresh = _build_spec(unit, validated, measures, library, expansion, calculation)
     spec: RoomInterventionSpec | None = None
     if fresh is not None and stored_specs is not None and persist_specs:
         spec = await _save_spec(project_id, unit.spec_key, fresh, stored, validated)
@@ -962,7 +968,7 @@ async def _analyse(
     on_card = spec is not None and (unit.spec_key != CHAT_SPEC_KEY or chat_on_card(stored_specs or {}))
     analysed = _Analysed(
         validated=validated, measures=measures, library=library, fresh=fresh,
-        calculation_notes=tuple(calculated_notes(validated, unit.room.brief if unit.room else None)),
+        calculation_notes=tuple(calculation),
     )
     expansion, spec = _checked(analysed, expansion, stored, spec)
     return _UnitResult(

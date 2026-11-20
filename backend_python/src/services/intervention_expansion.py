@@ -290,11 +290,17 @@ def resolve_measures(analysis: InsightAnalysis, brief: RoomBrief | None) -> dict
     return {name: value for name, (value, _) in _resolved(analysis, brief).items()}
 
 
-def calculated_notes(analysis: InsightAnalysis, brief: RoomBrief | None) -> list[str]:
+def calculated_notes(
+    analysis: InsightAnalysis, brief: RoomBrief | None, stored: RoomInterventionSpec | None = None
+) -> list[str]:
     """Checks for the team when the walls were calculated from the room's dimensions:
-    they are gross (doors and windows not subtracted) and the height may be assumed."""
+    they are gross (doors and windows not subtracted) and the height may be assumed.
+    None once the client confirmed the walls on the card (`stored`): those are used instead."""
     resolved = _resolved(analysis, brief)
-    if brief is None or resolved.get("mq_pareti", (None, None))[1] != "calculated":
+    confirmed_walls = stored is not None and any(
+        m.name == "mq_pareti" and m.source == "confirmed" for m in stored.measures
+    )
+    if brief is None or confirmed_walls or resolved.get("mq_pareti", (None, None))[1] != "calculated":
         return []
     notes = ["Pareti lorde, calcolate dalle dimensioni della stanza: porte e finestre non sono sottratte"]
     if height_assumed(_positive(brief.height_m)):
