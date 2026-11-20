@@ -74,4 +74,4 @@ MUST maintain 1:1 parity between Pydantic (Python) and TypeScript interfaces.
 - `ORCHESTRATOR_MODE=vertex_adk`
 - `ADK_LOCATION` does NOT select the Gemini region (only a tracing label). The Gemini backend is chosen by the
   google-genai client from `GOOGLE_GENAI_USE_VERTEXAI` / `GOOGLE_CLOUD_PROJECT` / `GOOGLE_CLOUD_LOCATION`;
-  for EU data residency use `GOOGLE_CLOUD_LOCATION=eu` (europe-west1 does not serve Gemini 3.x) — see `deploy/gemini-vertex-eu.sh`
+  production uses `GOOGLE_CLOUD_LOCATION=global` (since 2026-11-20: `eu` is 10-20x slower for gemini-3.8-flash, but keeps data in the EU; europe-west1 does not serve Gemini 3.x) — see `deploy/gemini-vertex-eu.sh`

@@ -12,6 +12,12 @@
 #   - chat bench on `eu`: same first-turn latency, better follow-up tail.
 #   - runtime SA syd-brain-run already has roles/aiplatform.user.
 #
+# UPDATE 2026-11-20: production now runs on GOOGLE_CLOUD_LOCATION=global (decision
+# of the owner). On `eu`, gemini-3.8-flash answered in 38-49 s against 1.8-4.4 s on
+# `global` (same request), and 504/ReadTimeout hit real chat turns; no regional EU
+# endpoint serves the model. Trade-off: with `global` the data may be processed
+# outside the EU. Model Armor keeps its own region (MODEL_ARMOR_LOCATION=europe-west1).
+#
 # Rollout (each step is explicit):
 #   bash backend_python/deploy/gemini-vertex-eu.sh stage     # new revision, 0% traffic, tag "vertex"
 #   # test https://vertex---syd-brain-<hash>.europe-west1.run.app (chat + a render)
@@ -46,7 +52,7 @@ case "${1:-}" in
     echo "$previous" > "$STATE_FILE"
     echo "Current serving revision: $previous (saved for rollback)"
     gcloud run services update "$SERVICE" --region="$REGION" \
-      --update-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=eu,MODEL_IMAGE=gemini-3.1-flash-image,MODEL_INSIGHT=gemini-3.8-flash,MODEL_QUOTE=gemini-3.8-flash,MODEL_VALIDATION_STRICT=true" \
+      --update-env-vars="GOOGLE_GENAI_USE_VERTEXAI=true,GOOGLE_CLOUD_PROJECT=$PROJECT,GOOGLE_CLOUD_LOCATION=global,MODEL_IMAGE=gemini-3.1-flash-image,MODEL_INSIGHT=gemini-3.8-flash,MODEL_QUOTE=gemini-3.8-flash,MODEL_VALIDATION_STRICT=true" \
       --tag=vertex --no-traffic --quiet
     gcloud run services describe "$SERVICE" --region="$REGION" \
       --format='value(status.traffic[].url)' | tr ';' '\n' | grep -i vertex || true

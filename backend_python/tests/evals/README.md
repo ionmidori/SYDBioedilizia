@@ -14,7 +14,7 @@ You need a Gemini backend and the ADK eval dependencies:
   Vertex AI with your gcloud credentials (`gcloud auth application-default login`).
   For Vertex, set the variables for the run only and blank the keys, so an
   inactive key in `.env` is not used:
-  `GOOGLE_GENAI_USE_VERTEXAI=true GOOGLE_CLOUD_PROJECT=<project> GOOGLE_CLOUD_LOCATION=eu GOOGLE_API_KEY= GEMINI_API_KEY= npm run eval:run:rooms`
+  `GOOGLE_GENAI_USE_VERTEXAI=true GOOGLE_CLOUD_PROJECT=<project> GOOGLE_CLOUD_LOCATION=global GOOGLE_API_KEY= GEMINI_API_KEY= npm run eval:run:rooms`
 - **Dependencies**: none to install by hand. The `npm run eval:run*` scripts go through
   `scripts/run-evals.mjs`, which keeps an own environment (`backend_python/.venv-eval`,
   Python 3.14) with the locked dependencies plus the ADK eval extra (not in the lock
