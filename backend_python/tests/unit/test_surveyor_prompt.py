@@ -1,6 +1,8 @@
 """Phase 140 step 3: the quote agent leaves the measures to the confirmation card
 when the quote tool points to it (no measure question twice, no amount)."""
 from src.prompts.components.modes import MODE_B_SURVEYOR
+from src.services import quote_step
+from src.services.quote_step import QuoteStep, step_guide
 from src.tools import quote_tools
 from src.tools.quote_tools import MEASURES_TO_REPORT
 
@@ -19,13 +21,36 @@ def test_the_agent_calls_the_tool_again_for_measures_given_in_words_or_new_work(
     assert "dà o corregge misure a parole" in _STEP_1 and "aggiunge o cambia lavori" in _STEP_1
 
 
-def test_after_the_card_the_agent_goes_on_to_the_send_step_without_the_tool():
-    assert 'PREVENTIVO DELLA CASA indica "in preparazione"' in _STEP_1
-    assert "STEP 2 senza richiamare il tool" in _STEP_1
+def test_what_follows_the_card_is_the_job_of_the_step_not_of_the_prompt():
+    """The prompt no longer says "go to STEP 2 or wait": the step line does (quote_step)."""
+    assert "STEP 2 senza richiamare il tool" not in _STEP_1
+    assert "dà o corregge misure a parole" in step_guide(QuoteStep.SCHEDA, None)
+    assert quote_step.SEND_QUESTION in step_guide(QuoteStep.DOMANDA_INVIO, None)
 
 
-def test_the_card_confirmation_is_no_consent_to_send():
-    assert "la conferma delle misure nella scheda" in MODE_B_SURVEYOR.split("**STEP 2 ")[1].split("**STEP 3 ")[0]
+def test_the_order_rules_the_code_enforces_are_gone_from_the_prompt():
+    """The gate and `consent_refusal` keep these (test_quote_gate, test_send_consent)."""
+    for gone in (
+        "NON confermano la registrazione",
+        "NON autorizza l'invio",
+        "NON chiamare suggest_quote_items né altri tool premium",
+        "Chiama request_login_adk UNA SOLA VOLTA",
+        'cerca "PHONE_ON_FILE: true"',
+        "NON sono conferme",
+        "CRITICO: chiama submit_quote_request SOLO",
+    ):
+        assert gone not in MODE_B_SURVEYOR, gone
+
+
+def test_the_phrases_the_readers_look_for_stay_in_the_prompt():
+    """`quote_step` recognises the agent's own questions by these words: a rewrite
+    of the prompt must not lose them (each one is also in the step guide)."""
+    flat = " ".join(MODE_B_SURVEYOR.split())
+    for phrase in (quote_step.REGISTER_QUESTION, quote_step.LOGIN_MESSAGE, quote_step.PHONE_QUESTION):
+        assert " ".join(phrase.split()) in flat, phrase
+    # The send question carries a placeholder the prompt spells with brackets too.
+    assert "Invio al nostro team la richiesta di preventivo per [stanze]. Confermi?" in flat
+    assert quote_step.SEND_QUESTION == "Invio al nostro team la richiesta di preventivo per [stanze]. Confermi?"
 
 
 def test_the_card_invitation_is_passed_on_without_amounts():
