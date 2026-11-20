@@ -231,4 +231,23 @@ describe('useChatHistory', () => {
         const msg = result.current.historyMessages[0];
         expect(msg.createdAt).toBeInstanceOf(Date);
     });
+
+    it('should hydrate metadata.room_id onto Message.roomId when present', async () => {
+        const { result } = renderHook(() => useChatHistory(mockSessionId));
+
+        await waitAndFire([
+            { id: 'msg-room', role: 'user', content: 'Bagno', metadata: { room_id: 'r_bagno' } },
+            { id: 'msg-general', role: 'assistant', content: 'Ciao' },
+            { id: 'msg-blank', role: 'user', content: 'Blank', metadata: { room_id: '   ' } },
+        ]);
+
+        await waitFor(() => {
+            expect(result.current.historyMessages).toHaveLength(3);
+        });
+
+        const byId = new Map(result.current.historyMessages.map((m) => [m.id, m]));
+        expect(byId.get('msg-room')?.roomId).toBe('r_bagno');
+        expect(byId.get('msg-general')?.roomId).toBeUndefined();
+        expect(byId.get('msg-blank')?.roomId).toBeUndefined();
+    });
 });

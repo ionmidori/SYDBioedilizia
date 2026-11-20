@@ -85,4 +85,37 @@ describe('RoomChips', () => {
         expect(screen.getByRole('dialog')).toBeInTheDocument();
         expect(onSelect).not.toHaveBeenCalled();
     });
+
+    it('renders "Tutte" chip, message counts, and routes clicks to onSelectFilter', () => {
+        const onSelect = jest.fn();
+        const onSelectFilter = jest.fn();
+        const counts = new Map([['r_bagno', 3]]);
+
+        render(
+            <RoomChips
+                projectId="p1"
+                rooms={ROOMS}
+                activeRoomId="r_bagno"
+                viewFilter="all"
+                roomMessageCounts={counts}
+                onSelect={onSelect}
+                onSelectFilter={onSelectFilter}
+            />,
+        );
+
+        const tutteBtn = screen.getByRole('button', { name: 'Tutte' });
+        expect(tutteBtn).toHaveAttribute('aria-pressed', 'true');
+        const bagnoBtn = screen.getByRole('button', {
+            name: 'Bagno, 3 messaggi, stanza attiva per i nuovi messaggi',
+        });
+        expect(bagnoBtn).toHaveAttribute('aria-pressed', 'false');
+        expect(bagnoBtn).toHaveTextContent('3');
+
+        fireEvent.click(bagnoBtn);
+        expect(onSelectFilter).toHaveBeenCalledWith('r_bagno');
+        expect(onSelect).not.toHaveBeenCalled();
+
+        fireEvent.click(tutteBtn);
+        expect(onSelectFilter).toHaveBeenCalledWith('all');
+    });
 });

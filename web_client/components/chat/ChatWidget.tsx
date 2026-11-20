@@ -17,15 +17,17 @@ import { useChatScroll } from '@/hooks/useChatScroll';
 import { useMobileViewport } from '@/hooks/useMobileViewport';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { useAuth } from '@/hooks/useAuth';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion';
 import { useStatusQueue } from '@/hooks/useStatusQueue';
 import { useStreamNotice } from '@/hooks/useStreamNotice';
+import { useRoomFilter } from '@/hooks/useRoomFilter';
 import { ChatAlert } from '@/components/chat/ChatAlert';
 import { logger } from '@/lib/logger';
 import { warmBackend } from '@/lib/backend-warmup';
 import { mapErrorToMessage } from '@/lib/chat/error-messages';
 import { buildMediaPayload } from '@/lib/chat/message-media';
+import { countMessagesByRoom, filterMessagesByRoom } from '@/lib/chat/room-filter';
 import { useOpenChatEvents } from '@/hooks/useOpenChatEvents';
 import { setChatWindowOpen } from '@/lib/chat/chat-window-state';
 
@@ -42,7 +44,12 @@ import { setChatWindowOpen } from '@/lib/chat/chat-window-state';
  * - Always shows the chat of the provider: the user's one chat, or the guest's
  *   (Phase 139); there is no chat to pick.
  */
+import type { Message as FirestoreMessage } from '@/types/chat';
+import type { RoomChip } from '@/hooks/useProjectRooms';
+
 const CHAT_DIALOG_ID = 'syd-chat-window';
+const EMPTY_HISTORY: FirestoreMessage[] = [];
+const EMPTY_ROOMS: RoomChip[] = [];
 
 export interface ChatWidgetProps {
     variant?: 'floating' | 'inline';
@@ -73,8 +80,8 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
         reload,
         data,
         isRestoringHistory,
-        historyMessages,
-        rooms,
+        historyMessages = EMPTY_HISTORY,
+        rooms = EMPTY_ROOMS,
         activeRoomId,
         setActiveRoomId,
         chatNotice,
@@ -86,6 +93,75 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isRetryableError, setIsRetryableError] = useState(false);
+
+    // Per-room view filter (decoupled from activeRoomId send target)
+    const { roomFilter, selectFilter, filteredRoomLabel } = useRoomFilter({
+        projectId: userChatId,
+        rooms,
+        onSelectActiveRoom: setActiveRoomId,
+    });
+    const handleShowAllMessages = useCallback(() => selectFilter('all'), [selectFilter]);
+
+    // Optimistic room attribution for newly sent / streaming messages before
+    // the Firestore snapshot delivers `metadata.room_id`.
+    const [inFlightRoomId, setInFlightRoomId] = useState<string | null>(null);
+    const [prevIsLoading, setPrevIsLoading] = useState(isLoading);
+    const [optimisticSession, setOptimisticSession] = useState<string | null>(sessionId);
+    const [optimisticRoomById, setOptimisticRoomById] = useState<ReadonlyMap<string, string>>(() => new Map());
+
+    const sessionChanged = optimisticSession !== sessionId;
+    if (sessionChanged) {
+        setOptimisticSession(sessionId);
+        setOptimisticRoomById(new Map());
+        setInFlightRoomId(null);
+    }
+
+    if (prevIsLoading !== isLoading) {
+        setPrevIsLoading(isLoading);
+        if (prevIsLoading && !isLoading && inFlightRoomId !== null) {
+            setInFlightRoomId(null);
+        }
+    }
+
+    const historyById = useMemo(
+        () => new Map(historyMessages.map((m) => [m.id, m])),
+        [historyMessages],
+    );
+
+    // Attribute all trailing unattributed messages (user + batched streaming assistant)
+    // during an active in-flight turn in the same session.
+    if (!sessionChanged && inFlightRoomId) {
+        let nextMap: Map<string, string> | null = null;
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const msg = messages[i];
+            if (!msg || msg.id === 'welcome-msg') break;
+            if (historyById.has(msg.id) || optimisticRoomById.has(msg.id)) break;
+            if (msg.role === 'user' || msg.role === 'assistant') {
+                if (!nextMap) nextMap = new Map(optimisticRoomById);
+                nextMap.set(msg.id, inFlightRoomId);
+            }
+        }
+        if (nextMap) {
+            setOptimisticRoomById(nextMap);
+        }
+    }
+
+    const filteredMessages = useMemo(
+        () =>
+            filterMessagesByRoom(messages, {
+                filter: roomFilter,
+                historyById,
+                optimisticRoomById,
+                isLoading,
+                inFlightRoomId,
+            }),
+        [messages, roomFilter, historyById, optimisticRoomById, isLoading, inFlightRoomId],
+    );
+
+    const roomMessageCounts = useMemo(
+        () => countMessagesByRoom(messages, historyById, optimisticRoomById),
+        [messages, historyById, optimisticRoomById],
+    );
 
     const dragControls = useDragControls();
 
@@ -163,7 +239,12 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
     // 6. Scroll & Viewport
     // We filter messages to show welcome message vs real messages
     // The Provider already handles initial welcome messages in `messages`.
-    const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(messages, isOpen);
+    const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(filteredMessages, isOpen);
+
+    // Scroll to bottom when switching between room tabs.
+    useEffect(() => {
+        if (isOpen) scrollToBottom('auto');
+    }, [roomFilter, isOpen, scrollToBottom]);
     // 🔥 FIX: Enable keyboard tracking for both floating and inline variants
     const { isMobile, keyboardHeight } = useMobileViewport(isOpen, chatContainerRef, isInline);
 
@@ -201,9 +282,13 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
         // Scroll
         if (isOpen) scrollToBottom();
 
+        const targetRoomId = dataBody.roomId ?? activeRoomId;
+        if (targetRoomId) setInFlightRoomId(targetRoomId);
+
         try {
             await sendMessage(input, dataBody.mediaUrls, dataBody);
         } catch (err: unknown) {
+            setInFlightRoomId(null);
             const error = err as Error;
             setErrorMessage(error.message || "Invio fallito.");
         }
@@ -215,13 +300,15 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
     const handleQuickPrompt = useCallback(async (prompt: string) => {
         if (isLoading || !isInitialized || !sessionId) return;
         scrollToBottom('smooth');
+        if (activeRoomId) setInFlightRoomId(activeRoomId);
         try {
             await sendMessage(prompt);
         } catch (err: unknown) {
+            setInFlightRoomId(null);
             const errObj = err as Error;
             setErrorMessage(errObj.message || "Invio fallito.");
         }
-    }, [isLoading, isInitialized, sessionId, scrollToBottom, sendMessage]);
+    }, [isLoading, isInitialized, sessionId, activeRoomId, scrollToBottom, sendMessage]);
 
     // Error Handling — map backend error codes to user-friendly Italian messages
     useEffect(() => {
@@ -259,7 +346,7 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
                     )}
 
                     <ChatMessages
-                        messages={messages}
+                        messages={filteredMessages}
                         historyMessages={historyMessages}
                         isLoading={isLoading}
                         typingMessage={typingMessage}
@@ -270,6 +357,8 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
                         messagesEndRef={messagesEndRef}
                         statusMessage={currentStatus}
                         data={data} // 🔥 Pass CoT Data Stream
+                        activeRoomLabel={filteredRoomLabel}
+                        onShowAllMessages={handleShowAllMessages}
                     />
 
                     {notice && (
@@ -309,8 +398,11 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
                     <RoomChips
                         projectId={userChatId}
                         rooms={rooms}
-                        activeRoomId={activeRoomId}
+                        activeRoomId={activeRoomId ?? null}
+                        viewFilter={roomFilter}
+                        roomMessageCounts={roomMessageCounts}
                         onSelect={setActiveRoomId}
+                        onSelectFilter={selectFilter}
                     />
                 )}
 

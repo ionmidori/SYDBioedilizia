@@ -53,6 +53,8 @@ export interface Message {
         documents?: string[]; // Added document support
     };
     rating?: -1 | 0 | 1; // User feedback rating
+    /** Room this message belongs to (hydrated from Firestore `metadata.room_id`). */
+    roomId?: string | null;
 }
 
 /**

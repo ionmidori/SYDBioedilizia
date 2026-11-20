@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 
 /**
  * Custom hook for managing auto-scroll behavior in chat messages
@@ -11,7 +11,7 @@ export function useChatScroll<T>(dep: T, isOpen: boolean) {
     const isNearBottomRef = useRef(true); // Track if user is at bottom
 
     // Auto-scroll logic - Optimized for iOS Safari compatibility
-    const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
         // Use only scrollIntoView for better cross-platform support
         // iOS Safari handles scrollIntoView more reliably than scrollTop
         messagesEndRef.current?.scrollIntoView({
@@ -19,7 +19,7 @@ export function useChatScroll<T>(dep: T, isOpen: boolean) {
             block: 'end',
             inline: 'nearest'
         });
-    };
+    }, []);
 
     const checkScrollPosition = () => {
         if (!messagesContainerRef.current) return;
@@ -54,7 +54,7 @@ export function useChatScroll<T>(dep: T, isOpen: boolean) {
         if (isOpen && isNearBottomRef.current) {
             scrollToBottom(isNewMessage ? 'smooth' : 'auto');
         }
-    }, [dep, isOpen]);
+    }, [dep, isOpen, scrollToBottom]);
 
     // Follow the content as it grows. A reply revealed progressively (and
     // images loading) changes the height between SDK updates, so scrolling
@@ -81,7 +81,7 @@ export function useChatScroll<T>(dep: T, isOpen: boolean) {
             }, 50);
             return () => clearTimeout(timer);
         }
-    }, [isOpen]);
+    }, [isOpen, scrollToBottom]);
 
     return {
         messagesContainerRef,

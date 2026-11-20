@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MutableRefObject } from 'react';
 import { ChatMessages } from '../ChatMessages';
 
@@ -59,6 +59,25 @@ describe('ChatMessages', () => {
 
         // Should have the container
         expect(container.querySelector('.flex-1')).toBeInTheDocument();
+        expect(screen.queryByTestId('room-empty-state')).not.toBeInTheDocument();
+    });
+
+    it('should render room empty state and call onShowAllMessages when a room has no messages', () => {
+        const onShowAllMessages = jest.fn();
+        render(
+            <ChatMessages
+                {...defaultProps}
+                messages={[]}
+                isLoading={false}
+                activeRoomLabel="Bagno"
+                onShowAllMessages={onShowAllMessages}
+            />,
+        );
+
+        expect(screen.getByTestId('room-empty-state')).toBeInTheDocument();
+        expect(screen.getByText('Nessun messaggio ancora in Bagno')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Mostra tutti i messaggi' }));
+        expect(onShowAllMessages).toHaveBeenCalledTimes(1);
     });
 
     it('should render user message', () => {

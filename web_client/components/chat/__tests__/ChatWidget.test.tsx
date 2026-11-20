@@ -27,17 +27,27 @@ jest.mock('@/hooks/useAuth', () => ({
 // ADK stream data exposed by the chat context (status, notice, ...)
 const mockChatData: { current: unknown[] } = { current: [] };
 const mockSessionId: { current: string | null } = { current: 'chat-session-123' };
+const mockUserChatId: { current: string | null } = { current: null };
 const mockChatNotice: { current: string | null } = { current: null };
+const mockMessages: { current: Array<{ id: string; role: 'user' | 'assistant'; parts?: unknown[] }> } = { current: [] };
+const mockHistoryMessages: { current: Array<{ id: string; role: 'user' | 'assistant'; content?: string; roomId?: string | null }> } = { current: [] };
+const mockRooms: { current: Array<{ room_id: string; label: string; room_type: 'bagno' | 'cucina' | 'soggiorno' | 'camera' | 'corridoio' | 'altro' }> } = { current: [] };
+const mockActiveRoomId: { current: string | null | undefined } = { current: undefined };
+const mockSetActiveRoomId = jest.fn();
 const mockDismissChatNotice = jest.fn();
 jest.mock('@/hooks/useChatContext', () => ({
     useChatContext: () => ({
         sessionId: mockSessionId.current,
-        userChatId: null,
+        userChatId: mockUserChatId.current,
         chatNotice: mockChatNotice.current,
         dismissChatNotice: mockDismissChatNotice,
         isRestoringHistory: false,
         isLoading: false,
-        messages: [],
+        messages: mockMessages.current,
+        historyMessages: mockHistoryMessages.current,
+        rooms: mockRooms.current,
+        activeRoomId: mockActiveRoomId.current,
+        setActiveRoomId: mockSetActiveRoomId,
         input: '',
         error: undefined,
         data: mockChatData.current,
@@ -67,8 +77,8 @@ const MockChatHeader = jest.fn(() => <div data-testid="chat-header">Header</div>
 jest.mock('../ChatHeader', () => ({ ChatHeader: (props: Record<string, unknown>) => MockChatHeader(props) }));
 
 // Other Mocks
-const MockChatMessages = jest.fn<React.ReactElement, [{ onImageClick?: (url: string) => void }]>(() => <div />);
-jest.mock('../ChatMessages', () => ({ ChatMessages: (props: { onImageClick?: (url: string) => void }) => MockChatMessages(props) }));
+const MockChatMessages = jest.fn<React.ReactElement, [{ messages?: Array<{ id: string }>; activeRoomLabel?: string | null; onImageClick?: (url: string) => void }]>(() => <div />);
+jest.mock('../ChatMessages', () => ({ ChatMessages: (props: { messages?: Array<{ id: string }>; activeRoomLabel?: string | null; onImageClick?: (url: string) => void }) => MockChatMessages(props) }));
 const MockChatInput = jest.fn<React.ReactElement, [{ authLoading?: boolean; onSubmit?: (e?: React.FormEvent) => Promise<void> | void }]>(() => <div />);
 jest.mock('../ChatInput', () => ({ ChatInput: (props: { authLoading?: boolean; onSubmit?: (e?: React.FormEvent) => Promise<void> | void }) => MockChatInput(props) }));
 interface MockChatToggleButtonProps {
@@ -100,12 +110,12 @@ jest.mock('@/hooks/useChatScroll', () => ({ useChatScroll: () => ({ messagesCont
 jest.mock('@/hooks/useMobileViewport', () => ({ useMobileViewport: () => ({ isMobile: false }) }));
 jest.mock('@/hooks/useTypingIndicator', () => ({ useTypingIndicator: () => null }));
 
-const mockUseUpload = jest.fn((_options: { sessionId?: string }): Record<string, unknown> => ({
+const mockUseUpload = jest.fn((): Record<string, unknown> => ({
     uploads: {}, addFiles: jest.fn(), removeFile: jest.fn(), retryUpload: jest.fn(),
     clearAll: jest.fn(), isUploading: false, successfulUploads: [],
 }));
 jest.mock('@/hooks/useUpload', () => ({
-    useUpload: (options: { sessionId?: string }) => mockUseUpload(options),
+    useUpload: (options: { sessionId?: string }) => (mockUseUpload as jest.Mock)(options),
 }));
 
 describe('ChatWidget', () => {
@@ -114,7 +124,12 @@ describe('ChatWidget', () => {
         localStorage.clear();
         mockChatData.current = [];
         mockSessionId.current = 'chat-session-123';
+        mockUserChatId.current = null;
         mockChatNotice.current = null;
+        mockMessages.current = [];
+        mockHistoryMessages.current = [];
+        mockRooms.current = [];
+        mockActiveRoomId.current = undefined;
         mockUseAuth.mockReturnValue({ isInitialized: true, user: { uid: 'u1' }, refreshToken: jest.fn() });
     });
 
@@ -395,5 +410,46 @@ describe('ChatWidget', () => {
         } finally {
             MotionGlobalConfig.skipAnimations = false;
         }
+    });
+
+    test('filters messages per room when clicking room chips and restores all on Tutte', async () => {
+        const user = userEvent.setup();
+        mockUserChatId.current = 'proj-1';
+        mockRooms.current = [
+            { room_id: 'r_bagno', label: 'Bagno', room_type: 'bagno' },
+            { room_id: 'r_cucina', label: 'Cucina', room_type: 'cucina' },
+        ];
+        mockActiveRoomId.current = 'r_bagno';
+        mockMessages.current = [
+            { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Bagno msg' }] },
+            { id: 'm2', role: 'user', parts: [{ type: 'text', text: 'Cucina msg' }] },
+            { id: 'm3', role: 'assistant', parts: [{ type: 'text', text: 'Generale' }] },
+        ];
+        mockHistoryMessages.current = [
+            { id: 'm1', role: 'user', content: 'Bagno msg', roomId: 'r_bagno' },
+            { id: 'm2', role: 'user', content: 'Cucina msg', roomId: 'r_cucina' },
+            { id: 'm3', role: 'assistant', content: 'Generale' },
+        ];
+
+        render(<ChatWidget variant="inline" />);
+
+        // Default: Tutte shows all 3 messages
+        expect(MockChatMessages.mock.calls.at(-1)?.[0].messages?.map((m) => m.id)).toEqual(['m1', 'm2', 'm3']);
+
+        // Click Bagno: only m1
+        await user.click(screen.getByRole('button', { name: /Bagno/i }));
+        expect(MockChatMessages.mock.calls.at(-1)?.[0].messages?.map((m) => m.id)).toEqual(['m1']);
+        expect(MockChatMessages.mock.calls.at(-1)?.[0].activeRoomLabel).toBe('Bagno');
+        expect(mockSetActiveRoomId).toHaveBeenCalledWith('r_bagno');
+
+        // Click Cucina: only m2
+        await user.click(screen.getByRole('button', { name: /Cucina/i }));
+        expect(MockChatMessages.mock.calls.at(-1)?.[0].messages?.map((m) => m.id)).toEqual(['m2']);
+        expect(MockChatMessages.mock.calls.at(-1)?.[0].activeRoomLabel).toBe('Cucina');
+
+        // Click Tutte: all 3 restored
+        await user.click(screen.getByRole('button', { name: 'Tutte' }));
+        expect(MockChatMessages.mock.calls.at(-1)?.[0].messages?.map((m) => m.id)).toEqual(['m1', 'm2', 'm3']);
+        expect(MockChatMessages.mock.calls.at(-1)?.[0].activeRoomLabel).toBeNull();
     });
 });
