@@ -676,6 +676,19 @@ def _floor_area_asked_problems(run: MultiRoomRun) -> list[str]:
     return found + run.submissions.problems(expected=0)
 
 
+def _card_confirmed_problems(run: MultiRoomRun) -> list[str]:
+    """PR 2 of the card fixes: after the hidden card_confirmed turn the agent goes on to the send
+    question by itself: no tool (nothing to register again), the question, nothing sent."""
+    turns = run.tool_calls.turns()
+    tools = sorted({tool for _, tool in turns[0]}) if turns else []
+    found = [f"tools called after the card was confirmed: {tools}"] if tools else []
+    replies = run.responses.turns()
+    reply = replies[0] if replies else ""
+    if "confermi" not in reply.lower() or "team" not in reply.lower():
+        found.append(f"the reply is not the send question: {reply[:200]!r}")
+    return found + run.submissions.problems(expected=0)
+
+
 def _room_correction_problems(run: MultiRoomRun) -> list[str]:
     """PR 1 · D/E: the untagged correction reaches the bathroom analysis as a
     proposal next to the confirmed 5 mq, and the reply reports both values."""
@@ -763,6 +776,8 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "measures_on_card.test.json": _measures_on_card_problems,
     # A bedroom without its size: the floor area is asked once before the tool (18 Nov test chat).
     "floor_area_asked.test.json": _floor_area_asked_problems,
+    # PR 2 of the card fixes: the hidden card_confirmed turn goes to the send question.
+    "card_confirmed.test.json": _card_confirmed_problems,
     # PR 1 · D/E: a correction typed with no room chip; the reply reports the values as the tool gives them.
     "room_correction.test.json": _room_correction_problems,
     # PR C: the bathroom checklist comes from the room playbook, for a registered user and for a guest (no rooms).
