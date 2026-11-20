@@ -73,6 +73,9 @@ passed. Results saved with `--output` are timestamped JSON files in
 | `multi_room/measures_on_card.test.json` | `bathroom_without_measures` |
 | `multi_room/room_correction.test.json` | `bathroom_floor_corrected_untagged` |
 | `multi_room/floor_area_asked.test.json` | `bedroom_without_floor_area` |
+| `multi_room/bathroom_checklist.test.json` | `bathroom_checklist` (room playbook reaches the quote agent) |
+| `multi_room/guest_bathroom_checklist.test.json` | `guest_bathroom_checklist` (a guest has no rooms: same checklist) |
+| `multi_room/open_space_with_bathroom.test.json` | `open_space_with_bathroom` (no bathroom checklist for another room) |
 
 The files use the ADK `EvalSet` schema, which **requires snake_case keys**:
 
