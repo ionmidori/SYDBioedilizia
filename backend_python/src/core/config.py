@@ -140,9 +140,10 @@ class Settings(BaseSettings):
     # google-genai client (and ADK) read the same env vars directly.
     GOOGLE_GENAI_USE_VERTEXAI: bool = Field(default=False)
     GOOGLE_CLOUD_LOCATION: str = Field(
-        default="eu",
-        description="Vertex AI location for Gemini. `eu` = EU multi-region endpoint (data processed in "
-                    "the EU); europe-west1 does not serve the Gemini 3.x models (verified 2026-10-09).",
+        default="global",
+        description="Vertex AI location for Gemini. `global` = no regional processing guarantee, but the only "
+                    "endpoint where gemini-3.8-flash answers in a few seconds (on `eu` it took 38-49 s, "
+                    "verified 2026-11-20). `eu` keeps data in the EU; europe-west1 does not serve Gemini 3.x.",
     )
     MODEL_VALIDATION_STRICT: bool = Field(
         default=False,
