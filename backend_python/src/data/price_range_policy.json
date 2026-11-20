@@ -3,6 +3,7 @@
   "by_source": {
     "confirmed": "0.05",
     "declared": "0.10",
+    "calculated": "0.10",
     "photo": "0.15",
     "brief": "0.15",
     "estimated": "0.25"

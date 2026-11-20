@@ -1,5 +1,6 @@
 import {
   confirmationResultSchema,
+  measureSourceSchema,
   confirmationStateSchema,
   confirmationUpdateSchema,
 } from '../confirmation';
@@ -66,6 +67,17 @@ describe('confirmation schemas (Golden Sync with schemas/confirmation.py)', () =
   ])('rejects a measure with %s', (_label, patch) => {
     const section = { ...STATE.sections[0], measures: [{ ...STATE.sections[0].measures[0], ...patch }] };
     expect(confirmationStateSchema.safeParse({ ...STATE, sections: [section] }).success).toBe(false);
+  });
+
+  it('knows every source of a measure of the backend, the calculated one included', () => {
+    expect(measureSourceSchema.options).toEqual([
+      'declared',
+      'photo',
+      'estimated',
+      'brief',
+      'confirmed',
+      'calculated',
+    ]);
   });
 
   it('rejects an unknown element action', () => {

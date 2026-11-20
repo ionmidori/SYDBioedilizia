@@ -24,6 +24,8 @@ export const roomBriefSchema = z
         floor_mq: z.number().min(0).max(10_000).nullable().optional(),
         walls_mq: z.number().min(0).max(10_000).nullable().optional(),
         height_m: z.number().min(0).max(20).nullable().optional(),
+        length_m: z.number().gt(0).max(100).nullable().optional(),
+        width_m: z.number().gt(0).max(100).nullable().optional(),
         surfaces: briefTextSchema.nullable().optional(),
         systems: briefTextSchema.nullable().optional(),
         fixtures: briefTextSchema.nullable().optional(),

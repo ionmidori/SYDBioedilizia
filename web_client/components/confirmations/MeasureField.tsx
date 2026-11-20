@@ -9,6 +9,7 @@ const SOURCE_LABEL: Record<MeasureSource, string> = {
   estimated: 'stimata da SYD',
   brief: 'dalla tua descrizione',
   confirmed: 'confermata',
+  calculated: 'calcolata dalle misure della stanza',
 };
 
 interface MeasureFieldProps {

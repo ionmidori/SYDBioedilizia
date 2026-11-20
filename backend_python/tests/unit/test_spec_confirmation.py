@@ -6,6 +6,7 @@ value from the model becomes a proposal for the client and a check for the team.
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import pytest
 from src.schemas.confirmation import ChoiceConfirmation, ConfirmationUpdate, MeasureConfirmation
 from src.schemas.intervention_spec import (
     ADMIN_CHECKS_MAX,
@@ -14,6 +15,7 @@ from src.schemas.intervention_spec import (
     StoredElementChoice,
     StoredExtraItem,
     StoredMeasure,
+    StoredMeasureSource,
     StoredPackage,
 )
 from src.services.insight_engine import ElementChoice, InsightAnalysis, SpecMeasure
@@ -80,6 +82,22 @@ def test_a_brief_value_is_no_proposal() -> None:
     fresh = _spec([StoredMeasure(name="mq", value=5, source="brief")])
     merged, notes = apply_confirmations(fresh, _spec([_confirmed("mq", 8)]))
     assert merged.measures == [_confirmed("mq", 8)]
+    assert notes == []
+
+
+@pytest.mark.parametrize("source", ["photo", "estimated", "calculated"])
+def test_only_a_declared_value_proposes_a_change_to_a_confirmed_measure(source: StoredMeasureSource) -> None:
+    """A photo reading, an estimate or a calculation is for the team: the client is not asked twice."""
+    fresh = _spec([StoredMeasure(name="mq", value=32.8, source=source)])
+    merged, notes = apply_confirmations(fresh, _spec([_confirmed("mq", 8)]))
+    assert merged.measures == [_confirmed("mq", 8)]
+    assert notes == []
+
+
+def test_a_photo_value_keeps_an_earlier_unanswered_proposal() -> None:
+    fresh = _spec([StoredMeasure(name="mq", value=32.8, source="photo")])
+    merged, notes = apply_confirmations(fresh, _spec([_confirmed("mq", 8, proposed=6)]))
+    assert merged.measures == [_confirmed("mq", 8, 6)]
     assert notes == []
 
 

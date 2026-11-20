@@ -44,16 +44,22 @@ def media_label(file_type: str | None, file_id: str | None, room_label: str | No
     return f"[{head} · {room_label or NO_ROOM}]"
 
 
-def brief_lines(room: RoomSchema, *, open_questions: bool = False, photo_estimate: bool = True) -> list[str]:
+def brief_lines(
+    room: RoomSchema, *, open_questions: bool = False, photo_estimate: bool = True, dimensions: bool = True
+) -> list[str]:
     """The room's brief (scheda stanza) as "- Label: value" lines, only what is
     known. Shared by the quote, the room brief updater and the session restore.
-    `photo_estimate=False`: the quote reads the estimate with the photo it measures."""
+    `photo_estimate=False`: the quote reads the estimate with the photo it measures.
+    `dimensions=False`: length and width are left out (the quote's model must not
+    calculate measures from them: the code does, `room_geometry`)."""
     brief = room.brief
     fields: list[tuple[str, object]] = [
         ("Sintesi", room.summary),
         ("Pavimento (mq)", brief.floor_mq),
         ("Pareti (mq)", brief.walls_mq),
         ("Altezza (m)", brief.height_m),
+        ("Lunghezza (m)", brief.length_m if dimensions else None),
+        ("Larghezza (m)", brief.width_m if dimensions else None),
         ("Superfici", brief.surfaces),
         ("Impianti", brief.systems),
         ("Elementi fissi", brief.fixtures),

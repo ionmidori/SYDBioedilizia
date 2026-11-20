@@ -24,13 +24,17 @@ from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, PhotoEstimate,
 from src.services.assembly_library import load_library
 from src.services.insight_engine import InsightAnalysis, InsightEngineError, get_insight_engine
 from src.services.intervention_expansion import (
+    MAIN_MEASURES,
     MAX_QTY,
     MIN_QTY,
     ExpandedLine,
     Expansion,
     ExpansionWarning,
+    brief_measures,
+    calculated_notes,
     conflicting_measures,
     expand,
+    main_measures_covered,
     repeated_packages,
     resolve_measures,
     spec_from_analysis,
@@ -483,6 +487,8 @@ class _Analysed:
     measures: Mapping[str, Decimal]
     library: AssemblyLibrary | None
     fresh: RoomInterventionSpec | None
+    # Checks for the team on measures the code calculated (gross walls, assumed height).
+    calculation_notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -586,7 +592,7 @@ async def _single_unit(history: list[dict[str, Any]], session_id: str) -> _Quote
 
 def _brief_block(room: RoomSchema) -> str:
     """The room's brief (scheda stanza) as context, empty when nothing is known."""
-    lines = brief_lines(room, photo_estimate=False)
+    lines = brief_lines(room, photo_estimate=False, dimensions=False)
     return "\n\n## Scheda stanza\n" + "\n".join(lines) if lines else ""
 
 
@@ -663,6 +669,19 @@ def _in_chat_order(
     return merged[-_ROOM_HISTORY_MESSAGES:]
 
 
+# What the client gave, as the spec stores it: the card's confirmation, the chat, the room brief, a calculation.
+_CLIENT_SOURCES = frozenset({"confirmed", "declared", "brief", "calculated"})
+
+
+def _measures_covered(room: RoomSchema) -> bool:
+    """The room's main measures are given by the client (its spec and brief): no need to read its photo."""
+    spec = room.intervention_spec
+    given = {m.name for m in spec.measures if m.source in _CLIENT_SOURCES and m.value > 0} if spec else set()
+    given |= brief_measures(room.brief)
+    missing = spec.missing_measures if spec is not None else list(MAIN_MEASURES)
+    return main_measures_covered(missing, given)
+
+
 async def _room_unit(
     room: RoomSchema,
     others: list[str],
@@ -704,10 +723,17 @@ async def _room_unit(
         source = project_files.get(source_id or "") or (photos[0] if photos else None)
         return await _structural_delta(_file_ref(source), _file_ref(render), session_id) if source else ""
 
-    measurement_context, structural_delta = await asyncio.gather(
-        _run_measurement_vision([_file_ref(f) for f in candidates], session_id, stored=room.photo_estimate),
-        render_delta(),
-    )
+    async def measure() -> str:
+        # The client's measures come first: a photo estimate is for the team, not worth a model call.
+        if _measures_covered(room):
+            logger.info("[QuoteTool] Room measures already given: no photo measurement.", extra={"room_id": room.room_id})
+            # What the photos already gave stays in the analysis (no model call for it).
+            return photo_estimate_block(room.photo_estimate) if room.photo_estimate is not None else ""
+        return await _run_measurement_vision(
+            [_file_ref(f) for f in candidates], session_id, stored=room.photo_estimate
+        )
+
+    measurement_context, structural_delta = await asyncio.gather(measure(), render_delta())
 
     general_text = build_chat_summary(general[-_GENERAL_CONTEXT_MESSAGES:])
     context = (
@@ -800,14 +826,16 @@ def _build_spec(
     measures: Mapping[str, Decimal],
     library: AssemblyLibrary | None,
     expansion: Expansion,
+    calculation_notes: Sequence[str] = (),
 ) -> RoomInterventionSpec | None:
     """The spec of the model's analysis, with what the card asks for (missing
-    measures, conflicting values). None: no library, or it cannot be built.
+    measures, conflicting values) and the team's notes on calculated walls. None: no library, or it cannot be built.
     Best-effort: the quote never depends on it."""
     if library is None:
         return None
     try:
-        fresh = spec_from_analysis(analysis, measures, library_version=library.version, now=utc_now())
+        brief = unit.room.brief if unit.room else None
+        fresh = spec_from_analysis(analysis, measures, library_version=library.version, now=utc_now(), brief=brief)
     except ValidationError as exc:
         _spec_warning(unit.spec_key, exc)
         return None
@@ -815,9 +843,11 @@ def _build_spec(
     conflicts = {name: [float(value) for value in values] for name, values in conflicting_measures(analysis).items()}
     # A package chosen twice is stored once: only this analysis can tell the team.
     repeated = [StoredAdminCheck(message=message) for message in repeated_packages(analysis, library).values()]
+    # Gross walls and an assumed height: the card's recalculation keeps them until the walls are confirmed.
+    calculated = [StoredAdminCheck(message=note, measure="mq_pareti") for note in calculation_notes]
     return fresh.model_copy(update={
         "missing_measures": list(expansion.missing_measures), "conflicts": conflicts,
-        "admin_checks": capped_checks(repeated),
+        "admin_checks": capped_checks([*calculated, *repeated]),
     })
 
 
@@ -923,8 +953,10 @@ async def _analyse(
     measures = resolve_measures(validated, unit.room.brief if unit.room else None)
     stored = before = stored_specs.get(unit.spec_key) if stored_specs is not None else None
     expansion = _expansion(validated, measures, library, stored)
+    brief = unit.room.brief if unit.room else None
+    calculation = calculated_notes(validated, brief, stored)
     # Built from the model's values: one that differs from a confirmed value is a proposal.
-    fresh = _build_spec(unit, validated, measures, library, expansion)
+    fresh = _build_spec(unit, validated, measures, library, expansion, calculation)
     spec: RoomInterventionSpec | None = None
     if fresh is not None and stored_specs is not None and persist_specs:
         spec = await _save_spec(project_id, unit.spec_key, fresh, stored, validated)
@@ -934,7 +966,10 @@ async def _analyse(
             expansion = _expansion(validated, measures, library, stored)
     # The card shows the whole chat only while no room has a spec (`_sections`).
     on_card = spec is not None and (unit.spec_key != CHAT_SPEC_KEY or chat_on_card(stored_specs or {}))
-    analysed = _Analysed(validated=validated, measures=measures, library=library, fresh=fresh)
+    analysed = _Analysed(
+        validated=validated, measures=measures, library=library, fresh=fresh,
+        calculation_notes=tuple(calculation),
+    )
     expansion, spec = _checked(analysed, expansion, stored, spec)
     return _UnitResult(
         unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, analysed=analysed,
@@ -948,7 +983,7 @@ def _checked(
     """The lines with the team's checks on what the model and the client's
     confirmations (`stored`) disagree on, and the unit's spec: the one written, else
     the merge of the model's with the confirmations."""
-    notes = choice_checks(analysed.validated, stored)
+    notes = [*analysed.calculation_notes, *choice_checks(analysed.validated, stored)]
     spec = written
     if analysed.fresh is not None:
         measure_notes = apply_confirmations(analysed.fresh, stored)[1]

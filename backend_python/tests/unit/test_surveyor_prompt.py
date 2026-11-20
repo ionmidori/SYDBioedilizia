@@ -141,3 +141,11 @@ def test_step_1_relays_the_rooms_left_out_of_the_quote():
 def test_the_relay_waits_for_the_floor_area_answer():
     relay = next(line for line in MODE_B_SURVEYOR.splitlines() if line.startswith('- Stato "inviato al team"'))
     assert "FERMATI" in relay and "nel turno della risposta" in relay
+
+
+def test_the_agent_asks_length_width_and_height_once_per_room():
+    """The code derives floor, perimeter and walls from the dimensions (`room_geometry`)."""
+    flat = " ".join(_MIDDLE.split())
+    assert "lunghezza, larghezza e altezza" in flat and "UNA volta per stanza" in flat
+    assert "2,70" in flat and "nota al team" in flat  # no answer: the default height, told to the team
+    assert "mai calcolare" in flat  # the model never does the arithmetic: the tool does

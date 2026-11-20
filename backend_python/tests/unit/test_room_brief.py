@@ -15,6 +15,7 @@ from google.api_core.exceptions import FailedPrecondition, ServiceUnavailable
 from google.genai import _transformers as genai_transformers
 from google.genai import errors as genai_errors
 from src.core.config import settings
+from src.prompts.components.room_brief import ROOM_BRIEF_PROMPT
 from src.schemas.room import DEFAULT_ROOM_ID, RoomBrief, RoomSchema
 from src.services import room_brief
 from src.services.room_brief import BriefTurn, _BriefUpdate, schedule_room_brief_refresh
@@ -516,3 +517,19 @@ async def test_a_turn_ending_during_a_refresh_is_read_after_its_own_user_message
         second_saved.set_result(None)
         await first
     assert "Il bagno è 9 mq" in backend.generate.await_args.kwargs["contents"]
+
+
+def test_the_brief_keeps_the_rooms_length_and_width() -> None:
+    draft = room_brief._BriefDraft(length_m=4.0, width_m=5.0, height_m=2.7)
+    brief = room_brief._fit_brief(draft)
+    assert (brief.length_m, brief.width_m, brief.height_m) == (4.0, 5.0, 2.7)
+
+
+def test_an_impossible_length_or_width_is_dropped_not_fatal() -> None:
+    draft = room_brief._BriefDraft(length_m=-3.0, width_m=250.0, floor_mq=12.0)
+    brief = room_brief._fit_brief(draft)
+    assert (brief.length_m, brief.width_m, brief.floor_mq) == (None, None, 12.0)
+
+
+def test_the_brief_prompt_asks_for_length_and_width() -> None:
+    assert "length_m" in ROOM_BRIEF_PROMPT and "width_m" in ROOM_BRIEF_PROMPT

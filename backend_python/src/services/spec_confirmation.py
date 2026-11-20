@@ -53,9 +53,11 @@ def _settled(spec: RoomInterventionSpec) -> RoomInterventionSpec:
 def _merged_measure(fresh: StoredMeasure | None, confirmed: StoredMeasure, notes: list[str]) -> StoredMeasure:
     """The confirmed measure, with the model's new value as its proposal.
 
-    No new value from the model (or only the room brief's, which is no new
-    analysis): the measure stays as it was, an unanswered proposal included."""
-    if fresh is None or fresh.source == "brief":
+    Only a value the client declared in the chat is a proposal. The room brief's,
+    the code's calculation, a photo reading and an estimate are no new word from
+    the client: the measure stays as it was, an unanswered proposal included (a
+    photo estimate stays on the room for the team)."""
+    if fresh is None or fresh.source != "declared":
         return confirmed
     if fresh.value == confirmed.value:
         return confirmed.model_copy(update={"proposed": None})
