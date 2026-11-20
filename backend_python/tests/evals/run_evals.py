@@ -6,7 +6,7 @@ Usage:
     uv run python tests/evals/run_evals.py
 
     # Run a specific test file
-    uv run python tests/evals/run_evals.py --file quote_flow.test.json
+    uv run python tests/evals/run_evals.py --file triage_flow.test.json
 
     # Run with custom agent name (sub-agent)
     uv run python tests/evals/run_evals.py --agent quote

@@ -30,7 +30,8 @@ class TestEvalSetParsing:
         return list(EVALS_DIR.glob("*.test.json"))
 
     def test_test_files_exist(self, test_files: list[Path]) -> None:
-        assert len(test_files) >= 3, f"Expected at least 3 .test.json files, found {len(test_files)}"
+        # The quote flow lives in the multi-room sets (in-memory backend); these two are the single-flow evals.
+        assert {p.name for p in test_files} == {"triage_flow.test.json", "design_flow.test.json"}
 
     @pytest.mark.parametrize("test_file", list(EVALS_DIR.glob("*.test.json")), ids=lambda p: p.stem)
     def test_loads_as_adk_eval_set(self, test_file: Path) -> None:
@@ -278,6 +279,56 @@ class TestFloorAreaAskedEval:
             "turn 1 does not ask the floor area", "turn 2 asks the floor area again",
             "turn 2 does not say the area will be estimated",
         ]
+
+
+class TestSingleFlowEvals:
+    """The triage and design flows check the routing, as the only criterion that is stable.
+
+    They run the real agents without the in-memory backend (no Firestore, no real photo), so what
+    they can say is who the router hands the turn to. A word-overlap score against a hand-written
+    reply says nothing about generated text and was dropped; the multi-room sets check the replies."""
+
+    @staticmethod
+    def _routes(name: str) -> dict[str, list[list[tuple[str, dict]]]]:
+        eval_set = EvalSet.model_validate_json((EVALS_DIR / name).read_text(encoding="utf-8"))
+        return {
+            case.eval_id: [
+                [(call.name, call.args) for call in (inv.intermediate_data.tool_uses if inv.intermediate_data else [])]
+                for inv in case.conversation
+            ]
+            for case in eval_set.eval_cases
+        }
+
+    def test_the_criteria_are_the_tool_trajectory_only(self) -> None:
+        criteria = json.loads((EVALS_DIR / "test_config.json").read_text(encoding="utf-8"))["criteria"]
+        assert set(criteria) == {"tool_trajectory_avg_score"}
+        assert criteria["tool_trajectory_avg_score"]["matchType"] == "IN_ORDER"
+
+    def test_the_quote_flow_case_says_it_covers_the_hand_off_only(self) -> None:
+        """The old case checked that the triage reply does not ask "Come vuoi procedere?" inside a quote
+        (syd_rubrics.NO_ROUTING_IN_QUOTE_FLOW_RUBRIC). Without an attached image and a judge that is not
+        covered, and the description must not suggest it is."""
+        description = json.loads((EVALS_DIR / "triage_flow.test.json").read_text(encoding="utf-8"))["description"]
+        assert "not covered" in description.lower() and "Come vuoi procedere" in description
+
+    def test_triage_routes_a_photo_to_the_triage_agent_also_inside_a_quote(self) -> None:
+        # triage's description: photos "quando è già in corso un preventivo o solo un'analisi della stanza".
+        to = lambda agent: ("transfer_to_agent", {"agent_name": agent})  # noqa: E731
+        assert self._routes("triage_flow.test.json") == {
+            "photo_mentioned_without_attachment": [[to("triage")]],
+            "photo_in_quote_flow": [[to("quote")], [to("triage")]],
+        }
+
+    def test_design_routes_a_render_request_to_the_design_agent(self) -> None:
+        assert self._routes("design_flow.test.json") == {
+            "design_livingroom_modern": [[("transfer_to_agent", {"agent_name": "design"})]],
+        }
+
+    @pytest.mark.parametrize("name", ["triage_flow.test.json", "design_flow.test.json"])
+    def test_no_turn_is_left_without_an_expected_tool(self, name: str) -> None:
+        """An empty expectation makes the trajectory score pass whatever the agent does."""
+        for case_id, turns in self._routes(name).items():
+            assert all(turns), f"{name} {case_id}: a turn expects no tool call"
 
 
 class TestSingleFlowAgentModule:
