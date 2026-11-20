@@ -98,7 +98,7 @@ export function SignInButton({ className, onLoginClick, onNavigate }: SignInButt
                         <span className="text-xs font-bold uppercase tracking-wider text-ink group-hover:text-accent-ink transition-colors truncate w-full text-left">
                             {user.displayName?.split(' ')[0] || "Profilo"}
                         </span>
-                        <span className="text-[11px] font-normal uppercase tracking-wider text-ink-subtle group-hover:text-accent-ink transition-colors">
+                        <span className="text-[11px] font-normal uppercase tracking-wider text-ink-subtle group-hover:text-accent-ink transition-colors truncate w-full text-left">
                             Account
                         </span>
                     </div>
@@ -109,7 +109,7 @@ export function SignInButton({ className, onLoginClick, onNavigate }: SignInButt
                             asChild
                             variant="ghost"
                             size="icon"
-                            className="text-primary-ink hover:text-primary-ink hover:bg-primary-subtle rounded-full w-9 h-9"
+                            className="text-primary-ink hover:text-primary-ink hover:bg-primary-subtle rounded-full w-9 h-9 active:scale-95 transition-transform"
                         >
                             {/* prefetch off: /admin is force-dynamic with a per-request CSP nonce */}
                             <Link
