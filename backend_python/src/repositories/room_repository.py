@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from google.api_core.exceptions import AlreadyExists
+from google.api_core.exceptions import AlreadyExists, NotFound
 from google.cloud.firestore_v1 import FieldFilter
 
 from src.core.exceptions import ProjectFileNotFoundError, RoomLimitError, RoomNotFoundError
@@ -43,6 +43,14 @@ _UNFILED_SCAN = 50
 
 def _new_room_id() -> str:
     return uuid.uuid4().hex[:12]
+
+
+def _empty_brief_patch(now: datetime | None = None) -> dict[str, Any]:
+    return {
+        "brief": RoomBrief().model_dump(),
+        "summary": None,
+        "updated_at": now if now is not None else utc_now(),
+    }
 
 
 class RoomRepository:
@@ -81,6 +89,27 @@ class RoomRepository:
             option=self._db().write_option(last_update_time=expected_update_time),
         )
         logger.info("[Rooms] Brief updated", extra={"room_id": room_id})
+
+    async def reset_brief(self, project_id: str, room_id: str) -> bool:
+        """Clear one room's brief and summary via partial update, leaving spec,
+        photo estimate, metadata, and files untouched. Returns False when missing."""
+        try:
+            await self._project(project_id).collection(ROOMS).document(room_id).update(
+                _empty_brief_patch()
+            )
+        except NotFound:
+            return False
+        logger.info("[Rooms] Brief reset", extra={"room_id": room_id})
+        return True
+
+    async def reset_all_briefs(self, project_id: str) -> int:
+        """Clear brief and summary on every room of the project via batched partial updates."""
+        now = utc_now()
+        async with BatchWriter(self._db()) as writer:
+            async for doc in self._project(project_id).collection(ROOMS).stream():
+                await writer.update(doc.reference, _empty_brief_patch(now))
+        logger.info("[Rooms] Briefs reset", extra={"rooms_reset": writer.written})
+        return writer.written
 
     async def require_room(self, project_id: str, room_id: str) -> RoomSchema:
         """The room, or RoomNotFoundError (404)."""

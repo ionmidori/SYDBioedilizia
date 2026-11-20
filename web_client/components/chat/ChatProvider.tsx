@@ -19,8 +19,11 @@ import { auth } from '@/lib/firebase';
 
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
 import { logger } from '@/lib/logger';
+import { chatClearApi } from '@/lib/chat-clear-api';
 import { markChatFinish, markChatFirstText, markChatSend } from '@/lib/chat/latency';
 import { hasVisibleText } from '@/lib/chat/message-text';
+import { WELCOME_MESSAGE } from '@/lib/chat/messages';
+import type { ClearChatResponse } from '@/types/chat-clear';
 
 /**
  * ChatProvider
@@ -51,12 +54,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         refreshUserChat,
         resetToNewGuestSession,
     } = useChatSession();
+    const sessionIdRef = useRef<string | null>(sessionId);
+    useEffect(() => {
+        sessionIdRef.current = sessionId;
+    }, [sessionId]);
 
     // -- ADK CUSTOM-DATA STREAM (status / interrupt / ui_widget / artifact) --
     const { streamData, onData } = useAdkStreamEvents(sessionId);
 
     // -- HISTORY SYNC --
     const { historyMessages, historyLoaded, loadedForSessionId } = useChatHistory(sessionId ?? undefined);
+    const historyMessagesRef = useRef(historyMessages);
+    useEffect(() => {
+        historyMessagesRef.current = historyMessages;
+    }, [historyMessages]);
+    const [clearGeneration, setClearGeneration] = useState(0);
 
     // -- ROOMS (Phase 138: one chat for the whole home) --
     // Only the signed-in user's chat has rooms the client can read (owner-only
@@ -145,6 +157,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         loadedForSessionId,
         sessionId,
         status,
+        clearGeneration,
     });
 
     // -- HANDLERS --
@@ -293,6 +306,31 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => setIsRestoringHistory(false), 1000);
     }, []);
 
+    const clearChat = useCallback(async (roomId?: string | null): Promise<ClearChatResponse> => {
+        const targetSessionId = sessionId;
+        if (!targetSessionId) {
+            throw new Error('Sessione chat non disponibile.');
+        }
+        const normalizedRoomId = roomId ?? null;
+        const result = await chatClearApi.clearChat(targetSessionId, { room_id: normalizedRoomId });
+        if (sessionIdRef.current !== targetSessionId) {
+            return result;
+        }
+        setChatNotice(null);
+        setClearGeneration((g) => g + 1);
+        if (normalizedRoomId === null) {
+            setMessages([WELCOME_MESSAGE]);
+        } else {
+            const clearedIds = new Set(
+                historyMessagesRef.current
+                    .filter((m) => m.roomId === normalizedRoomId)
+                    .map((m) => m.id),
+            );
+            setMessages((prev) => prev.filter((m) => !clearedIds.has(m.id)));
+        }
+        return result;
+    }, [sessionId, setMessages]);
+
     // -- CONTEXT VALUE --
     const value = useMemo<ChatContextType>(() => ({
         sessionId,
@@ -316,6 +354,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         rooms,
         activeRoomId,
         setActiveRoomId,
+        clearChat,
     }), [
         sessionId,
         userChatId,
@@ -339,6 +378,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         rooms,
         activeRoomId,
         setActiveRoomId,
+        clearChat,
     ]);
     return (
         <ChatContext.Provider value={value}>

@@ -103,10 +103,11 @@ export function useChatHistory(
                 // CRITICAL FIX: If component unmounted while waiting for import, abort!
                 if (!isMounted) return;
 
+                const scanLimit = Math.max(limit * 4, 200);
                 const q = query(
                     collection(db, 'sessions', sessionId as string, 'messages'),
                     orderBy('timestamp', 'desc'),
-                    firestoreLimit(limit)
+                    firestoreLimit(scanLimit)
                 );
 
                 const subscribe = () => {
@@ -118,8 +119,9 @@ export function useChatHistory(
                         // This prevents micro-timestamp differences from breaking the tie-breaker.
                         const snapshotTime = new Date();
 
-                        const rawMessages = snapshot.docs.map(doc => {
+                        const rawMessages = snapshot.docs.flatMap<Message>(doc => {
                             const data = doc.data();
+                            if (data?.archived === true) return [];
 
                             // Parse tool_calls
                             let toolInvocations = undefined;
@@ -183,7 +185,7 @@ export function useChatHistory(
                                     ? rawRoomId.trim()
                                     : undefined;
 
-                            return {
+                            return [{
                                 id: doc.id,
                                 role: (data.role || 'user').toLowerCase() as 'user' | 'assistant' | 'system' | 'tool',
                                 content,
@@ -194,8 +196,12 @@ export function useChatHistory(
                                 attachments,
                                 rating: data.rating,
                                 roomId,
-                            } as Message;
+                            } as Message];
                         });
+
+                        // Keep only the newest `limit` non-archived docs (snapshot.docs are DESC)
+                        // before sorting ASC and linking tool calls.
+                        const activeMessages = rawMessages.slice(0, limit);
 
                         // 3. Consistent Sorting Logic
                         // Sort by timestamp ASCENDING (Oldest first).
@@ -208,7 +214,7 @@ export function useChatHistory(
                             assistant: 2,
                             tool: 3
                         };
-                        const messages = rawMessages.sort((a, b) => {
+                        const messages = activeMessages.sort((a, b) => {
                             const timeA = (a.createdAt as Date).getTime();
                             const timeB = (b.createdAt as Date).getTime();
                             const diff = timeA - timeB;

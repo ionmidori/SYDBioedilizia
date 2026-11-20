@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from google.api_core.exceptions import AlreadyExists, FailedPrecondition, PreconditionFailed
+from google.api_core.exceptions import AlreadyExists, FailedPrecondition, NotFound, PreconditionFailed
 from google.cloud.firestore_v1 import DELETE_FIELD, Increment
 
 # Default write time of fake documents and blobs: long ago, so age-based rules
@@ -316,7 +316,7 @@ class FakeDb:
 
     def apply_update(self, path: tuple[str, ...], data: dict[str, Any]) -> None:
         if path not in self.docs:
-            raise AssertionError(f"update() on missing document {path}")
+            raise NotFound(f"No document to update: {'/'.join(path)}")
         _storable(path, data)
         for key, value in data.items():
             _set_dotted(self.docs[path], key, copy.deepcopy(value))
@@ -393,7 +393,7 @@ class FakeTransaction:
 
     def update(self, ref: FakeDocRef, data: dict[str, Any]) -> None:
         if ref.path not in self._db.docs:
-            raise AssertionError(f"update() on missing document {ref.path}")
+            raise NotFound(f"No document to update: {'/'.join(ref.path)}")
         _storable(ref.path, data)
         self.writes.append(("update", ref.path, copy.deepcopy(data)))
         doc = self._db.docs[ref.path]

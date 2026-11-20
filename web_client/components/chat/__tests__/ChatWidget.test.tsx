@@ -33,8 +33,10 @@ const mockMessages: { current: Array<{ id: string; role: 'user' | 'assistant'; p
 const mockHistoryMessages: { current: Array<{ id: string; role: 'user' | 'assistant'; content?: string; roomId?: string | null }> } = { current: [] };
 const mockRooms: { current: Array<{ room_id: string; label: string; room_type: 'bagno' | 'cucina' | 'soggiorno' | 'camera' | 'corridoio' | 'altro' }> } = { current: [] };
 const mockActiveRoomId: { current: string | null | undefined } = { current: undefined };
+const mockIsLoading: { current: boolean } = { current: false };
 const mockSetActiveRoomId = jest.fn();
 const mockDismissChatNotice = jest.fn();
+const mockClearChat = jest.fn();
 jest.mock('@/hooks/useChatContext', () => ({
     useChatContext: () => ({
         sessionId: mockSessionId.current,
@@ -42,12 +44,13 @@ jest.mock('@/hooks/useChatContext', () => ({
         chatNotice: mockChatNotice.current,
         dismissChatNotice: mockDismissChatNotice,
         isRestoringHistory: false,
-        isLoading: false,
+        isLoading: mockIsLoading.current,
         messages: mockMessages.current,
         historyMessages: mockHistoryMessages.current,
         rooms: mockRooms.current,
         activeRoomId: mockActiveRoomId.current,
         setActiveRoomId: mockSetActiveRoomId,
+        clearChat: mockClearChat,
         input: '',
         error: undefined,
         data: mockChatData.current,
@@ -130,6 +133,13 @@ describe('ChatWidget', () => {
         mockHistoryMessages.current = [];
         mockRooms.current = [];
         mockActiveRoomId.current = undefined;
+        mockIsLoading.current = false;
+        mockClearChat.mockReset().mockResolvedValue({
+            mode: 'hard_delete',
+            room_id: null,
+            affected_count: 1,
+            rooms_reset: 0,
+        });
         mockUseAuth.mockReturnValue({ isInitialized: true, user: { uid: 'u1' }, refreshToken: jest.fn() });
     });
 
@@ -451,5 +461,296 @@ describe('ChatWidget', () => {
         await user.click(screen.getByRole('button', { name: 'Tutte' }));
         expect(MockChatMessages.mock.calls.at(-1)?.[0].messages?.map((m) => m.id)).toEqual(['m1', 'm2', 'm3']);
         expect(MockChatMessages.mock.calls.at(-1)?.[0].activeRoomLabel).toBeNull();
+    });
+
+    describe('clear and restart chat wiring', () => {
+        test('passes Pulisci tutta la chat and derives canClear from non-welcome messages and isLoading', () => {
+            mockMessages.current = [
+                { id: 'welcome-msg', role: 'assistant', parts: [{ type: 'text', text: 'Ciao!' }] },
+            ];
+            const view = render(<ChatWidget variant="inline" />);
+
+            let headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+            expect(headerProps.clearActionLabel).toBe('Pulisci tutta la chat');
+            expect(headerProps.canClear).toBe(false);
+            expect(typeof headerProps.onRequestClear).toBe('function');
+
+            mockMessages.current = [
+                { id: 'welcome-msg', role: 'assistant', parts: [{ type: 'text', text: 'Ciao!' }] },
+                { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Ciao SYD' }] },
+            ];
+            view.rerender(<ChatWidget variant="inline" />);
+
+            headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+            expect(headerProps.canClear).toBe(true);
+
+            mockIsLoading.current = true;
+            view.rerender(<ChatWidget variant="inline" />);
+
+            headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+            expect(headerProps.canClear).toBe(false);
+        });
+
+        test('passes clear props in floating mode too', async () => {
+            MotionGlobalConfig.skipAnimations = true;
+            const user = userEvent.setup();
+            try {
+                mockMessages.current = [
+                    { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Ciao SYD' }] },
+                ];
+                render(<ChatWidget variant="floating" />);
+
+                await user.click(screen.getByRole('button', { name: 'Apri chat' }));
+                expect(await screen.findByTestId('chat-window')).toBeInTheDocument();
+
+                const headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+                expect(headerProps.clearActionLabel).toBe('Pulisci tutta la chat');
+                expect(headerProps.canClear).toBe(true);
+                expect(typeof headerProps.onRequestClear).toBe('function');
+            } finally {
+                MotionGlobalConfig.skipAnimations = false;
+            }
+        });
+
+        test('updates ChatHeader label on room chip selection and confirms room-scoped vs full clear', async () => {
+            const user = userEvent.setup();
+            mockUserChatId.current = 'proj-1';
+            mockRooms.current = [
+                { room_id: 'r-bagno', label: 'Bagno', room_type: 'bagno' },
+            ];
+            mockActiveRoomId.current = 'r-bagno';
+            mockMessages.current = [
+                { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Bagno msg' }] },
+            ];
+            mockHistoryMessages.current = [
+                { id: 'm1', role: 'user', content: 'Bagno msg', roomId: 'r-bagno' },
+            ];
+
+            render(<ChatWidget variant="inline" />);
+
+            // Room Bagno selected
+            await user.click(screen.getByRole('button', { name: /Bagno/i }));
+            let headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as {
+                clearActionLabel?: string;
+                onRequestClear?: () => void;
+            };
+            expect(headerProps.clearActionLabel).toBe('Ricomincia chat di Bagno');
+
+            act(() => {
+                headerProps.onRequestClear?.();
+            });
+            expect(await screen.findByRole('heading', { name: 'Ricominciare la chat di Bagno?' })).toBeInTheDocument();
+
+            await user.click(screen.getByRole('button', { name: 'Ricomincia stanza' }));
+
+            await waitFor(() => {
+                expect(mockClearChat).toHaveBeenCalledWith('r-bagno');
+                expect(screen.getByRole('status')).toHaveTextContent('Chat di Bagno ricominciata.');
+            });
+
+            // Switch to Tutte and confirm full clear
+            await user.click(screen.getByRole('button', { name: 'Tutte' }));
+            headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as {
+                clearActionLabel?: string;
+                onRequestClear?: () => void;
+            };
+            expect(headerProps.clearActionLabel).toBe('Pulisci tutta la chat');
+
+            act(() => {
+                headerProps.onRequestClear?.();
+            });
+            expect(await screen.findByRole('heading', { name: 'Pulire tutta la chat?' })).toBeInTheDocument();
+
+            await user.click(screen.getByRole('button', { name: 'Pulisci chat' }));
+
+            await waitFor(() => {
+                expect(mockClearChat).toHaveBeenCalledWith(null);
+                expect(screen.getByRole('status')).toHaveTextContent('Chat pulita.');
+            });
+        });
+
+        test('pressing Escape while ClearChatDialog is open closes dialog without closing floating ChatWidget', async () => {
+            MotionGlobalConfig.skipAnimations = true;
+            const user = userEvent.setup();
+            try {
+                mockMessages.current = [
+                    { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Ciao SYD' }] },
+                ];
+                render(<ChatWidget variant="floating" />);
+
+                await user.click(screen.getByRole('button', { name: 'Apri chat' }));
+                expect(await screen.findByTestId('chat-window')).toBeInTheDocument();
+
+                const headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as {
+                    onRequestClear?: () => void;
+                };
+                act(() => {
+                    headerProps.onRequestClear?.();
+                });
+
+                expect(await screen.findByRole('heading', { name: 'Pulire tutta la chat?' })).toBeInTheDocument();
+
+                await user.keyboard('{Escape}');
+
+                await waitFor(() => {
+                    expect(screen.queryByRole('heading', { name: 'Pulire tutta la chat?' })).not.toBeInTheDocument();
+                });
+                expect(screen.getByTestId('chat-window')).toBeInTheDocument();
+                expect(screen.getByRole('button', { name: 'Chiudi chat' })).toHaveAttribute('aria-expanded', 'true');
+            } finally {
+                MotionGlobalConfig.skipAnimations = false;
+            }
+        });
+
+        test('displays error in ClearChatDialog without crashing when clearChat rejects', async () => {
+            const user = userEvent.setup();
+            mockMessages.current = [
+                { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Ciao SYD' }] },
+            ];
+            mockClearChat.mockRejectedValueOnce({
+                error_code: 'INTERNAL_ERROR',
+                message: 'Impossibile completare la pulizia.',
+            });
+
+            render(<ChatWidget variant="inline" />);
+
+            const headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as {
+                onRequestClear?: () => void;
+            };
+            act(() => {
+                headerProps.onRequestClear?.();
+            });
+
+            await user.click(await screen.findByRole('button', { name: 'Pulisci chat' }));
+
+            expect(await screen.findByRole('alert')).toHaveTextContent(
+                'Impossibile completare la pulizia.',
+            );
+            expect(screen.getByRole('heading', { name: 'Pulire tutta la chat?' })).toBeInTheDocument();
+        });
+
+        test('does not write clearAnnouncement to the new session when sessionId changes while clearChat resolves', async () => {
+            const user = userEvent.setup();
+            mockMessages.current = [
+                { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Ciao SYD' }] },
+            ];
+            let resolveClear!: (value: { mode: string; room_id: null; affected_count: number; rooms_reset: number }) => void;
+            mockClearChat.mockReturnValueOnce(
+                new Promise((resolve) => {
+                    resolveClear = resolve;
+                }),
+            );
+
+            const view = render(<ChatWidget variant="inline" />);
+
+            const headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as {
+                onRequestClear?: () => void;
+            };
+            act(() => {
+                headerProps.onRequestClear?.();
+            });
+
+            await user.click(await screen.findByRole('button', { name: 'Pulisci chat' }));
+
+            // Switch session while clearChat is still pending
+            mockSessionId.current = 'chat-session-new';
+            view.rerender(<ChatWidget variant="inline" />);
+
+            await act(async () => {
+                resolveClear({
+                    mode: 'hard_delete',
+                    room_id: null,
+                    affected_count: 1,
+                    rooms_reset: 0,
+                });
+                await Promise.resolve();
+            });
+
+            expect(screen.queryByRole('status')).not.toBeInTheDocument();
+            expect(screen.queryByRole('heading', { name: 'Pulire tutta la chat?' })).not.toBeInTheDocument();
+        });
+
+        test('does not write clearError to the new session when sessionId changes while clearChat rejects', async () => {
+            const user = userEvent.setup();
+            mockMessages.current = [
+                { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Ciao SYD' }] },
+            ];
+            let rejectClear!: (reason: unknown) => void;
+            mockClearChat.mockReturnValueOnce(
+                new Promise((_resolve, reject) => {
+                    rejectClear = reject;
+                }),
+            );
+
+            const view = render(<ChatWidget variant="inline" />);
+
+            const headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as {
+                onRequestClear?: () => void;
+            };
+            act(() => {
+                headerProps.onRequestClear?.();
+            });
+
+            await user.click(await screen.findByRole('button', { name: 'Pulisci chat' }));
+
+            // Switch session while clearChat is still pending
+            mockSessionId.current = 'chat-session-new';
+            view.rerender(<ChatWidget variant="inline" />);
+
+            await act(async () => {
+                rejectClear({
+                    error_code: 'INTERNAL_ERROR',
+                    message: 'Errore sessione precedente.',
+                });
+                await Promise.resolve();
+            });
+
+            expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+            expect(screen.queryByRole('heading', { name: 'Pulire tutta la chat?' })).not.toBeInTheDocument();
+        });
+
+        test('normalizes whitespace-only room label and clears clearAnnouncement on session switch', async () => {
+            const user = userEvent.setup();
+            mockUserChatId.current = 'proj-1';
+            mockRooms.current = [
+                { room_id: 'r-blank', label: '   ', room_type: 'altro' },
+            ];
+            mockActiveRoomId.current = 'r-blank';
+            mockMessages.current = [
+                { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'Msg' }] },
+            ];
+            mockHistoryMessages.current = [
+                { id: 'm1', role: 'user', content: 'Msg', roomId: 'r-blank' },
+            ];
+
+            const view = render(<ChatWidget variant="inline" />);
+
+            const blankRoomButton = screen.getAllByRole('button').find((btn) =>
+                btn.getAttribute('aria-pressed') === 'false',
+            );
+            expect(blankRoomButton).toBeDefined();
+            await user.click(blankRoomButton!);
+
+            const headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as {
+                clearActionLabel?: string;
+                onRequestClear?: () => void;
+            };
+            expect(headerProps.clearActionLabel).toBe('Pulisci tutta la chat');
+
+            act(() => {
+                headerProps.onRequestClear?.();
+            });
+            await user.click(await screen.findByRole('button', { name: 'Pulisci chat' }));
+
+            await waitFor(() => {
+                expect(screen.getByRole('status')).toHaveTextContent('Chat pulita.');
+            });
+
+            // Switching session must clear the previous announcement
+            mockSessionId.current = 'chat-session-after-clear';
+            view.rerender(<ChatWidget variant="inline" />);
+
+            expect(screen.queryByRole('status')).not.toBeInTheDocument();
+        });
     });
 });

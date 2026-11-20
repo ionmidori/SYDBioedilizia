@@ -131,13 +131,45 @@ class SyncMarker:
 _synced_marker: dict[tuple[str, str], SyncMarker] = {}
 
 
+def _is_session_not_found(exc: BaseException) -> bool:
+    return type(exc).__name__ == "SessionNotFoundError" or "Session not found" in str(exc)
+
+
 async def _get_session(session_service: BaseSessionService, user_id: str, session_id: str) -> Session | None:
     try:
         return await session_service.get_session(app_name=_APP_NAME, user_id=user_id, session_id=session_id)
     except Exception as e:
-        if type(e).__name__ == "SessionNotFoundError" or "Session not found" in str(e):
+        if _is_session_not_found(e):
             return None
         raise
+
+
+def _carried_state_for_resync(
+    state: dict[str, Any],
+    held: SyncMarker | None,
+    stored: SyncMarker | None,
+) -> dict[str, Any] | None:
+    """Carry ADK session state across a stale resync only when historyRevision matches.
+
+    When historyRevision changed (chat merge or chat clear on another container),
+    drop stale cached state so the rebuilt session starts cleanly from Firestore.
+    """
+    if held is not None and stored is not None and stored.history_revision != held.history_revision:
+        return None
+    return dict(state)
+
+
+async def invalidate_adk_session(user_id: str, session_id: str) -> None:
+    """Remove any in-memory ADK session and sync marker for ``(user_id, session_id)``."""
+    _synced_marker.pop((user_id, session_id), None)
+    try:
+        await get_session_service().delete_session(
+            app_name=_APP_NAME, user_id=user_id, session_id=session_id
+        )
+    except Exception as exc:
+        if not _is_session_not_found(exc):
+            raise
+    logger.info("[ADK] Invalidated in-memory session")
 
 
 @dataclass(frozen=True)
@@ -700,13 +732,14 @@ class ADKOrchestrator(BaseOrchestrator):
             firestore_marker = await firestore_marker_task if firestore_marker_task is not None else None
 
             # Another instance served newer turns (Firestore has a reply this
-            # session does not) or a chat was merged into this one: rebuild it
-            # from Firestore instead of answering from an outdated history. Its
-            # state (e.g. refused videos) carries over.
+            # session does not) or a chat was merged/cleared: rebuild it from
+            # Firestore instead of answering from an outdated history. Its state
+            # (e.g. refused videos) carries over only when historyRevision matches.
             carried_state: dict[str, Any] | None = None
-            if session is not None and _is_stale(_synced_marker.get(sync_key), firestore_marker):
+            held_marker = _synced_marker.get(sync_key)
+            if session is not None and _is_stale(held_marker, firestore_marker):
                 logger.info("[ADK] Stale session resynced")
-                carried_state = dict(session.state)
+                carried_state = _carried_state_for_resync(session.state, held_marker, firestore_marker)
                 await session_service.delete_session(app_name=_APP_NAME, user_id=user_id, session_id=session_id)
                 _synced_marker.pop(sync_key, None)
                 session = None

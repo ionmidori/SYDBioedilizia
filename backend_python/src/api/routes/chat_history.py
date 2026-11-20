@@ -100,26 +100,33 @@ async def get_chat_history(
             if cursor_doc.exists:
                 messages_ref = messages_ref.start_after(cursor_doc)
 
-        # Fetch one extra to check for more
-        messages_ref = messages_ref.limit(limit + 1)
-        docs = list(messages_ref.stream())
+        # Scan past soft-archived messages in application code (never Firestore `!=`,
+        # which drops legacy messages lacking the `archived` field).
+        limit_scan = max((limit + 1) * 4, 200)
+        messages_ref = messages_ref.limit(limit_scan)
+        visible_docs = []
+        for doc in messages_ref.stream():
+            if (doc.to_dict() or {}).get("archived") is True:
+                continue
+            visible_docs.append(doc)
+            if len(visible_docs) > limit:
+                break
 
-        # Check if there are more messages
-        has_more = len(docs) > limit
-        if has_more:
-            docs = docs[:limit]  # Remove the extra document
+        # Check if there are more non-archived messages
+        has_more = len(visible_docs) > limit
+        docs = visible_docs[:limit]
+        # Cursor for the next older page is the oldest returned doc id (last in DESC order)
+        oldest_id = docs[-1].id if docs else None
 
         # Build response
         messages = []
-        last_id = None
 
         # Reverse docs to restore chronological order (Oldest -> Newest)
         # We fetched Newest -> Oldest to get the "latest" slice
         docs.reverse()
 
         for doc in docs:
-            data = doc.to_dict()
-            last_id = doc.id
+            data = doc.to_dict() or {}
 
             # Convert timestamp
             timestamp_val = data.get('timestamp')
@@ -171,7 +178,7 @@ async def get_chat_history(
         return ChatHistoryResponse(
             messages=messages,
             has_more=has_more,
-            next_cursor=last_id if has_more else None
+            next_cursor=oldest_id if has_more else None
         )
 
     except HTTPException:

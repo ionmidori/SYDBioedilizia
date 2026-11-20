@@ -168,4 +168,66 @@ describe('planHistorySync — reconciliation', () => {
             reason: 'length-mismatch',
         });
     });
+
+    it('allows shrinking past welcome-only when allowShrink is true and sdkMessages has extra messages', () => {
+        const fullHistory = [WELCOME_MESSAGE];
+        const decision = planHistorySync(
+            input({
+                welcomeInjected: true,
+                historyLength: 0,
+                sdkMessages: [WELCOME_MESSAGE, msg('u1'), msg('a1')],
+                fullHistory,
+                allowShrink: true,
+            })
+        );
+        expect(decision).toEqual({
+            kind: 'set',
+            messages: fullHistory,
+            reason: 'length-mismatch',
+        });
+    });
+
+    it('returns welcome-only when allowShrink is true and sdkMessages does not exceed empty history', () => {
+        const decision = planHistorySync(
+            input({
+                welcomeInjected: true,
+                historyLength: 0,
+                sdkMessages: [WELCOME_MESSAGE],
+                fullHistory: [WELCOME_MESSAGE],
+                allowShrink: true,
+            })
+        );
+        expect(decision).toEqual({ kind: 'noop', reason: 'welcome-only' });
+    });
+
+    it('allows shrinking past awaiting-snapshot when allowShrink is true', () => {
+        const fullHistory = [WELCOME_MESSAGE, msg('u2')];
+        const decision = planHistorySync(
+            input({
+                status: 'ready',
+                sdkMessages: [WELCOME_MESSAGE, msg('u1'), msg('a1'), msg('u2')],
+                fullHistory,
+                historyLength: 1,
+                allowShrink: true,
+            })
+        );
+        expect(decision).toEqual({
+            kind: 'set',
+            messages: fullHistory,
+            reason: 'length-mismatch',
+        });
+    });
+
+    it('preserves awaiting-snapshot guard when allowShrink is explicitly false', () => {
+        const decision = planHistorySync(
+            input({
+                status: 'ready',
+                sdkMessages: [WELCOME_MESSAGE, msg('u1'), msg('a1')],
+                fullHistory: [WELCOME_MESSAGE, msg('u1')],
+                historyLength: 1,
+                allowShrink: false,
+            })
+        );
+        expect(decision).toEqual({ kind: 'noop', reason: 'awaiting-snapshot' });
+    });
 });
