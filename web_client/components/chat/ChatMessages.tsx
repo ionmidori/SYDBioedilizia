@@ -101,22 +101,29 @@ const ChatMessagesComponent = ({
             {/* Keep this flex-col div as the persistent firstElementChild so
                 useChatScroll's ResizeObserver never detaches when toggling the room empty state. */}
             <div className="flex flex-col space-y-6">
+                {activeRoomLabel && (
+                    <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                        {messages.length === 0
+                            ? `Stanza ${activeRoomLabel}: nessun messaggio`
+                            : `Stanza ${activeRoomLabel}: ${messages.length} ${messages.length === 1 ? 'messaggio' : 'messaggi'}`}
+                    </span>
+                )}
                 {!isLoading && messages.length === 0 && activeRoomLabel ? (
                     <div
                         data-testid="room-empty-state"
-                        className="my-8 mx-auto max-w-sm rounded-2xl border border-line bg-surface/60 p-6 text-center space-y-3"
+                        className="my-10 mx-auto max-w-xs px-4 text-center space-y-3"
                     >
-                        <p className="text-base font-medium text-ink">
+                        <p className="text-base font-semibold text-ink text-balance">
                             Nessun messaggio ancora in {activeRoomLabel}
                         </p>
-                        <p className="text-sm text-ink-muted">
+                        <p className="text-sm text-ink-muted leading-relaxed">
                             Scrivi un messaggio o carica una foto per iniziare in questa stanza.
                         </p>
                         {onShowAllMessages && (
                             <button
                                 type="button"
                                 onClick={onShowAllMessages}
-                                className="inline-flex items-center justify-center rounded-full border border-line bg-canvas px-4 h-11 md:h-9 text-sm font-medium text-ink hover:border-primary hover:bg-primary-subtle/50 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                                className="inline-flex items-center justify-center rounded-full border border-line bg-surface px-4 h-11 md:h-9 text-sm font-medium text-ink hover:border-primary hover:bg-primary-subtle/50 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                             >
                                 Mostra tutti i messaggi
                             </button>

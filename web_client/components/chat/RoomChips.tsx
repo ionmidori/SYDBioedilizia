@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import React, { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Bath, BedDouble, CookingPot, DoorOpen, House, LayoutGrid, Loader2, Plus, Sofa, type LucideIcon } from 'lucide-react';
 import { ResponsiveDrawer } from '@/components/ui/responsive-drawer';
@@ -31,7 +31,7 @@ const ROOM_TYPE_ICONS: Record<RoomType, LucideIcon> = {
 };
 
 const CHIP_CLASS = cn(
-    'inline-flex items-center gap-1.5 shrink-0 snap-start rounded-full border px-3',
+    'inline-flex items-center gap-1.5 shrink-0 snap-start scroll-mx-4 rounded-full border px-3',
     'h-11 md:h-9 text-sm font-medium whitespace-nowrap transition-colors',
     'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 );
@@ -57,7 +57,7 @@ interface RoomChipsProps {
  * to that room AND makes it the active target for new messages/uploads.
  * Horizontal scroll on mobile, 44px touch targets.
  */
-export function RoomChips({
+function RoomChipsComponent({
     projectId,
     rooms,
     activeRoomId,
@@ -77,11 +77,28 @@ export function RoomChips({
         }
     };
 
+    // WCAG 2.2 toolbar keyboard navigation: ArrowLeft / ArrowRight / Home / End
+    const handleToolbarKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'Home' && e.key !== 'End') return;
+        const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
+        const currentIdx = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        if (currentIdx === -1 || buttons.length === 0) return;
+
+        e.preventDefault();
+        let nextIdx = currentIdx;
+        if (e.key === 'ArrowRight') nextIdx = (currentIdx + 1) % buttons.length;
+        else if (e.key === 'ArrowLeft') nextIdx = (currentIdx - 1 + buttons.length) % buttons.length;
+        else if (e.key === 'Home') nextIdx = 0;
+        else if (e.key === 'End') nextIdx = buttons.length - 1;
+        buttons[nextIdx]?.focus();
+    };
+
     return (
         <div
             className="flex gap-2 overflow-x-auto scrollbar-hide snap-x px-4 pt-2 pb-1 flex-shrink-0"
             role="toolbar"
             aria-label="Stanze del progetto"
+            onKeyDown={handleToolbarKeyDown}
         >
             {onSelectFilter && (
                 <motion.button
@@ -135,7 +152,7 @@ export function RoomChips({
                                     'text-xs tabular-nums leading-none px-1.5 py-0.5 rounded-full font-semibold',
                                     isSelected
                                         ? 'bg-canvas text-primary-ink'
-                                        : 'bg-line/60 text-ink-muted',
+                                        : 'bg-primary-subtle text-primary-ink',
                                 )}
                             >
                                 {count}
@@ -176,6 +193,8 @@ export function RoomChips({
         </div>
     );
 }
+
+export const RoomChips = React.memo(RoomChipsComponent);
 
 function NewRoomForm({ projectId, onCreated }: { projectId: string; onCreated: (roomId: string) => void }) {
     const [roomType, setRoomType] = useState<RoomType>('bagno');

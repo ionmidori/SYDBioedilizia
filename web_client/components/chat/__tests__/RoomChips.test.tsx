@@ -118,4 +118,32 @@ describe('RoomChips', () => {
         fireEvent.click(tutteBtn);
         expect(onSelectFilter).toHaveBeenCalledWith('all');
     });
+
+    it('supports WCAG 2.2 ArrowRight/ArrowLeft/Home/End keyboard navigation across chips', () => {
+        render(
+            <RoomChips
+                projectId="p1"
+                rooms={ROOMS}
+                activeRoomId="r_bagno"
+                viewFilter="all"
+                onSelect={jest.fn()}
+                onSelectFilter={jest.fn()}
+            />,
+        );
+
+        const toolbar = screen.getByRole('toolbar', { name: 'Stanze del progetto' });
+        const tutte = screen.getByRole('button', { name: 'Tutte' });
+        const cucina = screen.getByRole('button', { name: 'Cucina' });
+        const nuova = screen.getByRole('button', { name: 'Nuova stanza' });
+
+        tutte.focus();
+        fireEvent.keyDown(toolbar, { key: 'ArrowRight' });
+        expect(document.activeElement).toBe(cucina);
+
+        fireEvent.keyDown(toolbar, { key: 'End' });
+        expect(document.activeElement).toBe(nuova);
+
+        fireEvent.keyDown(toolbar, { key: 'Home' });
+        expect(document.activeElement).toBe(tutte);
+    });
 });

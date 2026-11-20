@@ -27,7 +27,7 @@ import { logger } from '@/lib/logger';
 import { warmBackend } from '@/lib/backend-warmup';
 import { mapErrorToMessage } from '@/lib/chat/error-messages';
 import { buildMediaPayload } from '@/lib/chat/message-media';
-import { countMessagesByRoom, filterMessagesByRoom } from '@/lib/chat/room-filter';
+import { countMessagesByRoom, filterMessagesByRoom, type RoomViewFilter } from '@/lib/chat/room-filter';
 import { useOpenChatEvents } from '@/hooks/useOpenChatEvents';
 import { setChatWindowOpen } from '@/lib/chat/chat-window-state';
 
@@ -241,10 +241,14 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
     // The Provider already handles initial welcome messages in `messages`.
     const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(filteredMessages, isOpen);
 
-    // Scroll to bottom when switching between room tabs.
-    useEffect(() => {
-        if (isOpen) scrollToBottom('auto');
-    }, [roomFilter, isOpen, scrollToBottom]);
+    // Move room-tab scroll into the interaction handler (rerender-move-effect-to-event)
+    const handleSelectFilter = useCallback(
+        (filter: RoomViewFilter) => {
+            selectFilter(filter);
+            if (isOpen) requestAnimationFrame(() => scrollToBottom('auto'));
+        },
+        [selectFilter, isOpen, scrollToBottom],
+    );
     // 🔥 FIX: Enable keyboard tracking for both floating and inline variants
     const { isMobile, keyboardHeight } = useMobileViewport(isOpen, chatContainerRef, isInline);
 
@@ -402,7 +406,7 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
                         viewFilter={roomFilter}
                         roomMessageCounts={roomMessageCounts}
                         onSelect={setActiveRoomId}
-                        onSelectFilter={selectFilter}
+                        onSelectFilter={handleSelectFilter}
                     />
                 )}
 
