@@ -80,14 +80,14 @@ const state = (patch: Partial<ConfirmationState> = {}): ConfirmationState => ({
   ...patch,
 });
 
-function renderCard() {
+function renderCard(props: { onAllConfirmed?: () => void } = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return {
     ...render(
       <QueryClientProvider client={client}>
-        <ConfirmationCard projectId="chat-1" />
+        <ConfirmationCard projectId="chat-1" {...props} />
       </QueryClientProvider>,
     ),
     client,
@@ -815,5 +815,91 @@ describe('ConfirmationCard — while saving and after', () => {
     await user.click(bagnoConfirm);
 
     expect(await screen.findByText('Stima non aggiornata: manca ancora una misura.')).toBeInTheDocument();
+  });
+});
+
+
+describe('ConfirmationCard — the last confirmation restarts the agent', () => {
+  const afterSave = (sections: SectionState[], blocked: string[] = []) =>
+    confirm.mockResolvedValue({ recalculated: blocked.length === 0, blocked_sections: blocked, state: state({ sections }) });
+
+  it('tells once that everything is confirmed, when the save leaves nothing to confirm', async () => {
+    const onAllConfirmed = jest.fn();
+    afterSave([cucina()]);
+    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] })] })).mockResolvedValue(state({ sections: [cucina()] }));
+    const user = userEvent.setup();
+    renderCard({ onAllConfirmed });
+
+    await user.click(await confirmButton());
+
+    await waitFor(() => expect(onAllConfirmed).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not tell while another section is still to confirm', async () => {
+    const onAllConfirmed = jest.fn();
+    const altro = bagno({ section_key: 'camera1', label: 'Camera' });
+    afterSave([cucina(), altro]);
+    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] }), altro] }));
+    const user = userEvent.setup();
+    renderCard({ onAllConfirmed });
+
+    await user.click((await screen.findAllByRole('button', { name: 'Conferma' }))[0]);
+
+    await waitFor(() => expect(confirm).toHaveBeenCalled());
+    expect(onAllConfirmed).not.toHaveBeenCalled();
+  });
+
+  it('does not tell while the estimate is blocked for a missing measure', async () => {
+    const onAllConfirmed = jest.fn();
+    afterSave([cucina()], ['cucina1']);
+    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] })] }));
+    const user = userEvent.setup();
+    renderCard({ onAllConfirmed });
+
+    await user.click(await confirmButton());
+
+    await waitFor(() => expect(confirm).toHaveBeenCalled());
+    expect(onAllConfirmed).not.toHaveBeenCalled();
+  });
+
+  it('does not tell when the save fails', async () => {
+    const onAllConfirmed = jest.fn();
+    confirm.mockRejectedValue(new Error('boom'));
+    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] })] }));
+    const user = userEvent.setup();
+    renderCard({ onAllConfirmed });
+
+    await user.click(await confirmButton());
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(onAllConfirmed).not.toHaveBeenCalled();
+  });
+
+  it('tells once for a double click: the card locks while it saves', async () => {
+    const onAllConfirmed = jest.fn();
+    afterSave([cucina()]);
+    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] })] })).mockResolvedValue(state({ sections: [cucina()] }));
+    const user = userEvent.setup();
+    renderCard({ onAllConfirmed });
+    const button = await confirmButton();
+
+    await user.dblClick(button);
+
+    await waitFor(() => expect(onAllConfirmed).toHaveBeenCalledTimes(1));
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not tell for a change to something already confirmed: nothing was left to confirm', async () => {
+    const onAllConfirmed = jest.fn();
+    getState.mockResolvedValue(state({ sections: [cucina()] }));
+    afterSave([cucina({ measures: [{ name: 'mq', label: 'Superficie pavimento', value: 14, source: 'confirmed', proposed: null, candidates: [] }] })]);
+    const user = userEvent.setup();
+    renderCard({ onAllConfirmed });
+
+    await user.click((await screen.findAllByRole('button', { name: /Modifica/ }))[0]);
+    await user.click(await confirmButton());
+
+    await waitFor(() => expect(confirm).toHaveBeenCalled());
+    expect(onAllConfirmed).not.toHaveBeenCalled();
   });
 });

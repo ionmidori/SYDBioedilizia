@@ -23,6 +23,7 @@ import { chatClearApi } from '@/lib/chat-clear-api';
 import { markChatFinish, markChatFirstText, markChatSend } from '@/lib/chat/latency';
 import { hasVisibleText } from '@/lib/chat/message-text';
 import { WELCOME_MESSAGE } from '@/lib/chat/messages';
+import { HIDDEN_METADATA, SIGNAL_TEXT, withoutHidden, type ChatEvent } from '@/lib/chat/hidden-message';
 import type { ClearChatResponse } from '@/types/chat-clear';
 
 /**
@@ -118,6 +119,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         logger.debug('[ChatProvider Debug] SDK messages updated:', messages.length, messages.map(m => m.id));
     }, [messages]);
 
+    // What the client sees: a signal sent by the client itself (sendSignal) stays in the SDK state
+    // (the turn is a normal one for the SDK) but is never drawn, counted or filtered by room.
+    const visibleMessages = useMemo(() => withoutHidden(messages) as typeof messages, [messages]);
+
     // Latency: first assistant text visible during this turn (the leading "..."
     // placeholder chunk is not real content).
     useEffect(() => {
@@ -168,6 +173,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // -- FACADE: Flexible Send Message --
     // attachments: array of Firebase Storage URLs (strings) for images
     const lastTurnRef = useRef<SentTurn | null>(null);
+    // The signal of the last turn, while it is the last turn: "Riprova" sends it again instead of
+    // regenerating the previous reply (which would answer the client's older message twice).
+    const lastSignalRef = useRef<ChatEvent | null>(null);
+    // A signal that came while a reply was streaming: sent once the chat is ready (two requests at
+    // once would write two streams into the same messages, and share one agent session).
+    const pendingSignalRef = useRef<ChatEvent | null>(null);
     // A notice about the chat, e.g. a refused turn given back to the user.
     const [chatNotice, setChatNotice] = useState<string | null>(null);
     const sendMessage = useCallback(async (content: string, attachments?: string[], data?: Record<string, unknown>) => {
@@ -184,6 +195,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             return;
         }
         lastTurnRef.current = { content: trimmed, attachments, data };
+        lastSignalRef.current = null;
         setChatNotice(null);
 
         markChatSend();
@@ -252,6 +264,40 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         }
     }, [user, sessionId, signInAnonymously, sdkSendMessage]);
 
+    // -- SIGNAL: a turn the client starts by itself (the card confirmed), not a message of the client --
+    // AI SDK v7: sendMessage({ text, metadata }, { body }). The message is hidden (metadata.hidden); the
+    // backend takes the event from the body, never saves the turn, and gives the agent its own words.
+    const sendSignalNow = useCallback(async (event: ChatEvent) => {
+        if (!sessionId) {
+            console.warn('[ChatProvider] Blocked signal before the chat id is known');
+            return;
+        }
+        // A refused signal must not send an older turn again (the chat-moved recovery reads this).
+        lastTurnRef.current = null;
+        lastSignalRef.current = event;
+        setChatNotice(null);
+        markChatSend();
+        await sdkSendMessage(
+            { text: SIGNAL_TEXT, metadata: HIDDEN_METADATA },
+            { body: { event, ...(activeRoomId ? { roomId: activeRoomId } : {}) } },
+        );
+    }, [sessionId, activeRoomId, sdkSendMessage]);
+    const sendSignal = useCallback(async (event: ChatEvent) => {
+        if (status === 'streaming' || status === 'submitted') {
+            pendingSignalRef.current = event;
+            return;
+        }
+        await sendSignalNow(event);
+    }, [status, sendSignalNow]);
+    useEffect(() => {
+        const pending = pendingSignalRef.current;
+        if (status !== 'ready' || pending === null) return;
+        pendingSignalRef.current = null;
+        sendSignalNow(pending).catch((err: unknown) => {
+            console.error('[ChatProvider] Signal not sent:', err);
+        });
+    }, [status, sendSignalNow]);
+
     // -- CHAT MOVED (Phase 139): a turn refused for a chat that is no longer the
     // user's goes again, once, in the chat the backend gives now --
     const lastTurn = useCallback(() => lastTurnRef.current, []);
@@ -286,8 +332,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             await refreshUserChat().catch(() => undefined);
             return;
         }
+        // The last turn was a signal: send it again, not the client's previous message.
+        if (lastSignalRef.current) {
+            await sendSignal(lastSignalRef.current);
+            return;
+        }
         await regenerate();
-    }, [chatIdError, visibleError, refreshUserChat, regenerate]);
+    }, [chatIdError, visibleError, refreshUserChat, regenerate, sendSignal]);
 
     // Unified submit handler
     const handleSubmit = useCallback(async (e?: FormEvent) => {
@@ -337,12 +388,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         userChatId,
         isRestoringHistory,
         isLoading,
-        messages,
+        messages: visibleMessages,
         historyMessages,
         input,
         handleInputChange,
         submitMessage,
         sendMessage,
+        sendSignal,
         error: visibleError ?? chatIdError,
         chatNotice,
         dismissChatNotice,
@@ -360,12 +412,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         userChatId,
         isRestoringHistory,
         isLoading,
-        messages,
+        visibleMessages,
         historyMessages,
         input,
         handleInputChange,
         submitMessage,
         sendMessage,
+        sendSignal,
         visibleError,
         chatIdError,
         chatNotice,

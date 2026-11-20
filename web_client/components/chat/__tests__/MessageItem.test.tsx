@@ -46,7 +46,14 @@ jest.mock('@/components/chat/MessageFeedback', () => ({ MessageFeedback: () => <
 jest.mock('@/components/ArchitectAvatar', () => ({ __esModule: true, default: () => <div /> }));
 // The card reads and writes by itself (ConfirmationCard.test.tsx): a probe is enough here.
 jest.mock('@/components/confirmations/ConfirmationCard', () => ({
-    ConfirmationCard: ({ projectId }: { projectId: string }) => <div data-testid="confirmation-card">{projectId}</div>,
+    ConfirmationCard: ({ projectId, onAllConfirmed }: { projectId: string; onAllConfirmed?: () => void }) => (
+        <div data-testid="confirmation-card">
+            {projectId}
+            <button type="button" onClick={onAllConfirmed}>
+                tutto confermato
+            </button>
+        </div>
+    ),
 }));
 
 const IMAGE_URL = 'https://firebasestorage.googleapis.com/render.png';
@@ -170,6 +177,24 @@ describe('MessageItem — confirmation card (Phase 140)', () => {
         render(<MessageItem message={reply} sessionId="s1" onImageClick={jest.fn()} showConfirmations />);
 
         expect(screen.getByTestId('confirmation-card')).toHaveTextContent('s1');
+    });
+
+    it('hands the card the callback for the last confirmation', () => {
+        mockUser = { isAnonymous: false };
+        const onConfirmationsDone = jest.fn();
+        render(
+            <MessageItem
+                message={reply}
+                sessionId="s1"
+                onImageClick={jest.fn()}
+                showConfirmations
+                onConfirmationsDone={onConfirmationsDone}
+            />,
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: 'tutto confermato' }));
+
+        expect(onConfirmationsDone).toHaveBeenCalledTimes(1);
     });
 
     it.each([

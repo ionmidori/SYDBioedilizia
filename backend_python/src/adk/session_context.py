@@ -65,6 +65,9 @@ HOUSE_QUOTE_STATE_KEY = "syd_house_quote"
 # before the turn (no tool has written yet); None without a draft or when unread.
 # Not shown to the model: the quote step reads it (src/adk/quote_facts.py).
 CARD_PENDING_STATE_KEY = "syd_card_pending"
+# The hidden turn of this request (`ChatRequest.event`, e.g. "card_confirmed"), written
+# every turn (None clears last turn's): the turn is a signal, not a client message.
+CARD_EVENT_STATE_KEY = "syd_card_event"
 
 _ROOM_TEXT_MAX = 120
 

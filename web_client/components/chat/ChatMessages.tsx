@@ -17,6 +17,8 @@ interface ChatMessagesProps {
     sessionId?: string | null;
     onImageClick?: (url: string) => void;
     onQuickPrompt?: (prompt: string) => void;
+    /** The last confirmation on the card was saved: the chat restarts the agent (stable function). */
+    onConfirmationsDone?: () => void;
 
     // Status Logic 
     statusMessage?: string | null;
@@ -44,6 +46,7 @@ const ChatMessagesComponent = ({
     sessionId,
     onImageClick,
     onQuickPrompt,
+    onConfirmationsDone,
     statusMessage,
     data, // Capture data
     messagesContainerRef,
@@ -141,6 +144,7 @@ const ChatMessagesComponent = ({
                                 historyMessage={msg.id ? historyById.get(msg.id) : undefined}
                                 animate={!!msg.id && liveReplyIds.has(msg.id)}
                                 showConfirmations={idx === confirmationsIndex}
+                                onConfirmationsDone={onConfirmationsDone}
                             />
                         ))}
                     </AnimatePresence>

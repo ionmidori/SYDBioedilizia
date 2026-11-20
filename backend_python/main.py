@@ -31,6 +31,7 @@ from src.repositories.room_repository import get_room_repository
 from src.schemas.internal import UserSession
 from src.schemas.room import ROOM_ID_PATTERN
 from src.services.base_orchestrator import BaseOrchestrator
+from src.services.card_event import CardEvent
 from src.services.company_info_service import CompanyInfoService
 from src.services.model_armor.model_armor_client import get_model_armor_service
 from src.services.orchestrator_factory import get_orchestrator, warm_up_orchestrator
@@ -587,6 +588,10 @@ class ChatRequest(BaseModel):
     # 🏠 Room of the project this turn is about (Phase 138). Checked against the
     # project before use; an unknown room is dropped, never trusted.
     room_id: str | None = Field(None, alias="roomId", pattern=ROOM_ID_PATTERN)
+    # A hidden turn the web client sends by itself (e.g. after the last confirmation on the
+    # quote card): a signal, not a message of the client. Never saved to the chat; the agent
+    # reads a fixed text (src/services/card_event.py), never the client's own.
+    event: CardEvent | None = None
     # is_authenticated removed: auth state is derived exclusively from the verified JWT
     # via Depends(verify_token) → user_session.is_authenticated. Accepting it from the body
     # was redundant and opened a spoofing vector (client-controlled field bypassing JWT).
@@ -858,7 +863,11 @@ async def chat_stream(
             if not user_message_saved.done():
                 user_message_saved.set_result(None)
 
-    background_tasks.add_task(_persist_user_message)
+    if body.event is None:
+        background_tasks.add_task(_persist_user_message)
+    else:
+        # A signal is no message of the chat: nothing to save, so nothing for the briefs to wait for.
+        user_message_saved.set_result(None)
 
     # Directly pass the async iterator to StreamingResponse.
     # The orchestrator emits the AI SDK v6 UI Message Stream protocol (SSE),

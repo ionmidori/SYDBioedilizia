@@ -18,6 +18,7 @@ import pytest
 from google.adk.evaluation.eval_set import EvalSet
 from google.genai import types
 from src.core.exceptions import RoomNotFoundError
+from src.services.card_event import CARD_CONFIRMED_TEXT
 
 EVALS_DIR = Path(__file__).parent
 
@@ -279,6 +280,49 @@ class TestFloorAreaAskedEval:
             "turn 1 does not ask the floor area", "turn 2 asks the floor area again",
             "turn 2 does not say the area will be estimated",
         ]
+
+
+class TestCardConfirmedEval:
+    """PR 2 of the card fixes: the hidden signal after the last confirmation goes to the send question."""
+
+    SET = EVALS_DIR / "multi_room" / "card_confirmed.test.json"
+
+    ASKS = "Bagno: rifacimento completo. Invio al nostro team la richiesta di preventivo per Bagno. Confermi?"
+
+    @staticmethod
+    def _run(replies: list[str], tools: list[list[str]]):
+        from types import SimpleNamespace
+
+        from tests.evals.multi_room.fakes import ResponseRecorder
+
+        responses = ResponseRecorder()
+        responses.texts = {f"inv{i}": [reply] for i, reply in enumerate(replies)}
+        return SimpleNamespace(
+            responses=responses,
+            tool_calls=SimpleNamespace(turns=lambda: [[(f"inv{i}", t) for t in turn] for i, turn in enumerate(tools)]),
+            submissions=SimpleNamespace(problems=lambda expected: [] if expected == 0 else ["sent"]),
+        )
+
+    def test_the_set_seeds_the_signal_and_a_closed_card(self) -> None:
+        case = json.loads(self.SET.read_text(encoding="utf-8"))["eval_cases"][0]
+        state = case["session_input"]["state"]
+        assert state["syd_card_event"] == "card_confirmed" and state["syd_card_pending"] is False
+        assert state["syd_house_quote"]["status"] == "draft"
+        words = case["conversation"][0]["user_content"]["parts"][0]["text"]
+        assert CARD_CONFIRMED_TEXT in words  # the words the backend gives the agent
+
+    def test_check_passes_on_the_send_question_without_a_tool(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        assert BACKEND_CHECKS["card_confirmed.test.json"](self._run([self.ASKS], [[]])) == []
+
+    def test_check_reports_a_tool_and_a_missing_question(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        run = self._run(["Ho registrato tutto, grazie."], [["suggest_quote_items"]])
+        problems = BACKEND_CHECKS["card_confirmed.test.json"](run)
+        assert len(problems) == 2
+        assert "suggest_quote_items" in problems[0] and "send question" in problems[1]
 
 
 class TestSingleFlowEvals:

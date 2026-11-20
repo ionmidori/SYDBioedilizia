@@ -1,12 +1,22 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MutableRefObject } from 'react';
 import { ChatMessages } from '../ChatMessages';
 import type { Message, ToolInvocation } from '@/types/chat';
 
 // The card is MessageItem's job (MessageItem.test.tsx): here only what ChatMessages tells it.
 jest.mock('@/components/chat/MessageItem', () => ({
-  MessageItem: ({ message, showConfirmations }: { message: Message; showConfirmations?: boolean }) => (
-    <div data-testid={`message-${message.id}`} data-confirmations={String(Boolean(showConfirmations))} />
+  MessageItem: ({
+    message,
+    showConfirmations,
+    onConfirmationsDone,
+  }: {
+    message: Message;
+    showConfirmations?: boolean;
+    onConfirmationsDone?: () => void;
+  }) => (
+    <div data-testid={`message-${message.id}`} data-confirmations={String(Boolean(showConfirmations))}>
+      <button type="button" onClick={onConfirmationsDone}>{`done-${message.id}`}</button>
+    </div>
   ),
 }));
 
@@ -62,5 +72,24 @@ describe('ChatMessages — where the confirmation card goes', () => {
     render(<ChatMessages messages={[assistant('a', [quoteTool('call')])]} isLoading sessionId="s1" {...refs} />);
 
     expect(shown('a')).toBe('false');
+  });
+});
+
+describe('ChatMessages — the last confirmation on the card', () => {
+  it('hands every message the callback of the chat', () => {
+    const onConfirmationsDone = jest.fn();
+    render(
+      <ChatMessages
+        messages={[assistant('a', [quoteTool()])]}
+        isLoading={false}
+        sessionId="s1"
+        onConfirmationsDone={onConfirmationsDone}
+        {...refs}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'done-a' }));
+
+    expect(onConfirmationsDone).toHaveBeenCalledTimes(1);
   });
 });

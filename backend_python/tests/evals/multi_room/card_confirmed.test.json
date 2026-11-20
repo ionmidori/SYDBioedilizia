@@ -1,0 +1,53 @@
+{
+  "eval_set_id": "syd_card_confirmed_v1",
+  "name": "SYD After the last confirmation on the card (PR 2 of the card fixes)",
+  "description": "The client confirmed the last section of the confirmation card: the web client sends a hidden turn (event card_confirmed, state syd_card_event) and the agent restarts by itself: it goes on to the send question, no tool, no registration again, no menu, and never mentions a message of the client. Written, NOT run (Gemini evals only on explicit request).",
+  "eval_cases": [
+    {
+      "eval_id": "card_confirmed_goes_to_the_send_question",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": false,
+            "phone_on_file": true,
+            "session_id": "eval-card-confirmed"
+          },
+          "syd_rooms": [],
+          "syd_house_quote": {
+            "quote_number": "PRV-EVAL-0002",
+            "status": "draft",
+            "version": 1
+          },
+          "syd_card_pending": false,
+          "syd_card_event": "card_confirmed"
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_card_confirmed_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nEvento di sistema: il cliente ha confermato tutte le sezioni della scheda del preventivo.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Bagno: rifacimento completo con doccia walk-in. Invio al nostro team la richiesta di preventivo per Bagno. Confermi?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        }
+      ]
+    }
+  ]
+}

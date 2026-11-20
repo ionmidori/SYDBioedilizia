@@ -63,6 +63,7 @@ class QuoteFacts:
     turn_calls: tuple[str, ...]  # tools called so far in this turn
     client_words: str
     last_register_reply: str = ""  # what suggest_quote_items answered in the last turn ("": not called)
+    card_confirmed: bool = False  # this turn is the signal of the last confirmation on the card
 
 
 # The assistant offers to do it, at the start of the sentence: "Preparo la richiesta di preventivo?",
@@ -162,6 +163,8 @@ def _with_team(f: QuoteFacts) -> QuoteStep:
 
 
 def _on_draft(f: QuoteFacts) -> QuoteStep:
+    if f.card_confirmed and f.card_pending is False:
+        return QuoteStep.DOMANDA_INVIO  # the client closed the card: the signal answers no question
     if asks_to_register(f.client_words):
         return QuoteStep.REGISTRA  # the phone was asked at the first registration
     if _asks_change(f.client_words):

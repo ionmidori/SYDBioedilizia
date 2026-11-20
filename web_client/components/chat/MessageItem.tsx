@@ -57,6 +57,11 @@ interface MessageItemProps {
      * reply that prepared the quote. A boolean, so React.memo still skips messages that did not change.
      */
     showConfirmations?: boolean;
+    /**
+     * The last confirmation on the card was saved: the chat restarts the agent by itself. A stable
+     * function (useCallback), so React.memo still skips messages that did not change.
+     */
+    onConfirmationsDone?: () => void;
 }
 
 interface WelcomeQuickAction {
@@ -96,7 +101,7 @@ const WELCOME_QUICK_ACTIONS: readonly WelcomeQuickAction[] = [
  * Handles rendering of one chat message with its avatar, content, and attachments
  * ✅ Memoized to prevent unnecessary re-renders
  */
-export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onQuickPrompt, historyMessage, animate = false, showConfirmations = false }) => {
+export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onQuickPrompt, historyMessage, animate = false, showConfirmations = false, onConfirmationsDone }) => {
     const { user } = useAuth();
     const identity = useCompanyIdentity();
     // Vercel AI SDK strips custom fields like "rating" from the messages array during internal state updates.
@@ -453,7 +458,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                 )}
 
                 {/* Confirm measures and works, under the reply that prepared the quote */}
-                {showCard && <ConfirmationCard projectId={sessionId} />}
+                {showCard && <ConfirmationCard projectId={sessionId} onAllConfirmed={onConfirmationsDone} />}
 
                 {/* Quick ways to reach SYD, under a reply that writes a company contact */}
                 {showContactActions && identity && <ContactActions identity={identity} />}

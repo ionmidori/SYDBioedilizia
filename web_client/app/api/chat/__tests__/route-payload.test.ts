@@ -53,3 +53,22 @@ describe('buildBackendPayload — the chat is the project (Phase 139)', () => {
         expect(payload.sessionId).toBe('s1');
     });
 });
+
+describe('buildBackendPayload — the card confirmed (hidden signal)', () => {
+    const base = {
+        messages: [{ id: 'm1', role: 'user' as const, parts: [{ type: 'text' as const, text: 'Scheda confermata.' }] }],
+        sessionId: 's1',
+    };
+
+    test('forwards the event: a field left out here never reaches the backend', () => {
+        expect(buildBackendPayload({ ...base, event: 'card_confirmed' }).event).toBe('card_confirmed');
+    });
+
+    test('sends no event for a normal turn', () => {
+        expect(buildBackendPayload(base).event).toBeNull();
+    });
+
+    test('drops an event the backend does not know instead of failing the turn', () => {
+        expect(buildBackendPayload({ ...base, event: 'send_quote' as never }).event).toBeNull();
+    });
+});
