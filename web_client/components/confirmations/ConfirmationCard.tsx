@@ -47,7 +47,17 @@ interface VoiceRef {
  * it opens only that voice. Nothing when there is nothing to confirm or change, or when the
  * state cannot be read (a guest gets 403).
  */
-export function ConfirmationCard({ projectId }: { projectId: string }) {
+export function ConfirmationCard({
+  projectId,
+  onAllConfirmed,
+}: {
+  projectId: string;
+  /**
+   * Called once, by the save that closes the card: it left nothing to confirm and no estimate blocked
+   * (the chat then restarts the agent by itself). Never for a change to something already confirmed.
+   */
+  onAllConfirmed?: () => void;
+}) {
   const { data } = useConfirmations(projectId);
   const mutation = useConfirmationMutation(projectId);
   const [editing, setEditing] = useState<VoiceRef | null>(null);
@@ -93,6 +103,8 @@ export function ConfirmationCard({ projectId }: { projectId: string }) {
 
   const confirm = (section: SectionState, update: ConfirmationUpdate, voice: string | null) => {
     const finished = open;
+    // Only a save that closes a card with something still to confirm is "the last one".
+    const hadPending = data.sections.some((s) => s.pending);
     setOrigin({ section: section.section_key, voice });
     setAnnouncement('Salvataggio…');
     mutation.mutate(
@@ -103,6 +115,9 @@ export function ConfirmationCard({ projectId }: { projectId: string }) {
           setClosed(finished);
           setBlocked(result.recalculated ? [] : result.blocked_sections);
           setAnnouncement(savedMessage(section, result));
+          if (hadPending && result.blocked_sections.length === 0 && result.state.sections.every((s) => !s.pending)) {
+            onAllConfirmed?.();
+          }
         },
         onError: () => setAnnouncement(''),
       },

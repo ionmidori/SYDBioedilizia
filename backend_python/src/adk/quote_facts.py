@@ -11,8 +11,14 @@ from typing import Any
 from google.adk.events import Event
 from google.genai import types
 
-from src.adk.session_context import CARD_PENDING_STATE_KEY, HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY
+from src.adk.session_context import (
+    CARD_EVENT_STATE_KEY,
+    CARD_PENDING_STATE_KEY,
+    HOUSE_QUOTE_STATE_KEY,
+    SESSION_CONTEXT_STATE_KEY,
+)
 from src.adk.turn_reading import client_words, last_reply, last_turn_calls, last_turn_responses, turn_calls
+from src.services.card_event import CARD_CONFIRMED_EVENT
 from src.services.quote_step import REGISTER_TOOL, QuoteFacts
 
 
@@ -41,4 +47,5 @@ def quote_facts(
         turn_calls=tuple(turn_calls(events, invocation_id, answered_only=answered_only)),
         client_words=client_words(events, invocation_id, user_content),
         last_register_reply="\n".join(last_turn_responses(events, invocation_id, REGISTER_TOOL)),
+        card_confirmed=state.get(CARD_EVENT_STATE_KEY) == CARD_CONFIRMED_EVENT,
     )

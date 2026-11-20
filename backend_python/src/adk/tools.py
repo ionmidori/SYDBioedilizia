@@ -19,6 +19,7 @@ from pydantic import ValidationError
 
 from src.adk.session_context import (
     ACTIVE_ROOM_STATE_KEY,
+    CARD_EVENT_STATE_KEY,
     ROOMS_STATE_KEY,
     TURN_MESSAGE_STATE_KEY,
     room_index_entry,
@@ -628,6 +629,8 @@ _SANDWICH = re.compile(r"###\n(.*?)\n###", re.DOTALL)
 def _turn_message(tool_context: Any) -> dict[str, Any] | None:
     """The client's message of this turn, shaped like a history message (None when
     it has no words): Firestore gets it only after the stream."""
+    if tool_context.state.get(CARD_EVENT_STATE_KEY) is not None:
+        return None  # a hidden signal (the card confirmed): not a message of the client
     text = client_words(tool_context.session.events, tool_context.invocation_id, tool_context.user_content)
     # Only what the orchestrator wraps in the "###" sandwich: the media labels
     # ("[Foto f_1 · Bagno]") and system notes after it are not the client's words.

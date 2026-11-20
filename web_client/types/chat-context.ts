@@ -3,6 +3,7 @@ import { Message as FirestoreMessage } from './chat';
 import type { ClearChatResponse } from './chat-clear';
 import { FormEvent, ChangeEvent } from 'react';
 import type { RoomChip } from '@/hooks/useProjectRooms';
+import type { ChatEvent } from '@/lib/chat/hidden-message';
 
 /**
  * Global Chat Context Interface
@@ -83,6 +84,12 @@ export interface ChatContextType {
      * Flexible alternative to submitMessage.
      */
     sendMessage: (content: string, attachments?: string[], data?: Record<string, unknown>) => Promise<void>;
+
+    /**
+     * Start a turn by itself, not as a message of the client (the card confirmed): hidden in the chat,
+     * never saved, and the agent restarts from it. `messages` never holds it.
+     */
+    sendSignal: (event: ChatEvent) => Promise<void>;
 
     /**
      * Retry: the last message (`regenerate`), or asking for the user's chat

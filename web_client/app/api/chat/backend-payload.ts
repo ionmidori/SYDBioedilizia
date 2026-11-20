@@ -1,3 +1,4 @@
+import { CARD_CONFIRMED_EVENT, type ChatEvent } from '@/lib/chat/hidden-message';
 import { normalizeMessagesForBackend, type SDKMessage } from './normalize-messages';
 
 /** Body the client (`useChatTransport`) posts to /api/chat. */
@@ -12,6 +13,8 @@ export interface ChatProxyBody {
     videoFileUris?: string[];
     /** Room of the chat the turn is about (Phase 138); checked by the backend. */
     roomId?: string | null;
+    /** A hidden turn the client sends by itself (the card confirmed): `ChatRequest.event` in the backend. */
+    event?: ChatEvent;
 }
 
 /**
@@ -31,5 +34,7 @@ export function buildBackendPayload(body: ChatProxyBody) {
         mediaMetadata: body.mediaMetadata || {},
         videoFileUris: body.videoFileUris || [],
         roomId: body.roomId || null,
+        // Only the event the backend knows: anything else is a normal turn.
+        event: body.event === CARD_CONFIRMED_EVENT ? body.event : null,
     };
 }

@@ -23,6 +23,7 @@ import { chatClearApi } from '@/lib/chat-clear-api';
 import { markChatFinish, markChatFirstText, markChatSend } from '@/lib/chat/latency';
 import { hasVisibleText } from '@/lib/chat/message-text';
 import { WELCOME_MESSAGE } from '@/lib/chat/messages';
+import { HIDDEN_METADATA, SIGNAL_TEXT, withoutHidden, type ChatEvent } from '@/lib/chat/hidden-message';
 import type { ClearChatResponse } from '@/types/chat-clear';
 
 /**
@@ -117,6 +118,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         logger.debug('[ChatProvider Debug] SDK messages updated:', messages.length, messages.map(m => m.id));
     }, [messages]);
+
+    // What the client sees: a signal sent by the client itself (sendSignal) stays in the SDK state
+    // (the turn is a normal one for the SDK) but is never drawn, counted or filtered by room.
+    const visibleMessages = useMemo(() => withoutHidden(messages) as typeof messages, [messages]);
 
     // Latency: first assistant text visible during this turn (the leading "..."
     // placeholder chunk is not real content).
@@ -252,6 +257,24 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         }
     }, [user, sessionId, signInAnonymously, sdkSendMessage]);
 
+    // -- SIGNAL: a turn the client starts by itself (the card confirmed), not a message of the client --
+    // AI SDK v7: sendMessage({ text, metadata }, { body }). The message is hidden (metadata.hidden); the
+    // backend takes the event from the body, never saves the turn, and gives the agent its own words.
+    const sendSignal = useCallback(async (event: ChatEvent) => {
+        if (!sessionId) {
+            console.warn('[ChatProvider] Blocked signal before the chat id is known');
+            return;
+        }
+        // A refused signal must not send an older turn again (the chat-moved recovery reads this).
+        lastTurnRef.current = null;
+        setChatNotice(null);
+        markChatSend();
+        await sdkSendMessage(
+            { text: SIGNAL_TEXT, metadata: HIDDEN_METADATA },
+            { body: { event, ...(activeRoomId ? { roomId: activeRoomId } : {}) } },
+        );
+    }, [sessionId, activeRoomId, sdkSendMessage]);
+
     // -- CHAT MOVED (Phase 139): a turn refused for a chat that is no longer the
     // user's goes again, once, in the chat the backend gives now --
     const lastTurn = useCallback(() => lastTurnRef.current, []);
@@ -337,12 +360,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         userChatId,
         isRestoringHistory,
         isLoading,
-        messages,
+        messages: visibleMessages,
         historyMessages,
         input,
         handleInputChange,
         submitMessage,
         sendMessage,
+        sendSignal,
         error: visibleError ?? chatIdError,
         chatNotice,
         dismissChatNotice,
@@ -360,12 +384,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         userChatId,
         isRestoringHistory,
         isLoading,
-        messages,
+        visibleMessages,
         historyMessages,
         input,
         handleInputChange,
         submitMessage,
         sendMessage,
+        sendSignal,
         visibleError,
         chatIdError,
         chatNotice,

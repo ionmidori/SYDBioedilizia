@@ -28,6 +28,7 @@ import { logger } from '@/lib/logger';
 import { describeApiError } from '@/lib/api-client';
 import { warmBackend } from '@/lib/backend-warmup';
 import { mapErrorToMessage } from '@/lib/chat/error-messages';
+import { CARD_CONFIRMED_EVENT } from '@/lib/chat/hidden-message';
 import { buildMediaPayload } from '@/lib/chat/message-media';
 import { countMessagesByRoom, filterMessagesByRoom, type RoomViewFilter } from '@/lib/chat/room-filter';
 import { useOpenChatEvents } from '@/hooks/useOpenChatEvents';
@@ -77,6 +78,7 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
         input,
         setInput,
         sendMessage,
+        sendSignal,
         isLoading,
         error,
         reload,
@@ -397,6 +399,17 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
     // Typing Indicator
     const typingMessage = useTypingIndicator(isLoading);
 
+    // The last confirmation on the card: the agent restarts by itself, with a hidden turn. A refusal is
+    // not an error banner (nothing the client wrote was lost): the client can go on by writing.
+    const handleConfirmationsDone = useCallback(() => {
+        scrollToBottom('smooth');
+        if (activeRoomId) setInFlightRoomId(activeRoomId);
+        sendSignal(CARD_CONFIRMED_EVENT).catch((err: unknown) => {
+            setInFlightRoomId(null);
+            logger.warn('[ChatWidget] Card-confirmed signal not sent:', err);
+        });
+    }, [activeRoomId, scrollToBottom, sendSignal]);
+
     const handleQuickPrompt = useCallback(async (prompt: string) => {
         if (isLoading || !isInitialized || !sessionId) return;
         scrollToBottom('smooth');
@@ -453,6 +466,7 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
                         sessionId={sessionId}
                         onImageClick={setSelectedImage}
                         onQuickPrompt={handleQuickPrompt}
+                        onConfirmationsDone={handleConfirmationsDone}
                         messagesContainerRef={messagesContainerRef}
                         messagesEndRef={messagesEndRef}
                         statusMessage={currentStatus}

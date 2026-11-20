@@ -37,6 +37,7 @@ const mockIsLoading: { current: boolean } = { current: false };
 const mockSetActiveRoomId = jest.fn();
 const mockDismissChatNotice = jest.fn();
 const mockClearChat = jest.fn();
+const mockSendSignal = jest.fn();
 jest.mock('@/hooks/useChatContext', () => ({
     useChatContext: () => ({
         sessionId: mockSessionId.current,
@@ -57,6 +58,7 @@ jest.mock('@/hooks/useChatContext', () => ({
         handleInputChange: jest.fn(),
         submitMessage: jest.fn(),
         sendMessage: jest.fn(),
+        sendSignal: mockSendSignal,
         reload: jest.fn(),
         stop: jest.fn(),
         setInput: jest.fn(),
@@ -80,8 +82,8 @@ const MockChatHeader = jest.fn(() => <div data-testid="chat-header">Header</div>
 jest.mock('../ChatHeader', () => ({ ChatHeader: (props: Record<string, unknown>) => MockChatHeader(props) }));
 
 // Other Mocks
-const MockChatMessages = jest.fn<React.ReactElement, [{ messages?: Array<{ id: string }>; activeRoomLabel?: string | null; onImageClick?: (url: string) => void }]>(() => <div />);
-jest.mock('../ChatMessages', () => ({ ChatMessages: (props: { messages?: Array<{ id: string }>; activeRoomLabel?: string | null; onImageClick?: (url: string) => void }) => MockChatMessages(props) }));
+const MockChatMessages = jest.fn<React.ReactElement, [{ messages?: Array<{ id: string }>; activeRoomLabel?: string | null; onImageClick?: (url: string) => void; onConfirmationsDone?: () => void }]>(() => <div />);
+jest.mock('../ChatMessages', () => ({ ChatMessages: (props: { messages?: Array<{ id: string }>; activeRoomLabel?: string | null; onImageClick?: (url: string) => void; onConfirmationsDone?: () => void }) => MockChatMessages(props) }));
 const MockChatInput = jest.fn<React.ReactElement, [{ authLoading?: boolean; onSubmit?: (e?: React.FormEvent) => Promise<void> | void }]>(() => <div />);
 jest.mock('../ChatInput', () => ({ ChatInput: (props: { authLoading?: boolean; onSubmit?: (e?: React.FormEvent) => Promise<void> | void }) => MockChatInput(props) }));
 interface MockChatToggleButtonProps {
@@ -141,6 +143,29 @@ describe('ChatWidget', () => {
             rooms_reset: 0,
         });
         mockUseAuth.mockReturnValue({ isInitialized: true, user: { uid: 'u1' }, refreshToken: jest.fn() });
+    });
+
+    test('the last confirmation on the card restarts the agent with the hidden signal, once per call', async () => {
+        mockSendSignal.mockResolvedValue(undefined);
+        render(<ChatWidget variant="inline" />);
+
+        await act(async () => {
+            MockChatMessages.mock.calls.at(-1)?.[0].onConfirmationsDone?.();
+        });
+
+        expect(mockSendSignal).toHaveBeenCalledTimes(1);
+        expect(mockSendSignal).toHaveBeenCalledWith('card_confirmed');
+    });
+
+    test('a refused signal is no error banner: the client can go on by writing', async () => {
+        mockSendSignal.mockRejectedValue(new Error('boom'));
+        render(<ChatWidget variant="inline" />);
+
+        await act(async () => {
+            MockChatMessages.mock.calls.at(-1)?.[0].onConfirmationsDone?.();
+        });
+
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
     test('renders without crashing in inline variant', () => {
