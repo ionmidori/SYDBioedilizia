@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { LogIn, LogOut, ShieldCheck, User as UserIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthDialog } from './AuthDialog';
@@ -11,12 +11,21 @@ import { AuthDialog } from './AuthDialog';
 export interface SignInButtonProps {
     className?: string;
     onLoginClick?: () => void;
+    /** Called when the user follows a link in the pill (profile, admin console), e.g. to close a drawer. */
+    onNavigate?: () => void;
 }
 
 import Link from 'next/link';
 
-export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
-    const { user, loading, logout } = useAuth();
+function hapticTap() {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(10);
+    }
+}
+
+export function SignInButton({ className, onLoginClick, onNavigate }: SignInButtonProps) {
+    // `isAdmin` is a UX hint (AuthProvider); the backend enforces the role.
+    const { user, loading, logout, isAdmin = false } = useAuth();
     const [dialogOpen, setDialogOpen] = useState(false);
 
     const handleLogout = async () => {
@@ -64,11 +73,10 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
             <div className={cn("flex items-center p-2 rounded-[1.25rem] glass border border-line transition-all duration-300 shadow-xl group", className)}>
                 <Link
                     href="/dashboard/profile"
-                    className="flex items-center gap-3 flex-1 px-1 active:scale-95 transition-transform"
+                    className="flex items-center gap-3 flex-1 min-w-0 px-1 active:scale-95 transition-transform"
                     onClick={() => {
-                        if (typeof navigator !== 'undefined' && navigator.vibrate) {
-                            navigator.vibrate(10);
-                        }
+                        hapticTap();
+                        onNavigate?.();
                     }}
                 >
                     {user.photoURL ? (
@@ -90,21 +98,43 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
                         <span className="text-xs font-bold uppercase tracking-wider text-ink group-hover:text-accent-ink transition-colors truncate w-full text-left">
                             {user.displayName?.split(' ')[0] || "Profilo"}
                         </span>
-                        <span className="text-[11px] font-normal uppercase tracking-wider text-ink-subtle group-hover:text-accent-ink transition-colors">
+                        <span className="text-[11px] font-normal uppercase tracking-wider text-ink-subtle group-hover:text-accent-ink transition-colors truncate w-full text-left">
                             Account
                         </span>
                     </div>
                 </Link>
-                <div className="pl-2 border-l border-line shrink-0 ml-2">
+                <div className="pl-2 border-l border-line shrink-0 ml-2 flex items-center gap-1.5">
+                    {isAdmin ? (
+                        <Button
+                            asChild
+                            variant="ghost"
+                            size="icon"
+                            className="text-primary-ink hover:text-primary-ink hover:bg-primary-subtle rounded-full w-9 h-9 active:scale-95 transition-transform"
+                        >
+                            {/* prefetch off: /admin is force-dynamic with a per-request CSP nonce */}
+                            <Link
+                                href="/admin"
+                                prefetch={false}
+                                title="Console Admin"
+                                aria-label="Console Admin"
+                                onClick={() => {
+                                    hapticTap();
+                                    onNavigate?.();
+                                }}
+                            >
+                                <ShieldCheck className="w-4 h-4" aria-hidden="true" />
+                            </Link>
+                        </Button>
+                    ) : null}
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={handleLogout}
                         title="Esci dall'account"
                         aria-label="Esci dall'account"
-                        className="text-danger-ink hover:text-danger-ink hover:bg-danger-subtle rounded-full w-8 h-8"
+                        className="text-danger-ink hover:text-danger-ink hover:bg-danger-subtle rounded-full w-9 h-9"
                     >
-                        <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
+                        <LogOut className="w-4 h-4" aria-hidden="true" />
                     </Button>
                 </div>
             </div>
