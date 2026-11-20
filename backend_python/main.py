@@ -466,6 +466,11 @@ from src.api.routes.chat_history import router as chat_history_router
 
 app.include_router(chat_history_router)
 
+# Register chat clear router
+from src.api.routes.chat_clear import router as chat_clear_router
+
+app.include_router(chat_clear_router)
+
 # Register passkey router
 from src.api.routes.passkey import router as passkey_router
 
