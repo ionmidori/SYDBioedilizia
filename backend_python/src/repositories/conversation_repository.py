@@ -7,9 +7,10 @@ from google.cloud.firestore_v1 import FieldFilter
 from pydantic import BaseModel
 
 from src.core.exceptions import ChatMerged, PermissionDenied
+from src.db.batching import BatchWriter
 from src.db.firebase_client import get_async_firestore_client, get_firestore_client
 from src.db.projects import sync_project_cover
-from src.db.projects.constants import FILE_ROOM_FIELD, HISTORY_REVISION, MERGED_INTO
+from src.db.projects.constants import ARCHIVED_AT, FILE_ROOM_FIELD, HISTORY_REVISION, MERGED_INTO
 from src.db.session_retention import clear_session_expiry, expiry_fields, needs_permanence
 from src.models.project import DEFAULT_CHAT_TITLE
 from src.utils.download import storage_path_from_url
@@ -18,6 +19,14 @@ logger = logging.getLogger(__name__)
 
 # Room of a message (queried with `timestamp`, see firestore.indexes.json).
 MESSAGE_ROOM_FIELD = 'metadata.room_id'
+ARCHIVED_FIELD = "archived"
+_ARCHIVE_SCAN_MULTIPLIER = 4
+_ARCHIVE_SCAN_FLOOR = 250
+
+
+def _is_archived(data: dict[str, Any] | None) -> bool:
+    """True only when explicitly soft-archived; legacy docs omit the field."""
+    return (data or {}).get(ARCHIVED_FIELD) is True
 
 
 def _check_session_owner(session_id: str, current_owner: str, user_id: str | None) -> None:
@@ -192,23 +201,28 @@ class ConversationRepository:
                      unscoped read.
         """
         try:
+            if limit <= 0:
+                return []
             db = self._get_async_db()
 
-            messages_ref = db.collection('sessions').document(session_id).collection('messages')
+            messages_ref: Any = db.collection('sessions').document(session_id).collection('messages')
             if room_id:
                 messages_ref = messages_ref.where(filter=FieldFilter(MESSAGE_ROOM_FIELD, '==', room_id))
+            scan_limit = max(limit * _ARCHIVE_SCAN_MULTIPLIER, _ARCHIVE_SCAN_FLOOR)
             messages_ref = (
                 messages_ref
                 .order_by('timestamp', direction=async_firestore.Query.DESCENDING)
-                .limit(limit)
+                .limit(scan_limit)
             )
 
             # 🚀 Async iteration
-            messages_reversed = []
+            messages_reversed: list[dict[str, Any]] = []
             async for doc in messages_ref.stream():
-                data = doc.to_dict()
+                data = doc.to_dict() or {}
+                if _is_archived(data):
+                    continue
 
-                msg = {
+                msg: dict[str, Any] = {
                     'id': doc.id,
                     'role': data.get('role', 'user'),
                     'content': data.get('content', '')
@@ -219,11 +233,13 @@ class ConversationRepository:
                     msg['tool_call_id'] = data['tool_call_id']
                 if 'attachments' in data:
                     msg['attachments'] = data['attachments']
-                room_id = (data.get('metadata') or {}).get('room_id')
-                if room_id:
-                    msg['room_id'] = room_id
+                msg_room_id = (data.get('metadata') or {}).get('room_id')
+                if msg_room_id:
+                    msg['room_id'] = msg_room_id
 
                 messages_reversed.append(msg)
+                if len(messages_reversed) >= limit:
+                    break
 
             # Re-order chronologically for the LLM
             messages = messages_reversed[::-1]
@@ -239,7 +255,11 @@ class ConversationRepository:
         """The newest `limit` stored rows of the session, oldest first, each with
         its document `id` (admin dossier, src/services/admin_chat.py). Whole rows,
         `timestamp` included; errors propagate: the admin must see a failed read,
-        not an empty chat."""
+        not an empty chat.
+
+        Intentionally unfiltered on `archived`: soft-archived messages remain
+        visible in the Admin Dossier so reviewers retain full quote context.
+        """
         query = (
             self._get_async_db()
             .collection('sessions')
@@ -252,13 +272,14 @@ class ConversationRepository:
         return rows[::-1]
 
     async def latest_assistant_message_id(self, session_id: str) -> str | None:
-        """Id of the newest assistant message of the session (None if there is none).
+        """Id of the newest non-archived assistant message of the session (None if none).
 
         The ADK orchestrator compares it with the last reply its in-memory
         session knows: a mismatch means another instance served later turns.
-        Reads only the `role` of the last messages (single-field timestamp index),
-        enough to step over the tool rows and unanswered user turns that can follow
-        a reply; errors propagate so the caller decides how to degrade.
+        Reads `role` and `archived` of the last messages (single-field timestamp
+        index), enough to step over archived messages, tool rows and unanswered
+        user turns that can follow a reply; errors propagate so the caller
+        decides how to degrade.
         """
         db = self._get_async_db()
         messages_ref = (
@@ -266,13 +287,67 @@ class ConversationRepository:
             .document(session_id)
             .collection('messages')
             .order_by('timestamp', direction=async_firestore.Query.DESCENDING)
-            .select(['role'])
-            .limit(20)
+            .select(['role', ARCHIVED_FIELD])
+            .limit(60)
         )
         async for doc in messages_ref.stream():
-            if (doc.to_dict() or {}).get('role') == 'assistant':
+            data = doc.to_dict() or {}
+            if _is_archived(data):
+                continue
+            if data.get('role') == 'assistant':
                 return doc.id
         return None
+
+    async def clear_messages(
+        self,
+        session_id: str,
+        *,
+        room_id: str | None,
+        soft_archive: bool,
+        archived_at: datetime,
+    ) -> int:
+        """Soft-archive or hard-delete active messages of a session (all or one room).
+
+        Already-archived messages are skipped so repeated clears are idempotent
+        and preserve original `archived_at` timestamps. Bumps `historyRevision`
+        on the session document when it exists, and clamps `messageCount >= 0`
+        on hard delete.
+        """
+        db = self._get_async_db()
+        messages_ref: Any = db.collection('sessions').document(session_id).collection('messages')
+        if room_id is not None:
+            messages_ref = messages_ref.where(filter=FieldFilter(MESSAGE_ROOM_FIELD, '==', room_id))
+
+        async with BatchWriter(db) as writer:
+            async for doc in messages_ref.stream():
+                if _is_archived(doc.to_dict()):
+                    continue
+                if soft_archive:
+                    await writer.update(doc.reference, {ARCHIVED_FIELD: True, ARCHIVED_AT: archived_at})
+                else:
+                    await writer.delete(doc.reference)
+
+        session_ref = db.collection('sessions').document(session_id)
+        snap = await session_ref.get()
+        if snap.exists:
+            session_update: dict[str, Any] = {
+                HISTORY_REVISION: async_firestore.Increment(1),
+                'updatedAt': async_firestore.SERVER_TIMESTAMP,
+            }
+            if not soft_archive and writer.written > 0:
+                current_count = int((snap.to_dict() or {}).get('messageCount') or 0)
+                session_update['messageCount'] = max(0, current_count - writer.written)
+            await session_ref.update(session_update)
+
+        logger.info(
+            "[Repo] Cleared chat messages",
+            extra={
+                "room_id": room_id,
+                "mode": "soft_archive" if soft_archive else "hard_delete",
+                "affected_count": writer.written,
+            },
+        )
+        return writer.written
 
     async def history_revision(self, session_id: str) -> int:
         """`historyRevision` of the session: bumped when its stored history changes
@@ -454,28 +529,35 @@ class ConversationRepository:
 
     def get_history_sync(self, session_id: str, limit: int = 20) -> list[dict[str, Any]]:
         """
-        SYNCHRONOUS retrieval for legacy wrappers.
+        SYNCHRONOUS retrieval for legacy wrappers (skips soft-archived messages).
         """
         try:
+            if limit <= 0:
+                return []
             db = self._get_db()
+            scan_limit = max(limit * _ARCHIVE_SCAN_MULTIPLIER, 100)
 
             messages_ref = (
                 db.collection('sessions')
                 .document(session_id)
                 .collection('messages')
                 .order_by('timestamp', direction=async_firestore.Query.DESCENDING)
-                .limit(limit)
+                .limit(scan_limit)
             )
 
             docs = messages_ref.stream()
 
             messages_reversed = []
             for doc in docs:
-                data = doc.to_dict()
+                data = doc.to_dict() or {}
+                if _is_archived(data):
+                    continue
                 messages_reversed.append({
                     'role': data.get('role', 'user'),
                     'content': data.get('content', '')
                 })
+                if len(messages_reversed) >= limit:
+                    break
 
             return messages_reversed[::-1]
 

@@ -427,8 +427,8 @@ class TestLatestAssistantMessageId:
 
         assert result == "a2"
         msgs_ref.order_by.assert_called_once_with("timestamp", direction="DESCENDING")
-        msgs_ref.select.assert_called_once_with(["role"])
-        msgs_ref.limit.assert_called_once_with(20)
+        msgs_ref.select.assert_called_once_with(["role", "archived"])
+        msgs_ref.limit.assert_called_once_with(60)
 
     @pytest.mark.asyncio
     async def test_none_without_assistant_messages(self, repo, mock_db, mock_fs):
