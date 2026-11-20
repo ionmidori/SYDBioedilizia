@@ -6,6 +6,7 @@ import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { RoomChips } from '@/components/chat/RoomChips';
 import { ChatToggleButton } from '@/components/chat/ChatToggleButton';
+import { ClearChatDialog } from '@/components/chat/ClearChatDialog';
 import { ImageLightbox } from '@/components/chat/ImageLightbox';
 import { ChatErrorBoundary } from '@/components/ui/ChatErrorBoundary';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,7 @@ import { useStreamNotice } from '@/hooks/useStreamNotice';
 import { useRoomFilter } from '@/hooks/useRoomFilter';
 import { ChatAlert } from '@/components/chat/ChatAlert';
 import { logger } from '@/lib/logger';
+import { describeApiError } from '@/lib/api-client';
 import { warmBackend } from '@/lib/backend-warmup';
 import { mapErrorToMessage } from '@/lib/chat/error-messages';
 import { buildMediaPayload } from '@/lib/chat/message-media';
@@ -86,6 +88,7 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
         setActiveRoomId,
         chatNotice,
         dismissChatNotice,
+        clearChat,
     } = useChatContext();
 
     // 2. State & Refs
@@ -93,6 +96,10 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isRetryableError, setIsRetryableError] = useState(false);
+    const [clearDialogOpen, setClearDialogOpen] = useState(false);
+    const [isClearing, setIsClearing] = useState(false);
+    const [clearError, setClearError] = useState<string | null>(null);
+    const [clearAnnouncement, setClearAnnouncement] = useState<string | null>(null);
 
     // Per-room view filter (decoupled from activeRoomId send target)
     const { roomFilter, selectFilter, filteredRoomLabel } = useRoomFilter({
@@ -114,6 +121,8 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
         setOptimisticSession(sessionId);
         setOptimisticRoomById(new Map());
         setInFlightRoomId(null);
+        setClearDialogOpen(false);
+        setClearError(null);
     }
 
     if (prevIsLoading !== isLoading) {
@@ -163,6 +172,12 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
         [messages, historyById, optimisticRoomById],
     );
 
+    const clearActionLabel = filteredRoomLabel
+        ? `Ricomincia chat di ${filteredRoomLabel}`
+        : 'Pulisci tutta la chat';
+    const hasClearableMessages = filteredMessages.some((m) => m.id !== 'welcome-msg');
+    const canClear = Boolean(sessionId) && !isLoading && hasClearableMessages;
+
     const dragControls = useDragControls();
 
     // Uploads and feedback use the chat's own sessionId (from the provider). A
@@ -192,13 +207,21 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
     useEffect(() => {
         if (isInline || !isOpen) return;
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing || selectedImage) return;
+            if (
+                event.key !== 'Escape' ||
+                event.defaultPrevented ||
+                event.isComposing ||
+                selectedImage ||
+                clearDialogOpen
+            ) {
+                return;
+            }
             setIsOpen(false);
             requestAnimationFrame(() => toggleButtonRef.current?.focus());
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isInline, isOpen, selectedImage]);
+    }, [isInline, isOpen, selectedImage, clearDialogOpen]);
 
     // 4. Status Queue (Visuals)
     const { currentStatus, addStatus, clearQueue } = useStatusQueue();
@@ -249,6 +272,67 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
         },
         [selectFilter, isOpen, scrollToBottom],
     );
+
+    const handleMinimize = useCallback(() => setIsOpen(false), []);
+    const handleHeaderPointerDown = useCallback(
+        (e: React.PointerEvent<HTMLDivElement>) => dragControls.start(e),
+        [dragControls],
+    );
+
+    const handleOpenClearDialog = useCallback(() => {
+        setClearError(null);
+        setClearAnnouncement(null);
+        setClearDialogOpen(true);
+    }, []);
+
+    const handleClearDialogOpenChange = useCallback(
+        (nextOpen: boolean) => {
+            if (isClearing) return;
+            setClearDialogOpen(nextOpen);
+            if (!nextOpen) {
+                setClearError(null);
+            }
+        },
+        [isClearing],
+    );
+
+    const handleConfirmClear = useCallback(async () => {
+        const targetRoomId = roomFilter === 'all' ? null : roomFilter;
+        const targetRoomLabel = filteredRoomLabel;
+        setIsClearing(true);
+        setClearError(null);
+        try {
+            await clearChat(targetRoomId);
+            if (targetRoomId === null) {
+                setOptimisticRoomById(new Map());
+            } else {
+                setOptimisticRoomById((prev) => {
+                    let changed = false;
+                    const next = new Map<string, string>();
+                    prev.forEach((value, key) => {
+                        if (value === targetRoomId) {
+                            changed = true;
+                        } else {
+                            next.set(key, value);
+                        }
+                    });
+                    return changed ? next : prev;
+                });
+            }
+            clearQueue();
+            dismissNotice();
+            setErrorMessage(null);
+            setIsRetryableError(false);
+            setClearDialogOpen(false);
+            setClearAnnouncement(
+                targetRoomLabel ? `Chat di ${targetRoomLabel} ricominciata.` : 'Chat pulita.',
+            );
+        } catch (err: unknown) {
+            setClearError(describeApiError(err));
+        } finally {
+            setIsClearing(false);
+        }
+    }, [clearChat, roomFilter, filteredRoomLabel, clearQueue, dismissNotice]);
     // 🔥 FIX: Enable keyboard tracking for both floating and inline variants
     const { isMobile, keyboardHeight } = useMobileViewport(isOpen, chatContainerRef, isInline);
 
@@ -472,7 +556,11 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
                                     "relative !w-full !max-w-none h-full rounded-3xl border border-line shadow-2xl"
                                 )}
                             >
-                                <ChatHeader />
+                                <ChatHeader
+                                    clearActionLabel={clearActionLabel}
+                                    canClear={canClear}
+                                    onRequestClear={handleOpenClearDialog}
+                                />
                                 {renderChatContent()}
                             </div>
                         ) : (
@@ -508,8 +596,11 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
                                 )}
                             >
                                 <ChatHeader
-                                    onMinimize={() => setIsOpen(false)}
-                                    onPointerDown={(e) => dragControls.start(e)}
+                                    onMinimize={handleMinimize}
+                                    onPointerDown={handleHeaderPointerDown}
+                                    clearActionLabel={clearActionLabel}
+                                    canClear={canClear}
+                                    onRequestClear={handleOpenClearDialog}
                                 />
                                 {renderChatContent()}
                             </motion.div>
@@ -519,6 +610,23 @@ function ChatWidgetContent({ variant = 'floating', showWelcomeBadge = true }: Ch
             </AnimatePresence>
 
             <ImageLightbox imageUrl={selectedImage} onClose={() => setSelectedImage(null)} />
+
+            <ClearChatDialog
+                open={clearDialogOpen}
+                onOpenChange={handleClearDialogOpenChange}
+                roomLabel={filteredRoomLabel}
+                isClearing={isClearing}
+                errorMessage={clearError}
+                onConfirm={handleConfirmClear}
+            />
+
+            <div
+                role={clearAnnouncement ? 'status' : undefined}
+                aria-live="polite"
+                className="sr-only"
+            >
+                {clearAnnouncement ?? ''}
+            </div>
         </>
     );
 }
