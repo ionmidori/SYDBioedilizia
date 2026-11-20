@@ -123,6 +123,29 @@ def schedule_room_brief_refresh(turn: BriefTurn) -> asyncio.Task[None] | None:
     return task
 
 
+def invalidate_room_brief_state(session_id: str, room_id: str | None = None) -> None:
+    """Cancel pending background brief refreshes and purge watermarks for one room or a whole session."""
+    keys = (
+        [(session_id, room_id)]
+        if room_id is not None
+        else list(dict.fromkeys(k for k in (*_running, *_dirty, *_saves, *_watermark) if k[0] == session_id))
+    )
+    cancelled = 0
+    for key in keys:
+        task = _running.pop(key, None)
+        if task is not None and not task.done():
+            task.cancel()
+            cancelled += 1
+        _dirty.discard(key)
+        _saves.pop(key, None)
+        _watermark.pop(key, None)
+    if keys:
+        logger.info(
+            "[RoomBrief] State invalidated",
+            extra={"event": "room_brief_invalidated", "room_id": room_id, "cancelled_tasks": cancelled},
+        )
+
+
 async def _refresh_until_clean(turn: BriefTurn, key: _Key) -> None:
     try:
         while True:
@@ -138,8 +161,10 @@ async def _refresh_until_clean(turn: BriefTurn, key: _Key) -> None:
     finally:
         # Same loop step as the dirty check (no await in between): a turn that
         # ends now either starts a new task or is summarized by this one.
-        _running.pop(key, None)
-        _saves.pop(key, None)
+        # Identity check prevents a cancelled task unwinding late from clobbering a new one.
+        if _running.get(key) is asyncio.current_task():
+            _running.pop(key, None)
+            _saves.pop(key, None)
 
 
 def _remember(key: _Key, message_id: str) -> None:
