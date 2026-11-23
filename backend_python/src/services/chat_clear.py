@@ -3,17 +3,22 @@ from __future__ import annotations
 
 from typing import Any
 
+from google.api_core.exceptions import GoogleAPIError
+from pydantic import ValidationError
+
 from src.adk.adk_orchestrator import invalidate_adk_session
 from src.core.context import bind_session
-from src.core.exceptions import ChatMerged, PermissionDenied, RoomNotFoundError
+from src.core.exceptions import AppException, ChatMerged, PermissionDenied, RoomNotFoundError
 from src.core.logger import get_logger
 from src.db.firebase_client import get_async_firestore_client
 from src.db.ownership import is_owner
 from src.db.projects.constants import MERGED_INTO, PROJECTS_COLLECTION
 from src.repositories.conversation_repository import get_conversation_repository
 from src.repositories.room_repository import get_room_repository
+from src.repositories.spec_store import get_spec_store
 from src.schemas.chat_clear import ClearChatMode, ClearChatResponse
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
+from src.services.confirmation_service import recalculate_after_clear
 from src.services.quote_drafts import quote_doc_ref
 from src.services.quote_state import QuoteStatus
 from src.services.room_brief import invalidate_room_brief_state
@@ -51,6 +56,15 @@ def quote_covers_scope(quote_data: dict[str, Any] | None, room_id: str | None) -
         # Legacy or room-less active quote: conservatively soft-archive any room clear.
         return True
     return room_id in referenced_rooms
+
+
+async def _recompute_draft(session_id: str, user_id: str) -> None:
+    """The editable draft without the rooms just archived; a quote the team has is left as it
+    is (D8). Best effort: the chat is cleared already, the next analysis brings the draft up."""
+    try:
+        await recalculate_after_clear(session_id, user_id)
+    except (AppException, GoogleAPIError, ValidationError) as exc:  # never undo a clear the client sees
+        logger.warning("[ChatClear] Draft not recomputed after the clear.", extra={"error": type(exc).__name__})
 
 
 async def clear_chat(
@@ -91,18 +105,22 @@ async def clear_chat(
     # Cancel any in-flight brief summarizer before mutating Firestore so it cannot overwrite the reset.
     invalidate_room_brief_state(session_id, room_id)
 
+    now = utc_now()
     affected = await conv_repo.clear_messages(
         session_id,
         room_id=room_id,
         soft_archive=soft_archive,
-        archived_at=utc_now(),
+        archived_at=now,
     )
+    # The reset archives the rooms too (`cleared_at`): out of the card and the editable draft (D7).
     if room_id is not None:
         rooms_reset = 1 if await room_repo.reset_brief(session_id, room_id) else 0
     else:
         rooms_reset = await room_repo.reset_all_briefs(session_id)
+        await get_spec_store().archive_project_specs(session_id, now=now)
 
     await invalidate_adk_session(user_id, session_id)
+    await _recompute_draft(session_id, user_id)
 
     emit_audit_event(
         AuditAction.CHAT_CLEAR,

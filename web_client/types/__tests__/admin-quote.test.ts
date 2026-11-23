@@ -121,6 +121,12 @@ describe('admin quote Golden Sync', () => {
     expect(quoteDossierSchema.parse(dossier).proposal ?? null).toBeNull();
   });
 
+  it('parses the rooms the client cleared (ArchivedRoom), none by default', () => {
+    const archived = [{ room_id: 'bagno1', label: 'Bagno', cleared_at: '2026-11-20T10:00:00Z' }];
+    expect(quoteDossierSchema.parse({ ...dossier, archived_rooms: archived }).archived_rooms).toEqual(archived);
+    expect(quoteDossierSchema.parse(dossier).archived_rooms).toEqual([]);
+  });
+
   it('parses an inbox page', () => {
     const page = adminQuoteListSchema.parse({
       items: [

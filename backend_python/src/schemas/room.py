@@ -111,6 +111,11 @@ class RoomSchema(BaseModel):
     photo_estimate: PhotoEstimate | None = Field(
         default=None, exclude=True, description="Measures estimated from the room's photos (backend-only)"
     )
+    # Written by RoomRepository.reset_brief / reset_all_briefs (a chat clear); a spec write clears it
+    # (SpecStore.update: the room is quoted again). Backend-only, like the spec.
+    cleared_at: datetime | None = Field(
+        default=None, exclude=True, description="When the client cleared the room's chat (backend-only)"
+    )
 
     @field_validator("intervention_spec", "photo_estimate", mode="wrap")
     @classmethod

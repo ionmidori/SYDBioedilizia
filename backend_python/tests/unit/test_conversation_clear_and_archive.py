@@ -218,6 +218,16 @@ async def test_get_context_room_filter_skips_archived_in_room(fake_db: FakeDb) -
     assert [m["id"] for m in bagno] == ["b1", "b3"]
 
 
+async def test_get_context_gives_each_message_its_time(fake_db: FakeDb) -> None:
+    """A cleared room is active again only through what came after the clear (services/room_archive.py)."""
+    _seed_msg(fake_db, "s1", "b1", minute=1, room_id="bagno", content="bagno 1")
+    _seed_msg(fake_db, "s1", "g1", minute=2, content="generale")
+
+    result = await ConversationRepository().get_context("s1", limit=5)
+
+    assert [m["timestamp"] for m in result] == [_ts(1), _ts(2)]
+
+
 async def test_latest_assistant_message_id_skips_archived(fake_db: FakeDb) -> None:
     _seed_msg(fake_db, "s1", "u1", minute=1, role="user", content="ciao")
     _seed_msg(fake_db, "s1", "a1", minute=2, role="assistant", content="old active")

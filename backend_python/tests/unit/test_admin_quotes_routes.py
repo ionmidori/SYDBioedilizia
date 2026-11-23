@@ -491,3 +491,34 @@ def test_apply_proposal_is_admin_only(db):
     resp = _client(role=None).post(f"/api/admin/quotes/{PID}/proposal/apply", headers={"If-Match": '"v2"'},
                                    json={"proposal_created_at": T0.isoformat()})
     assert resp.status_code == 403
+
+
+# ── Rooms the client cleared (PR 3 of the card fixes, D8) ─────────────────────
+
+def _seed_room(db: FakeDb, room_id: str, label: str, cleared_at: object = None) -> None:
+    doc = {"room_id": room_id, "label": label, "room_type": "bagno", "created_at": T0, "updated_at": T0,
+           "intervention_spec": {"library_version": "2.1.0", "generated_at": T0}}
+    if cleared_at is not None:
+        doc["cleared_at"] = cleared_at
+    db.put("projects", PID, "rooms", room_id, doc)
+
+
+def test_dossier_lists_the_rooms_the_client_cleared(db):
+    _seed(db)
+    _seed_room(db, "bagno1", "Bagno", cleared_at=T0)
+    _seed_room(db, "cucina1", "Cucina")
+    with patch.object(routes, "get_client_profile", new=AsyncMock(return_value=None)):
+        body = _client().get(f"/api/admin/quotes/{PID}").json()
+
+    assert [(r["room_id"], r["label"]) for r in body["archived_rooms"]] == [("bagno1", "Bagno")]
+    assert body["archived_rooms"][0]["cleared_at"].startswith("2026")
+    assert "intervention_spec" not in body["archived_rooms"][0]
+
+
+def test_dossier_without_cleared_rooms(db):
+    _seed(db)
+    _seed_room(db, "cucina1", "Cucina")
+    with patch.object(routes, "get_client_profile", new=AsyncMock(return_value=None)):
+        body = _client().get(f"/api/admin/quotes/{PID}").json()
+
+    assert body["archived_rooms"] == []

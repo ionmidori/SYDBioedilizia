@@ -30,6 +30,8 @@ class LedgerRoom(BaseModel):
     room_type: RoomType
     floor_mq: float | None = None
     walls_mq: float | None = None
+    # The client cleared the room from the chat while the team had the quote (D8).
+    archived_by_client: bool = False
 
 
 class LearningLedgerEntry(BaseModel):

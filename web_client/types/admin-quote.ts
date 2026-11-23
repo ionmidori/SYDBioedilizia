@@ -115,6 +115,14 @@ export const quoteProposalSchema = z.object({
 });
 export type QuoteProposal = z.infer<typeof quoteProposalSchema>;
 
+// A room the client cleared from the chat (ArchivedRoom in backend_python/src/schemas/admin_quote.py).
+export const archivedRoomSchema = z.object({
+  room_id: z.string(),
+  label: z.string(),
+  cleared_at: z.string(),
+});
+export type ArchivedRoom = z.infer<typeof archivedRoomSchema>;
+
 export const quoteDossierSchema = z.object({
   project_id: z.string(),
   project_name: z.string().nullable().optional(),
@@ -126,6 +134,7 @@ export const quoteDossierSchema = z.object({
   revisions: z.array(revisionSummarySchema).default([]),
   deliveries: z.array(deliverySummarySchema).default([]),
   proposal: quoteProposalSchema.nullable().optional(),
+  archived_rooms: z.array(archivedRoomSchema).default([]),
 });
 export type QuoteDossier = z.infer<typeof quoteDossierSchema>;
 

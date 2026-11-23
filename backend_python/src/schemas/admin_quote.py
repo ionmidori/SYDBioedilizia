@@ -118,6 +118,14 @@ class QuoteProposal(BaseModel):
     applied_at: datetime | None = None
 
 
+class ArchivedRoom(BaseModel):
+    """A room the client cleared from the chat ("Ricomincia chat di …"): out of the client's card and
+    editable draft, its spec kept for the team. A quote already with the team keeps its lines (D8)."""
+    room_id: str
+    label: str
+    cleared_at: datetime
+
+
 class QuoteDossier(BaseModel):
     project_id: str
     project_name: str | None = None
@@ -129,6 +137,7 @@ class QuoteDossier(BaseModel):
     revisions: list[RevisionSummary] = Field(default_factory=list)
     deliveries: list[DeliverySummary] = Field(default_factory=list)
     proposal: QuoteProposal | None = None
+    archived_rooms: list[ArchivedRoom] = Field(default_factory=list)
 
 
 AdminChatRole = Literal["user", "assistant"]

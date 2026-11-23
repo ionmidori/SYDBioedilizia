@@ -48,6 +48,7 @@ from src.services.quote_proposal import ProposalDraft
 from src.services.quote_state import QuoteStatus, ai_draft_action
 from src.services.quote_step import NEEDS_DETAILS
 from src.services.room_aggregation import load_rules
+from src.services.room_archive import is_archived, last_activity
 from src.services.room_mentions import message_rooms
 from src.services.room_photo_vision import photo_estimate_block
 from src.services.spec_confirmation import (
@@ -772,10 +773,17 @@ async def _rooms_to_quote(
         return [], rooms, {}
     # The rooms with talk of their own: a room named only from other chips ("in cucina il
     # top in quarzo" typed in Generale) has some, one whose messages all name another has none.
-    used = set(message_rooms(history, rooms).values()) | {
+    owner = message_rooms(history, rooms)
+    used = set(owner.values()) | {
         room_of(f) for f in files if f.get("type") in _ROOM_MEDIA_TYPES
     }
-    to_quote = [r for r in rooms if r.room_id != DEFAULT_ROOM_ID and r.room_id in used]
+    media = [f for f in files if f.get("type") in _ROOM_MEDIA_TYPES]
+    # A room the client cleared comes back only with talk or a photo of it after the clear (D7).
+    to_quote = [
+        r for r in rooms
+        if r.room_id != DEFAULT_ROOM_ID and r.room_id in used
+        and not is_archived(r, last_activity(r.room_id, history, lambda m: owner[id(m)], media))
+    ]
     return to_quote, rooms, {f["id"]: f for f in files}
 
 

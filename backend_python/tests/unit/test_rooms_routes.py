@@ -83,7 +83,8 @@ async def test_rooms_api_does_not_return_the_spec(db):
     renamed = await _call("PATCH", f"/api/projects/{PID}/rooms/bagno1", json={"label": "Bagno ospiti"})
 
     assert listed.status_code == 200 and renamed.status_code == 200
-    backend_only = {"intervention_spec", "photo_estimate"}  # photo_estimate: test_room_photo_vision.py
+    # photo_estimate: test_room_photo_vision.py; cleared_at: test_room_archive.py
+    backend_only = {"intervention_spec", "photo_estimate", "cleared_at"}
     assert [set(r) for r in listed.json()] == [set(RoomSchema.model_fields) - backend_only]
     assert "intervention_spec" not in renamed.json()
     assert db.get_data("projects", PID, "rooms", "bagno1")["intervention_spec"] == spec.model_dump()

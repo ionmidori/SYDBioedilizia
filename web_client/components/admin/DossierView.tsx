@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Loader2, Lock, MessageSquare, Save, TriangleAlert } from 'lucide-react';
 
 import { ApproveDialog } from '@/components/admin/dossier/ApproveDialog';
+import { ArchivedRooms } from '@/components/admin/dossier/ArchivedRooms';
 import { ClientCard, clientDisplayName, RequestCard } from '@/components/admin/dossier/DossierCards';
 import { DeliveryLog } from '@/components/admin/dossier/DeliveryLog';
 import { DossierChat } from '@/components/admin/dossier/DossierChat';
@@ -456,6 +457,7 @@ export function DossierView({ projectId }: { projectId: string }) {
       <div className="grid lg:grid-cols-3 gap-4 items-start">
         <div className="lg:col-span-2 space-y-4 min-w-0">
           <RequestCard request={quote.request} projectName={dossier.data.project_name} createdAt={quote.created_at} />
+          <ArchivedRooms rooms={dossier.data.archived_rooms} />
           <MediaGallery projectId={projectId} media={dossier.data.media} />
           <DossierProposal
             proposal={dossier.data.proposal}
