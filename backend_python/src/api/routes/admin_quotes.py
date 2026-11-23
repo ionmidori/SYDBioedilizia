@@ -128,12 +128,13 @@ async def get_dossier(
 
     snapshot = quote.get("client_snapshot") or {}
     owner = quote.get("user_id") or project.get("userId") or ""
-    media, revisions, deliveries, live, proposal = await asyncio.gather(
+    media, revisions, deliveries, live, proposal, archived = await asyncio.gather(
         svc.signed_media(quote, project_id),
         svc.revision_summaries(db, project_id),
         svc.delivery_summaries(db, project_id),
         get_client_profile(owner) if owner else asyncio.sleep(0, result=None),
         read_proposal(db, project_id),
+        svc.archived_rooms(db, project_id),
     )
     client_live = None
     changed = False
@@ -156,6 +157,7 @@ async def get_dossier(
         revisions=[RevisionSummary(**r) for r in revisions if r.get("version")],
         deliveries=[DeliverySummary(**d) for d in deliveries],
         proposal=proposal,
+        archived_rooms=archived,
     )
 
 
@@ -315,7 +317,11 @@ async def approve_quote(
     """
     expected = svc.parse_if_match(if_match)
     now = utc_now()
-    result, approved = await _run(lambda tx, db: svc.approve_tx(tx, db, project_id, admin.uid, expected, now))
+    # The rooms the client cleared, for the learning ledger: read before the transaction (no contention).
+    archived = frozenset(r.room_id for r in await svc.archived_rooms(get_async_firestore_client(), project_id))
+    result, approved = await _run(
+        lambda tx, db: svc.approve_tx(tx, db, project_id, admin.uid, expected, now, archived_room_ids=archived)
+    )
     _audit(AuditAction.QUOTE_APPROVE, project_id, admin, quote_number=result.quote_number, version=result.version)
     pdf_ready, preview = await _render_pdf(project_id, approved, result.version)
     return _write_response(result, pdf_ready=pdf_ready, pdf_preview_url=preview)

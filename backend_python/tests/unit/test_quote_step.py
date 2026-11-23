@@ -14,6 +14,7 @@ import pytest
 from google.adk.events import Event
 from google.genai import types
 from src.adk.quote_facts import quote_facts
+from src.adk.session_context import HOUSE_QUOTE_STATE_KEY
 from src.adk.video_attachments import skipped_model_note
 from src.services import quote_step as quote_step_module
 from src.services.quote_step import NEEDS_DETAILS, QuoteFacts, QuoteStep, quote_step
@@ -488,3 +489,14 @@ def test_the_forward_step_asks_the_floor_area_of_a_new_room_first():
     """Test chat of 19/11 (salone sent with no m²): the step line is read last, so it must say it."""
     guide = quote_step_module.step_guide(QuoteStep.INOLTRO, None)
     assert "m² del pavimento" in guide and "chiedili prima" in guide and "nel turno della risposta" in guide
+
+
+def test_a_draft_left_without_lines_by_a_clear_is_collected_again_not_sent():
+    """Review finding (PR 3): after a full clear the draft has no lines: never the send question."""
+    step = _step(quote_status="draft", card_pending=False, client_words="ciao", quote_empty=True)
+    assert step is QuoteStep.RACCOLTA
+
+
+def test_the_facts_read_an_empty_draft_from_the_house_quote():
+    facts = quote_facts([], "inv", None, {HOUSE_QUOTE_STATE_KEY: {"status": "draft", "empty": True}})
+    assert facts.quote_empty is True

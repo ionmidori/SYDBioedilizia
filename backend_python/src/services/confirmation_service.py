@@ -291,7 +291,9 @@ async def _recalculate(
         )
         for section, expansion in computed
     ]
-    built = build_draft(project_id, user_id, builds, units.rooms, to_quote=builds[0].section_id is not None)
+    # No section left (a full chat clear): a draft without lines.
+    to_quote = bool(builds) and builds[0].section_id is not None
+    built = build_draft(project_id, user_id, builds, units.rooms, to_quote=to_quote)
     db = get_async_firestore_client()
     now = utc_now()
     dossier = await gather_dossier_inputs(db, project_id, user_id, now)
@@ -337,6 +339,32 @@ async def _recalculate_latest(
     # The other writer may have saved its own draft meanwhile: the card shows that one's precision.
     latest = await read_quote_status(get_async_firestore_client(), project_id)
     return _Recalculation(computed, [], recalculated=False, precision=latest.precision if latest else None)
+
+
+async def recalculate_after_clear(project_id: str, user_id: str) -> bool:
+    """After a chat clear (D7): the editable draft is computed again without the rooms the
+    client cleared (the store leaves them out), without the model; with none left, a draft
+    without lines. A section still missing a measure does not stop it, unlike a confirmation:
+    the cleared room's lines must go. A quote the team has is never touched (D8). True when
+    a draft was saved."""
+    status = await read_quote_status(get_async_firestore_client(), project_id)
+    if status is None or not _editable(status):
+        return False
+    library = _library()
+    await PricingService.ensure_fresh()
+    prices = price_book_units()
+    for _attempt in range(_RECALC_ATTEMPTS):
+        units = await _units(project_id)
+        computed = _computed(units.sections, library, prices)
+        try:
+            outcome, _precision = await _recalculate(project_id, user_id, computed, units, status)
+        except QuoteNotEditableError:
+            return False  # the team took the quote meanwhile: theirs as it is
+        if outcome is not DraftSaveOutcome.STALE:
+            return True
+    logger.warning("[Confirmation] Draft after a chat clear left for the next recalculation.",
+                   extra={"attempts": _RECALC_ATTEMPTS})
+    return False
 
 
 async def confirm_section(

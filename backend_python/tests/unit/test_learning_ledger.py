@@ -112,6 +112,16 @@ def test_the_entry_keeps_the_net_correction_and_the_context_of_the_draft():
     assert entry.ai_warnings[0].skus == ["PAV-001"]
 
 
+def test_a_room_the_client_cleared_is_flagged_in_the_entry():
+    """PR 3 of the card fixes (D8): the team approved lines of a room the client cleared from the chat."""
+    entry = ledger.build_entry(
+        quote=_quote([_item("PIT-001")]), ai_revision=_ai_revision([_item("PIT-001")]),
+        approved_version=3, now=NOW, archived_room_ids={"bagno1"},
+    )
+    assert entry is not None and [r.archived_by_client for r in entry.rooms] == [True]
+    assert [r.archived_by_client for r in _build(_quote([_item("PIT-001")]), _ai_revision([_item("PIT-001")])).rooms] == [False]
+
+
 def test_an_approval_without_edits_has_no_changes():
     items = [_item("PIT-001")]
     entry = _build(_quote(items), _ai_revision(items), approved_version=1)

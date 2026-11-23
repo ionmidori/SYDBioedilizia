@@ -64,6 +64,7 @@ class QuoteFacts:
     client_words: str
     last_register_reply: str = ""  # what suggest_quote_items answered in the last turn ("": not called)
     card_confirmed: bool = False  # this turn is the signal of the last confirmation on the card
+    quote_empty: bool = False  # the draft has no line (a full chat clear emptied it)
 
 
 # The assistant offers to do it, at the start of the sentence: "Preparo la richiesta di preventivo?",
@@ -202,7 +203,7 @@ def quote_step(f: QuoteFacts) -> QuoteStep:
         return QuoteStep.SCHEDA
     if LOGIN_TOOL in f.turn_calls:
         return QuoteStep.ACCESSO
-    if action == "update":
+    if action == "update" and not f.quote_empty:
         return _on_draft(f)
     return _without_draft(f)  # no quote, or a sent/rejected one: the next revision is a new request
 

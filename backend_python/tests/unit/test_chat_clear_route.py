@@ -14,7 +14,7 @@ from src.auth.jwt_handler import verify_token
 from src.core.exceptions import AppException
 from src.core.rate_limit import limiter
 from src.db.projects.constants import MERGED_INTO
-from src.repositories import conversation_repository, room_repository
+from src.repositories import conversation_repository, room_repository, spec_store
 from src.schemas.internal import UserSession
 from src.services import chat_clear as service
 from tests.unit.firestore_fakes import FakeDb
@@ -32,6 +32,8 @@ def db(monkeypatch: pytest.MonkeyPatch) -> FakeDb:
     monkeypatch.setattr(service, "get_async_firestore_client", lambda: fake)
     monkeypatch.setattr(conversation_repository, "get_async_firestore_client", lambda: fake)
     monkeypatch.setattr(room_repository, "get_async_firestore_client", lambda: fake)
+    monkeypatch.setattr(spec_store, "get_async_firestore_client", lambda: fake)
+    monkeypatch.setattr(service, "recalculate_after_clear", AsyncMock(return_value=False))
     monkeypatch.setattr(service, "invalidate_adk_session", AsyncMock())
     monkeypatch.setattr(service, "emit_audit_event", lambda *a, **kw: None)
     limiter.reset()

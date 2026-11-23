@@ -16,7 +16,7 @@ from src.core.exceptions import (
     QuoteNotFoundError,
     QuoteVersionConflictError,
 )
-from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteSchema
+from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteRoom, QuoteSchema
 from src.services import admin_quotes as svc
 from src.services import learning_ledger
 from src.services.quote_diff import diff_items
@@ -416,6 +416,22 @@ async def test_ledger_records_the_net_diff_from_the_last_ai_revision():
         ("changed", "PIT-001"), ("removed", "PAV-001"), ("added", "DEM-001")
     }
     assert REVISIONS in transaction.reads, "the AI revision is read inside the approval transaction"
+    assert all(path[: len(QUOTE)] == QUOTE for path in transaction.reads), "no room read: no contention"
+
+
+async def test_the_approval_flags_the_rooms_the_client_cleared_without_reading_them():
+    db = FakeDb()
+    _seed(db, version=1)
+    rooms = [QuoteRoom(room_id="bagno1", room_label="Bagno", room_type="bagno"),
+             QuoteRoom(room_id="cucina1", room_label="Cucina", room_type="cucina")]
+    db.put(*REVISIONS, "1", build_revision(
+        1, [QuoteItem(**_item())], QuoteFinancials(), None, "ai", None, NOW - timedelta(hours=9), rooms=rooms,
+    ))
+    transaction = tx(db)
+    await svc.approve_tx(transaction, db, PID, ADMIN, 1, NOW, archived_room_ids=frozenset({"bagno1"}))
+
+    _doc_id, entry = next(iter(_ledger(db).items()))
+    assert {r["room_id"]: r["archived_by_client"] for r in entry["rooms"]} == {"bagno1": True, "cucina1": False}
     assert all(path[: len(QUOTE)] == QUOTE for path in transaction.reads), "no room read: no contention"
 
 

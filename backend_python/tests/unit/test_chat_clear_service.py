@@ -10,9 +10,10 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from google.api_core.exceptions import ServiceUnavailable
 from src.core.exceptions import ChatMerged, PermissionDenied, RoomNotFoundError
 from src.db.projects.constants import ARCHIVED_AT, HISTORY_REVISION, MERGED_INTO
-from src.repositories import conversation_repository, room_repository
+from src.repositories import conversation_repository, room_repository, spec_store
 from src.repositories.conversation_repository import ConversationRepository
 from src.schemas.chat_clear import ClearChatResponse
 from src.schemas.room import RoomBrief
@@ -35,7 +36,16 @@ def db(monkeypatch: pytest.MonkeyPatch) -> Iterator[FakeDb]:
     monkeypatch.setattr(chat_clear, "get_async_firestore_client", lambda: fake)
     monkeypatch.setattr(conversation_repository, "get_async_firestore_client", lambda: fake)
     monkeypatch.setattr(room_repository, "get_async_firestore_client", lambda: fake)
+    monkeypatch.setattr(spec_store, "get_async_firestore_client", lambda: fake)
     yield fake
+
+
+@pytest.fixture(autouse=True)
+def recalc(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+    """The draft recomputed after a clear (confirmation_service, tested there)."""
+    mock = AsyncMock(return_value=True)
+    monkeypatch.setattr(chat_clear, "recalculate_after_clear", mock)
+    return mock
 
 
 @pytest.fixture(autouse=True)
@@ -421,3 +431,77 @@ async def test_clear_chat_nonexistent_session_full_scope_is_idempotent(
     assert db.get_data("sessions", "fresh-guest-session") is None
     spy_brief.assert_called_once_with("fresh-guest-session", None)
     adk_mock.assert_awaited_once_with(UID, "fresh-guest-session")
+
+
+
+# ── Archived rooms (PR 3 of the card fixes, D7/D8) ────────────────────────────
+
+async def test_a_room_clear_archives_the_room_and_recomputes_the_draft(
+    db: FakeDb, monkeypatch: pytest.MonkeyPatch, recalc: AsyncMock
+) -> None:
+    db.put("sessions", SID, {"userId": UID, "messageCount": 1})
+    _seed_room(db, SID, "bagno", label="Bagno", room_type="bagno")
+    db.put("projects", SID, "private_data", "quote", {"status": "draft", "items": [{"sku": "BAG", "room_id": "bagno"}]})
+    _seed_message(db, SID, "b1", minute=1, room_id="bagno", content="bagno 1")
+    monkeypatch.setattr(chat_clear, "invalidate_adk_session", AsyncMock())
+    monkeypatch.setattr(chat_clear, "emit_audit_event", lambda *a, **kw: None)
+    monkeypatch.setattr(room_repository, "utc_now", lambda: T1)
+
+    await clear_chat(SID, UID, room_id="bagno")
+
+    assert db.get_data("projects", SID, "rooms", "bagno")["cleared_at"] == T1  # type: ignore[index]
+    recalc.assert_awaited_once_with(SID, UID)
+    # The whole-chat spec from before the rooms would come back on the card (review finding): archived too.
+    specs = db.get_data("projects", SID, "private_data", "intervention_specs")
+    assert specs is not None and set(specs["archived"]) == {"chat"}
+
+
+async def test_a_room_clear_does_not_recompute_a_draft_without_that_room(
+    db: FakeDb, monkeypatch: pytest.MonkeyPatch, recalc: AsyncMock
+) -> None:
+    """No new revision on every clear: only when the draft has lines of the cleared room."""
+    db.put("sessions", SID, {"userId": UID, "messageCount": 1})
+    _seed_room(db, SID, "bagno", label="Bagno", room_type="bagno")
+    db.put("projects", SID, "private_data", "quote", {"status": "draft", "items": [{"sku": "CUC", "room_id": "cucina"}]})
+    monkeypatch.setattr(chat_clear, "invalidate_adk_session", AsyncMock())
+    monkeypatch.setattr(chat_clear, "emit_audit_event", lambda *a, **kw: None)
+
+    await clear_chat(SID, UID, room_id="bagno")
+
+    recalc.assert_not_awaited()
+
+
+async def test_a_full_clear_archives_the_project_specs_too(
+    db: FakeDb, monkeypatch: pytest.MonkeyPatch, recalc: AsyncMock
+) -> None:
+    db.put("sessions", SID, {"userId": UID, "messageCount": 1})
+    db.put("projects", SID, "private_data", "intervention_specs", {"chat": {"measures": []}})
+    db.put("projects", SID, "private_data", "quote", {"status": "draft", "items": [{"sku": "BAG"}]})
+    _seed_message(db, SID, "m1", minute=1, content="bagno da rifare")
+    monkeypatch.setattr(chat_clear, "invalidate_adk_session", AsyncMock())
+    monkeypatch.setattr(chat_clear, "emit_audit_event", lambda *a, **kw: None)
+    monkeypatch.setattr(chat_clear, "utc_now", lambda: T1)
+
+    await clear_chat(SID, UID, room_id=None)
+
+    stored = db.get_data("projects", SID, "private_data", "intervention_specs")
+    assert stored is not None and stored["chat"] == {"measures": []}  # kept for the team
+    assert set(stored["archived"]) == {"chat", "generale"}
+    recalc.assert_awaited_once_with(SID, UID)
+
+
+async def test_a_failed_recomputation_does_not_fail_the_clear(
+    db: FakeDb, monkeypatch: pytest.MonkeyPatch, recalc: AsyncMock, caplog: pytest.LogCaptureFixture
+) -> None:
+    db.put("sessions", SID, {"userId": UID, "messageCount": 1})
+    _seed_room(db, SID, "bagno", label="Bagno", room_type="bagno")
+    db.put("projects", SID, "private_data", "quote", {"status": "draft", "items": [{"sku": "BAG", "room_id": "bagno"}]})
+    monkeypatch.setattr(chat_clear, "invalidate_adk_session", AsyncMock())
+    monkeypatch.setattr(chat_clear, "emit_audit_event", lambda *a, **kw: None)
+    recalc.side_effect = ServiceUnavailable("firestore down")
+
+    with caplog.at_level(logging.WARNING):
+        resp = await clear_chat(SID, UID, room_id="bagno")
+
+    assert resp.rooms_reset == 1
+    assert "draft" in caplog.text.lower() and SID not in caplog.text

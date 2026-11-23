@@ -134,6 +134,8 @@ async def test_reset_brief_clears_brief_and_summary_preserving_spec_and_photo_es
     assert stored["brief"] == RoomBrief().model_dump()
     assert stored["summary"] is None
     assert stored["updated_at"] == T1
+    # Archived (D7): out of the card and the draft until the client talks about it again.
+    assert stored["cleared_at"] == T1
     assert stored["intervention_spec"] == {"room_type": "bagno"}
     assert stored["photo_estimate"] == {"source_hash": "a" * 64}
     assert stored["reference_photo_id"] == "f1"
@@ -226,6 +228,7 @@ async def test_reset_all_briefs_resets_every_room_without_touching_files(
         assert stored["brief"] == expected_empty
         assert stored["summary"] is None
         assert stored["updated_at"] == T1
+        assert stored["cleared_at"] == T1  # every room archived, "Generale" too
         assert stored["intervention_spec"] == expected_spec
         assert stored["photo_estimate"] == expected_photo
         assert stored["reference_photo_id"] == expected_ref

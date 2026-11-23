@@ -46,11 +46,10 @@ def _new_room_id() -> str:
 
 
 def _empty_brief_patch(now: datetime | None = None) -> dict[str, Any]:
-    return {
-        "brief": RoomBrief().model_dump(),
-        "summary": None,
-        "updated_at": now if now is not None else utc_now(),
-    }
+    """A chat clear: brief and summary emptied, and the room archived from now (`cleared_at`,
+    services/room_archive.py), in the same write. Spec, photo estimate and files stay."""
+    at = now if now is not None else utc_now()
+    return {"brief": RoomBrief().model_dump(), "summary": None, "updated_at": at, "cleared_at": at}
 
 
 class RoomRepository:

@@ -252,3 +252,93 @@ def test_the_fingerprint_follows_the_specs_not_their_order() -> None:
     assert spec_fingerprint(one) != spec_fingerprint({**one, "bagno1": _spec(7)})
     assert spec_fingerprint(one) != spec_fingerprint({"bagno1": _spec(6)})
     assert spec_fingerprint({}) == spec_fingerprint({})
+
+
+# ── Archived by the client (PR 3 of the card fixes, D7) ───────────────────────
+
+async def _archived_room(store: SpecStore, label: str = "Bagno") -> str:
+    room = await RoomRepository().create_room(PID, RoomCreate(label=label, room_type="bagno"))
+    await _put(store, room.room_id, _spec(8))
+    with patch.object(room_repository, "utc_now", return_value=T0 + timedelta(hours=1)):
+        await RoomRepository().reset_brief(PID, room.room_id)
+    return room.room_id
+
+
+async def test_an_archived_room_spec_is_out_of_the_card_and_the_draft(db: FakeDb, store: SpecStore) -> None:
+    bagno = await _archived_room(store)
+    cucina = await RoomRepository().create_room(PID, RoomCreate(label="Cucina", room_type="cucina"))
+    await _put(store, cucina.room_id, _spec(12))
+
+    assert set(await store.load_all(PID)) == {cucina.room_id}
+    # The team keeps it.
+    assert (await store.load_all(PID, include_archived=True))[bagno] == _spec(8)
+
+
+async def test_a_new_analysis_starts_the_archived_room_again_without_its_old_confirmations(
+    db: FakeDb, store: SpecStore
+) -> None:
+    bagno = await _archived_room(store)
+    seen: list[RoomInterventionSpec | None] = []
+
+    def change(current: RoomInterventionSpec | None) -> RoomInterventionSpec:
+        seen.append(current)
+        return _spec(6)
+
+    assert await store.update(PID, bagno, change) == _spec(6)
+    assert seen == [None]  # the client restarted the room: what it confirmed before does not count
+    assert db.get_data("projects", PID, "rooms", bagno)["cleared_at"] is None
+    assert (await store.load_all(PID))[bagno] == _spec(6)
+
+
+async def test_an_archived_generale_room_hides_its_project_copy_too(db: FakeDb, store: SpecStore) -> None:
+    await _put(store, DEFAULT_ROOM_ID, _spec(20))  # before its room exists: the project copy
+    db.put("projects", PID, "rooms", DEFAULT_ROOM_ID, {
+        "room_id": DEFAULT_ROOM_ID, "label": "Generale", "room_type": "altro", "created_at": T0, "updated_at": T0,
+    })
+    with patch.object(room_repository, "utc_now", return_value=T0):
+        await RoomRepository().reset_all_briefs(PID)
+
+    assert DEFAULT_ROOM_ID not in await store.load_all(PID)
+
+
+async def test_the_chat_of_a_project_without_rooms_is_archived_in_the_project_specs(
+    db: FakeDb, store: SpecStore
+) -> None:
+    await _put(store, CHAT_SPEC_KEY, _spec(7))
+    await store.archive_project_specs(PID, now=T0)
+
+    assert await store.load_all(PID) == {}
+    assert (await store.load_all(PID, include_archived=True))[CHAT_SPEC_KEY] == _spec(7)
+
+    seen: list[RoomInterventionSpec | None] = []
+    await store.update(PID, CHAT_SPEC_KEY, lambda current: seen.append(current) or _spec(9))
+    assert seen == [None]
+    assert (await store.load_all(PID))[CHAT_SPEC_KEY] == _spec(9)
+
+
+async def test_archiving_an_empty_project_writes_nothing_harmful(db: FakeDb, store: SpecStore) -> None:
+    await store.archive_project_specs(PID, now=T0)
+    assert await store.load_all(PID) == {}
+
+
+async def test_generale_analysed_again_after_a_full_clear_is_on_the_card(db: FakeDb, store: SpecStore) -> None:
+    """Review finding: the project mark of a full clear must not hide the room's new spec."""
+    db.put("projects", PID, "rooms", DEFAULT_ROOM_ID, {
+        "room_id": DEFAULT_ROOM_ID, "label": "Generale", "room_type": "altro", "created_at": T0, "updated_at": T0,
+    })
+    await _put(store, DEFAULT_ROOM_ID, _spec(20))
+    with patch.object(room_repository, "utc_now", return_value=T0):
+        await RoomRepository().reset_all_briefs(PID)
+    await store.archive_project_specs(PID, now=T0)
+    assert DEFAULT_ROOM_ID not in await store.load_all(PID)
+
+    await _put(store, DEFAULT_ROOM_ID, _spec(25))
+
+    assert (await store.load_all(PID))[DEFAULT_ROOM_ID] == _spec(25)
+
+
+async def test_a_room_clear_can_archive_the_whole_chat_unit_alone(db: FakeDb, store: SpecStore) -> None:
+    await _put(store, CHAT_SPEC_KEY, _spec(7))
+    await _put(store, DEFAULT_ROOM_ID, _spec(20))  # Generale before its room
+    await store.archive_project_specs(PID, now=T0, keys=(CHAT_SPEC_KEY,))
+    assert set(await store.load_all(PID)) == {DEFAULT_ROOM_ID}

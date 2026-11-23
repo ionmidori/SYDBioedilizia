@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Collection
 from datetime import datetime
 from typing import Any
 
@@ -54,9 +55,15 @@ def last_ai_revision(revisions: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 
 def build_entry(
-    *, quote: dict[str, Any], ai_revision: dict[str, Any], approved_version: int, now: datetime
+    *,
+    quote: dict[str, Any],
+    ai_revision: dict[str, Any],
+    approved_version: int,
+    now: datetime,
+    archived_room_ids: Collection[str] = (),
 ) -> LearningLedgerEntry | None:
-    """The ledger entry of an approval. Pure, never raises: None if it cannot be built."""
+    """The ledger entry of an approval. Pure, never raises: None if it cannot be built.
+    `archived_room_ids`: the rooms the client cleared from the chat (flagged on the entry)."""
     quote_number = quote.get("quote_number")
     if not quote_number:
         logger.warning("[LearningLedger] Quote without a number: no entry recorded.")
@@ -70,7 +77,13 @@ def build_entry(
             ai_version=draft.version,
             approved_at=now,
             ai_created_at=draft.created_at,
-            rooms=[LedgerRoom.model_validate(room.model_dump(include=set(LedgerRoom.model_fields))) for room in draft.rooms],
+            rooms=[
+                LedgerRoom.model_validate({
+                    **room.model_dump(include=set(LedgerRoom.model_fields)),
+                    "archived_by_client": room.room_id in archived_room_ids,
+                })
+                for room in draft.rooms
+            ],
             specs=draft.specs,
             ai_items=draft.items,
             approved_items=approved_items,
@@ -91,7 +104,12 @@ def build_entry(
 
 
 async def prepare_entry(
-    transaction: Any, quote_ref: Any, quote: dict[str, Any], approved_version: int, now: datetime
+    transaction: Any,
+    quote_ref: Any,
+    quote: dict[str, Any],
+    approved_version: int,
+    now: datetime,
+    archived_room_ids: Collection[str] = (),
 ) -> LearningLedgerEntry | None:
     """Read phase of the approval transaction: the entry to write, or None."""
     revisions = await read_recent_revisions(transaction, quote_ref, approved_version)
@@ -111,7 +129,8 @@ async def prepare_entry(
             )
         return None
     return build_entry(
-        quote=quote, ai_revision=ai_revision, approved_version=approved_version, now=now
+        quote=quote, ai_revision=ai_revision, approved_version=approved_version, now=now,
+        archived_room_ids=archived_room_ids,
     )
 
 

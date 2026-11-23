@@ -447,3 +447,44 @@ async def test_an_update_keeps_the_draft_request() -> None:
         await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
     request = mocks["saved"].await_args.args[3]
     assert (request.summary, request.channel, request.session_id) == (None, None, None)
+
+
+# ── After a chat clear (PR 3 of the card fixes, D7/D8) ────────────────────────
+# The store already leaves the archived rooms out (SpecStore.load_all): here the specs left.
+
+async def test_after_a_clear_the_editable_draft_keeps_only_the_rooms_left() -> None:
+    with _project({"bagno1": BAGNO}, _draft()) as mocks:  # "cucina1" cleared
+        assert await confirmation_service.recalculate_after_clear(PID, UID) is True
+
+    quote = _saved_quote(mocks["saved"])
+    # Project-wide lines (waste, site) go to "Generale" as always; nothing of the cleared kitchen.
+    assert quote.items and {i.room_id for i in quote.items} <= {"bagno1", DEFAULT_ROOM_ID}
+    assert any(i.room_id == "bagno1" for i in quote.items)
+    assert mocks["saved"].await_args.kwargs["editable_only"] is True
+
+
+async def test_after_a_full_clear_the_editable_draft_has_no_lines() -> None:
+    with _project({}, _draft()) as mocks:
+        assert await confirmation_service.recalculate_after_clear(PID, UID) is True
+
+    quote = _saved_quote(mocks["saved"])
+    assert quote.items == [] and quote.financials.grand_total == 0
+
+
+async def test_after_a_clear_a_room_still_missing_a_measure_does_not_keep_the_cleared_lines() -> None:
+    """The confirmation refuses a draft with a section blocked; a clear must still drop the cleared room."""
+    with _project({"cucina1": CUCINA_MISSING}, _draft()) as mocks:
+        assert await confirmation_service.recalculate_after_clear(PID, UID) is True
+    assert {i.room_id for i in _saved_quote(mocks["saved"]).items} <= {"cucina1", DEFAULT_ROOM_ID}
+
+
+@pytest.mark.parametrize("status", [None, "sent", "submitted"])
+async def test_after_a_clear_a_quote_that_is_not_an_editable_draft_is_not_touched(status: str | None) -> None:
+    with _project({"bagno1": BAGNO}, _draft(status) if status else None) as mocks:
+        assert await confirmation_service.recalculate_after_clear(PID, UID) is False
+    mocks["saved"].assert_not_awaited()
+
+
+async def test_after_a_clear_a_quote_the_team_took_meanwhile_is_left_alone() -> None:
+    with _project({"bagno1": BAGNO}, _draft(), outcome=DraftSaveOutcome.NOT_EDITABLE):
+        assert await confirmation_service.recalculate_after_clear(PID, UID) is False

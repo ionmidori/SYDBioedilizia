@@ -236,6 +236,8 @@ class ConversationRepository:
                 msg_room_id = (data.get('metadata') or {}).get('room_id')
                 if msg_room_id:
                     msg['room_id'] = msg_room_id
+                # When it was written: a cleared room is active again only through newer talk.
+                msg['timestamp'] = data.get('timestamp')
 
                 messages_reversed.append(msg)
                 if len(messages_reversed) >= limit:

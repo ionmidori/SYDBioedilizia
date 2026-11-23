@@ -585,3 +585,23 @@ describe('DossierView — AI revision proposal', () => {
     expect(screen.queryByTestId('dossier-proposal')).not.toBeInTheDocument();
   });
 });
+
+describe('DossierView — rooms the client cleared (D8)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    Object.values(mocks).forEach((mock) => Object.assign(mock, mutation()));
+  });
+
+  it('names each room the client cleared from the chat, with the date', () => {
+    setup(dossier({ archived_rooms: [{ room_id: 'bagno1', label: 'Bagno', cleared_at: '2026-11-20T10:00:00Z' }] }));
+    const panel = screen.getByRole('region', { name: 'Stanze archiviate dal cliente' });
+    expect(within(panel).getByText('Bagno')).toBeInTheDocument();
+    expect(within(panel).getByText(/20\/11\/2026|20 nov/i)).toBeInTheDocument();
+    expect(panel).toHaveTextContent(/fuori dalla scheda del cliente/i);
+  });
+
+  it('shows nothing when no room was cleared', () => {
+    setup(dossier());
+    expect(screen.queryByRole('region', { name: 'Stanze archiviate dal cliente' })).not.toBeInTheDocument();
+  });
+});

@@ -40,6 +40,7 @@ from src.core.exceptions import (
     QuoteVersionConflictError,
 )
 from src.core.money import line_total, to_cents
+from src.schemas.admin_quote import ArchivedRoom
 from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteRoom
 from src.services import learning_ledger
 from src.services.pdf_service import quote_pdf_blob_path
@@ -297,16 +298,26 @@ async def apply_proposal_tx(
 
 
 async def approve_tx(
-    transaction: Any, db: Any, project_id: str, admin_uid: str, expected_version: int, now: datetime
+    transaction: Any,
+    db: Any,
+    project_id: str,
+    admin_uid: str,
+    expected_version: int,
+    now: datetime,
+    *,
+    archived_room_ids: frozenset[str] = frozenset(),
 ) -> tuple[WriteResult, dict[str, Any]]:
     """Freeze the current version as approved. Returns the approved document
-    (for the PDF, generated after the commit)."""
+    (for the PDF, generated after the commit). `archived_room_ids` (rooms the client
+    cleared) are read by the caller before the transaction: no room read, no contention."""
     ref, quote = await _read(transaction, db, project_id)
     _check_version(project_id, quote, expected_version)
     _check_lock(project_id, quote, admin_uid, now)
     status = transition(quote.get("status", ""), QuoteEvent.APPROVE)
     # Read phase of the learning ledger, before any write of the transaction.
-    entry = await learning_ledger.prepare_entry(transaction, ref, quote, expected_version, now)
+    entry = await learning_ledger.prepare_entry(
+        transaction, ref, quote, expected_version, now, archived_room_ids=archived_room_ids
+    )
     updates = {
         "status": status.value,
         "updated_at": now,
@@ -550,6 +561,16 @@ async def signed_media(quote: dict[str, Any], project_id: str) -> list[dict[str,
             entry["url"] = None
         out.append(entry)
     return out
+
+
+async def archived_rooms(db: Any, project_id: str) -> list[ArchivedRoom]:
+    """The rooms the client cleared (`cleared_at`), in creation order: one read of the rooms."""
+    rooms = db.collection("projects").document(project_id).collection("rooms").order_by("created_at")
+    return [
+        ArchivedRoom(room_id=doc.id, label=data.get("label") or doc.id, cleared_at=data["cleared_at"])
+        async for doc in rooms.select(["label", "cleared_at", "created_at"]).stream()
+        if (data := doc.to_dict() or {}).get("cleared_at") is not None
+    ]
 
 
 async def revision_summaries(db: Any, project_id: str, limit: int = 50) -> list[dict[str, Any]]:
