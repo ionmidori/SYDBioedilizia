@@ -3,8 +3,8 @@ name = "backend-python"
 version = "4.0.0"
 requires-python = ">=3.12"
 dependencies = [
-    "email-validator>=2.3.0",
-    "fastapi>=0.162.3",
+    "email-validator>=2.4.0",
+    "fastapi>=0.165.0",
     "starlette>=1.10.0",
     "firebase-admin>=7.8.0",
     "google-cloud-firestore>=2.34.1",
@@ -14,12 +14,12 @@ dependencies = [
     "pinecone>=10.3.0",
     "pyjwt>=2.15.1",
     "python-dotenv>=1.2.4",
-    "python-multipart>=0.0.33",
+    "python-multipart>=0.0.34",
     "uvicorn[standard]>=0.54.0",
-    "pydantic-settings>=2.16.2",
+    "pydantic-settings>=2.16.3",
     "python-dateutil>=4.0.0",
     "slowapi>=0.1.10",
-    "google-adk>=2.14.0",
+    "google-adk>=2.15.0",
     "aiosmtplib>=5.1.3",
     "reportlab>=5.1.0",
     "google-cloud-modelarmor>=0.7.5",
@@ -28,11 +28,11 @@ dependencies = [
     # Imported directly by ~35 modules (models, schemas, routes). Was only a
     # transitive of fastapi/pydantic-settings, so a change in their tree could
     # drop or move it without notice.
-    "pydantic>=2.14.3",
+    "pydantic>=2.14.4",
     # Transitive of the google-cloud / vertex / firestore stack. Pinned above the
     # YANKED 1.78.1 ("caused major outage with gcloud serverless environments"),
     # which uv would otherwise keep resolving on Cloud Run.
-    "grpcio>=1.85.1",
+    "grpcio>=1.85.3",
     # Cloud Trace span exporter used by src/core/tracing.py in production. Was
     # imported but never declared, so the prod try/except silently fell back to
     # the console exporter and traces never reached GCP Cloud Trace.
@@ -50,7 +50,7 @@ dev = [
     # Cloud Run image) and tests/unit/test_pdf_service_v2.py read PDFs with it.
     # The Dockerfile's `uv sync --no-dev` installs no extras, so it stays out of
     # the production image; CI installs it via `uv sync --all-extras`.
-    "pypdf>=7.0.1",
+    "pypdf>=7.1.1",
 ]
 
 [tool.ruff]
@@ -140,7 +140,7 @@ exclude_lines = [
 [dependency-groups]
 dev = [
     "pip-audit>=2.10.1",
-    "ruff>=0.17.5",
+    "ruff>=0.17.6",
     "pyright>=1.1.414",
 ]
 
