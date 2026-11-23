@@ -160,3 +160,9 @@ async def test_no_calculated_note_once_the_client_confirmed_the_walls() -> None:
     request = mocks["saved"].await_args.args[3]
     assert not [w for w in request.ai_warnings if "lorde" in w.message]
     assert not [c for c in mocks["store"].written["bagno1"].admin_checks if "lorde" in c.message]
+
+
+async def test_the_old_spec_of_a_cleared_room_does_not_skip_the_measurement() -> None:
+    """Review finding (PR 3): what the client confirmed before the clear no longer counts."""
+    room = _bagno(spec=_spec(("mq", "confirmed"), ("mq_pareti", "confirmed"))).model_copy(update={"cleared_at": NOW})
+    assert await _measured_rooms(room) == 1

@@ -95,6 +95,8 @@ class QuoteStatusView:
     sent_before: bool
     # Precision of the draft's price range (the only part the client may read).
     precision: int | None = None
+    # No line (a draft emptied by a full chat clear): nothing to send.
+    empty: bool = False
 
 
 def quote_doc_ref(db: Any, project_id: str) -> Any:
@@ -294,6 +296,7 @@ async def read_quote_status(db: Any, project_id: str, *, transaction: Any | None
         version=int(data.get("version") or 1),
         sent_before=bool(data.get("sent_at")),
         precision=(data.get("estimate") or {}).get("precision"),
+        empty=not data.get("items"),
     )
 
 

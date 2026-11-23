@@ -7,7 +7,6 @@ the files the quote tool has already loaded, never with a read of its own.
 """
 from collections.abc import Callable, Iterable, Mapping
 from datetime import UTC, datetime
-from typing import Any
 
 from src.db.projects.constants import FILE_ROOM_FIELD
 from src.schemas.room import RoomSchema
@@ -22,9 +21,9 @@ def _at(value: object) -> datetime | None:
 
 def last_activity(
     room_id: str,
-    history: Iterable[Mapping[str, Any]],
-    owner_of: Callable[[Mapping[str, Any]], str | None],
-    files: Iterable[Mapping[str, Any]],
+    history: Iterable[Mapping[str, object]],
+    owner_of: Callable[[Mapping[str, object]], str | None],
+    files: Iterable[Mapping[str, object]],
 ) -> datetime | None:
     """The newest message (by its owner room, `message_rooms`) or file of the room, None if none."""
     times = [

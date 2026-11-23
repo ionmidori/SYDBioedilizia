@@ -15,7 +15,7 @@ from src.db.ownership import is_owner
 from src.db.projects.constants import MERGED_INTO, PROJECTS_COLLECTION
 from src.repositories.conversation_repository import get_conversation_repository
 from src.repositories.room_repository import get_room_repository
-from src.repositories.spec_store import get_spec_store
+from src.repositories.spec_store import CHAT_SPEC_KEY, get_spec_store
 from src.schemas.chat_clear import ClearChatMode, ClearChatResponse
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
 from src.services.confirmation_service import recalculate_after_clear
@@ -113,14 +113,19 @@ async def clear_chat(
         archived_at=now,
     )
     # The reset archives the rooms too (`cleared_at`): out of the card and the editable draft (D7).
+    # The whole-chat spec from before the rooms goes too: it would come back on the card, with what
+    # the client confirmed before, once no room has a spec left.
     if room_id is not None:
         rooms_reset = 1 if await room_repo.reset_brief(session_id, room_id) else 0
+        await get_spec_store().archive_project_specs(session_id, now=now, keys=(CHAT_SPEC_KEY,))
     else:
         rooms_reset = await room_repo.reset_all_briefs(session_id)
         await get_spec_store().archive_project_specs(session_id, now=now)
 
     await invalidate_adk_session(user_id, session_id)
-    await _recompute_draft(session_id, user_id)
+    # Only a draft with lines of what was cleared changes (no new revision for nothing).
+    if soft_archive:
+        await _recompute_draft(session_id, user_id)
 
     emit_audit_event(
         AuditAction.CHAT_CLEAR,

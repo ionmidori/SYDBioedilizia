@@ -48,4 +48,5 @@ def quote_facts(
         client_words=client_words(events, invocation_id, user_content),
         last_register_reply="\n".join(last_turn_responses(events, invocation_id, REGISTER_TOOL)),
         card_confirmed=state.get(CARD_EVENT_STATE_KEY) == CARD_CONFIRMED_EVENT,
+        quote_empty=bool(quote.get("empty")),
     )

@@ -28,7 +28,6 @@ from src.schemas.admin_quote import (
     AdminQuoteList,
     AdminQuoteListItem,
     ApplyProposalBody,
-    ArchivedRoom,
     ClientLive,
     DeliverySummary,
     DossierMedia,
@@ -158,7 +157,7 @@ async def get_dossier(
         revisions=[RevisionSummary(**r) for r in revisions if r.get("version")],
         deliveries=[DeliverySummary(**d) for d in deliveries],
         proposal=proposal,
-        archived_rooms=[ArchivedRoom(**r) for r in archived],
+        archived_rooms=archived,
     )
 
 
@@ -319,7 +318,7 @@ async def approve_quote(
     expected = svc.parse_if_match(if_match)
     now = utc_now()
     # The rooms the client cleared, for the learning ledger: read before the transaction (no contention).
-    archived = frozenset(r["room_id"] for r in await svc.archived_rooms(get_async_firestore_client(), project_id))
+    archived = frozenset(r.room_id for r in await svc.archived_rooms(get_async_firestore_client(), project_id))
     result, approved = await _run(
         lambda tx, db: svc.approve_tx(tx, db, project_id, admin.uid, expected, now, archived_room_ids=archived)
     )

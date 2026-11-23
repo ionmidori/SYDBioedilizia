@@ -174,3 +174,9 @@ def test_the_quote_prompt_reads_the_line_the_session_block_writes():
     assert f'"{marker}"' in prompt
     for status in STATUS_LABEL_IT:
         assert status_label_it(status) in prompt  # every state the prompt branches on, as the block spells it
+
+
+def test_the_house_quote_says_when_the_draft_has_no_lines():
+    view = QuoteStatusView(status="draft", delivery_status=None, quote_number="PRV-1", version=2,
+                           sent_before=False, empty=True)
+    assert house_quote_entry(view)["empty"] is True

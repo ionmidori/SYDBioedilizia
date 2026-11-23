@@ -676,7 +676,8 @@ _CLIENT_SOURCES = frozenset({"confirmed", "declared", "brief", "calculated"})
 
 def _measures_covered(room: RoomSchema) -> bool:
     """The room's main measures are given by the client (its spec and brief): no need to read its photo."""
-    spec = room.intervention_spec
+    # A cleared room starts again: what the client confirmed before the clear does not count.
+    spec = room.intervention_spec if room.cleared_at is None else None
     given = {m.name for m in spec.measures if m.source in _CLIENT_SOURCES and m.value > 0} if spec else set()
     given |= brief_measures(room.brief)
     missing = spec.missing_measures if spec is not None else list(MAIN_MEASURES)

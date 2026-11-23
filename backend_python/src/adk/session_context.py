@@ -144,6 +144,8 @@ def house_quote_entry(view: QuoteStatusView | None) -> dict[str, Any]:
         "version": view.version,
         # Not shown to the model: a sent quote still in the mail is with the team (quote_step).
         "delivery_status": view.delivery_status,
+        # Not shown to the model: a draft without lines is collected again, never sent (quote_step).
+        "empty": view.empty,
     }
 
 

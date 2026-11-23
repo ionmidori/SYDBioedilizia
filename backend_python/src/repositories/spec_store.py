@@ -127,8 +127,9 @@ class SpecStore:
         (in_project, archived), (on_rooms, cleared) = await asyncio.gather(
             self._stored_in_project(db, project_id, transaction), self._stored_on_rooms(db, project_id, transaction)
         )
-        # A cleared room hides its project copy too ("Generale" before its room had a spec).
-        hidden = set() if include_archived else archived | cleared
+        # A cleared room hides its project copy too ("Generale" before its room had a spec); the
+        # project's archive mark hides only a project copy: a room's new spec is the unit again.
+        hidden = set() if include_archived else cleared | (archived - set(on_rooms))
         specs: dict[str, RoomInterventionSpec] = {}
         for key, data in {**in_project, **on_rooms}.items():
             if key in hidden:
@@ -138,13 +139,14 @@ class SpecStore:
                 specs[key] = spec
         return specs
 
-    async def archive_project_specs(self, project_id: str, *, now: datetime) -> None:
-        """A full chat clear: the units kept in the project specs (the whole chat, "Generale"
-        before its room) are archived too. The rooms are archived by their own reset."""
+    async def archive_project_specs(
+        self, project_id: str, *, now: datetime, keys: Iterable[str] = (CHAT_SPEC_KEY, DEFAULT_ROOM_ID)
+    ) -> None:
+        """A chat clear: the units kept in the project specs are archived too (the whole chat
+        before the rooms, and on a full clear "Generale" before its room). The rooms are
+        archived by their own reset."""
         db = get_async_firestore_client()
-        await self._project_specs(db, project_id).set(
-            {_ARCHIVED: {CHAT_SPEC_KEY: now, DEFAULT_ROOM_ID: now}}, merge=True
-        )
+        await self._project_specs(db, project_id).set({_ARCHIVED: dict.fromkeys(keys, now)}, merge=True)
 
     async def update(
         self, project_id: str, section_key: str, change: SpecChange, *, guard: TransactionGuard | None = None

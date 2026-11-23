@@ -319,3 +319,26 @@ async def test_the_chat_of_a_project_without_rooms_is_archived_in_the_project_sp
 async def test_archiving_an_empty_project_writes_nothing_harmful(db: FakeDb, store: SpecStore) -> None:
     await store.archive_project_specs(PID, now=T0)
     assert await store.load_all(PID) == {}
+
+
+async def test_generale_analysed_again_after_a_full_clear_is_on_the_card(db: FakeDb, store: SpecStore) -> None:
+    """Review finding: the project mark of a full clear must not hide the room's new spec."""
+    db.put("projects", PID, "rooms", DEFAULT_ROOM_ID, {
+        "room_id": DEFAULT_ROOM_ID, "label": "Generale", "room_type": "altro", "created_at": T0, "updated_at": T0,
+    })
+    await _put(store, DEFAULT_ROOM_ID, _spec(20))
+    with patch.object(room_repository, "utc_now", return_value=T0):
+        await RoomRepository().reset_all_briefs(PID)
+    await store.archive_project_specs(PID, now=T0)
+    assert DEFAULT_ROOM_ID not in await store.load_all(PID)
+
+    await _put(store, DEFAULT_ROOM_ID, _spec(25))
+
+    assert (await store.load_all(PID))[DEFAULT_ROOM_ID] == _spec(25)
+
+
+async def test_a_room_clear_can_archive_the_whole_chat_unit_alone(db: FakeDb, store: SpecStore) -> None:
+    await _put(store, CHAT_SPEC_KEY, _spec(7))
+    await _put(store, DEFAULT_ROOM_ID, _spec(20))  # Generale before its room
+    await store.archive_project_specs(PID, now=T0, keys=(CHAT_SPEC_KEY,))
+    assert set(await store.load_all(PID)) == {DEFAULT_ROOM_ID}
