@@ -126,18 +126,13 @@ async def test_is_anonymous_user_fails_closed_on_lookup_error():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("tool_name", ["suggest_quote_items", "submit_quote_request"])
-async def test_quote_tools_block_anonymous_users(tool_context, tool_name):
-    """The quote tools are premium too: an anonymous user gets LOGIN_REQUIRED
-    and nothing is generated or sent to the team."""
+async def test_quote_tool_blocks_anonymous_users(tool_context):
+    """The quote tool is premium too: an anonymous user gets LOGIN_REQUIRED and
+    nothing is generated."""
     wrapper = AsyncMock(return_value="ok")
-    target = (
-        "src.tools.quote_tools.suggest_quote_items_wrapper" if tool_name == "suggest_quote_items"
-        else "src.adk.tools.submit_quote_request_wrapper"
-    )
-    with patch(target, new=wrapper), \
+    with patch("src.tools.quote_tools.suggest_quote_items_wrapper", new=wrapper), \
          patch.object(tools, "is_anonymous_user", new=AsyncMock(return_value=True)):
-        out = await getattr(tools, tool_name)(session_id="sess-1", tool_context=tool_context)
+        out = await tools.suggest_quote_items(session_id="sess-1", tool_context=tool_context)
     assert out.startswith("LOGIN_REQUIRED")
     wrapper.assert_not_awaited()
 

@@ -236,7 +236,7 @@ class TestFloorAreaAskedEval:
     SET = EVALS_DIR / "multi_room" / "floor_area_asked.test.json"
 
     ASKED = "Ottimo. Più o meno quanti metri quadri è la camera?"
-    ESTIMATED = "Nessun problema: userò una stima da correggere nella scheda. Preparo la richiesta di preventivo?"
+    ESTIMATED = "Nessun problema: userò una stima, da correggere nella scheda qui sotto."
 
     @staticmethod
     def _run(replies: list[str], tools: list[list[str]]):
@@ -249,7 +249,6 @@ class TestFloorAreaAskedEval:
         return SimpleNamespace(
             responses=responses,
             tool_calls=SimpleNamespace(turns=lambda: [[(f"inv{i}", t) for t in turn] for i, turn in enumerate(tools)]),
-            submissions=SimpleNamespace(problems=lambda expected: []),
         )
 
     def test_loads_without_a_size_or_a_request_to_prepare(self) -> None:
@@ -281,12 +280,21 @@ class TestFloorAreaAskedEval:
             "turn 2 does not say the area will be estimated",
         ]
 
+    def test_check_reports_the_registration_question(self) -> None:
+        """U2: no "Preparo la richiesta?": the model registers when the data are there."""
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        asked = "Userò una stima. Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"
+        problems = BACKEND_CHECKS["floor_area_asked.test.json"](self._run([self.ASKED, asked], [[], []]))
+        assert problems == [f"turn 2 asks to confirm or to send: {asked[:160]!r}"]
+
 
 class TestCardConfirmedEval:
-    """PR 2 of the card fixes: the hidden signal after the last confirmation goes to the send question."""
+    """The hidden signal after the last confirmation: the agent points to the card's button (U1)."""
 
     SET = EVALS_DIR / "multi_room" / "card_confirmed.test.json"
 
+    POINTS = "La scheda è completa: controlla il riepilogo del Bagno e premi «Invia al team»."
     ASKS = "Bagno: rifacimento completo. Invio al nostro team la richiesta di preventivo per Bagno. Confermi?"
 
     @staticmethod
@@ -300,7 +308,6 @@ class TestCardConfirmedEval:
         return SimpleNamespace(
             responses=responses,
             tool_calls=SimpleNamespace(turns=lambda: [[(f"inv{i}", t) for t in turn] for i, turn in enumerate(tools)]),
-            submissions=SimpleNamespace(problems=lambda expected: [] if expected == 0 else ["sent"]),
         )
 
     def test_the_set_seeds_the_signal_and_a_closed_card(self) -> None:
@@ -311,18 +318,24 @@ class TestCardConfirmedEval:
         words = case["conversation"][0]["user_content"]["parts"][0]["text"]
         assert CARD_CONFIRMED_TEXT in words  # the words the backend gives the agent
 
-    def test_check_passes_on_the_send_question_without_a_tool(self) -> None:
+    def test_check_passes_on_the_button_without_a_tool(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS
 
-        assert BACKEND_CHECKS["card_confirmed.test.json"](self._run([self.ASKS], [[]])) == []
+        assert BACKEND_CHECKS["card_confirmed.test.json"](self._run([self.POINTS], [[]])) == []
 
-    def test_check_reports_a_tool_and_a_missing_question(self) -> None:
+    def test_check_reports_a_tool_and_a_reply_without_the_button(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS
 
         run = self._run(["Ho registrato tutto, grazie."], [["suggest_quote_items"]])
         problems = BACKEND_CHECKS["card_confirmed.test.json"](run)
         assert len(problems) == 2
-        assert "suggest_quote_items" in problems[0] and "send question" in problems[1]
+        assert "suggest_quote_items" in problems[0] and "button" in problems[1]
+
+    def test_check_reports_the_send_question(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        problems = BACKEND_CHECKS["card_confirmed.test.json"](self._run([self.ASKS], [[]]))
+        assert any("asks to confirm or to send" in p for p in problems)
 
 
 class TestSingleFlowEvals:
@@ -531,30 +544,25 @@ class TestMultiRoomQuoteEval:
         expected = [t.name for inv in case.conversation for t in (inv.intermediate_data.tool_uses or [])]
         assert expected == ["suggest_quote_items"]
 
-    def test_the_submit_set_sends_only_after_the_explicit_yes(self) -> None:
-        """Phase 138, PR-4: "registra" saves the quote, the next turn's "sì, invia" sends it."""
+    def test_the_submit_set_points_to_the_button_when_asked_to_send(self) -> None:
+        """U1: "registra" saves the quote; "sì, invia" in words gets the card's button, no tool."""
         submit_set = EVALS_DIR / "multi_room" / "multi_room_submit.test.json"
         case = EvalSet.model_validate_json(submit_set.read_text(encoding="utf-8")).eval_cases[0]
         per_turn = [[t.name for t in (inv.intermediate_data.tool_uses or [])] for inv in case.conversation]
-        assert per_turn == [[], [], ["suggest_quote_items"], ["submit_quote_request"]]
+        assert per_turn == [[], [], ["suggest_quote_items"], []]
         assert "invia" in case.conversation[-1].user_content.parts[0].text
 
-    async def test_the_submit_check_counts_submissions_after_a_saved_quote(self) -> None:
-        from unittest.mock import MagicMock
-
-        from src.adk import tools
+    def test_the_submit_check_wants_the_button_and_no_claimed_send(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS, multi_room_backend
-        from tests.unit.send_consent_fakes import give_send_consent
 
-        context = give_send_consent(MagicMock())
-        context.session.id = "eval"
+        check = BACKEND_CHECKS["multi_room_submit.test.json"]
         with multi_room_backend() as run:
-            reply = await tools.submit_quote_request(session_id="eval", tool_context=context)
-        assert reply.startswith("✅")
-        assert run.submissions.problems(expected=1) == ["submission 1 before any saved quote"]
-        assert BACKEND_CHECKS["multi_room_quote.test.json"](run)[-1] == (
-            "submit_quote_request called 1 times, expected 0"
-        )
+            run.responses.texts = {"inv": ["Per inviarla basta premere «Invia al team» sulla scheda qui sotto."]}
+        assert check(run) == ["no quote was saved"]
+        with multi_room_backend() as run:
+            run.responses.texts = {"inv": ["Richiesta inviata! Il nostro team la sta esaminando."]}
+        assert check(run) == ["no quote was saved", "the last reply does not point to the «Invia al team» button: "
+                              "'Richiesta inviata! Il nostro team la sta esaminando.'"]
 
     async def test_the_revision_and_relay_checks_follow_the_house_quote(self) -> None:
         """Phase 139 PR-3: a sent quote is revised, a quote with the team is relayed (fakes only)."""
@@ -564,7 +572,7 @@ class TestMultiRoomQuoteEval:
             saved = await run.quotes.save(None, "eval", _eval_quote(), _eval_request())
             assert await run.quotes.relay(None, "eval") is None
         assert (saved.outcome.value, saved.quote_number, saved.version) == ("revised", "PRV-EVAL-0001", 4)
-        assert BACKEND_CHECKS["quote_revision.test.json"](run) == ["submit_quote_request called 0 times, expected 1"]
+        assert BACKEND_CHECKS["quote_revision.test.json"](run) == ["no reply recorded"]
 
         with multi_room_backend("quote_with_team.test.json") as run:
             relayed = await run.quotes.relay(None, "eval", proposal=MagicMock())
@@ -685,22 +693,27 @@ class TestLoginAndGeneraleEvals:
         case = EvalSet.model_validate_json((self.MULTI_ROOM / name).read_text(encoding="utf-8")).eval_cases[0]
         return [[t.name for t in (inv.intermediate_data.tool_uses or [])] for inv in case.conversation]
 
-    @pytest.mark.parametrize("name", ["guest_quote.test.json", "guest_render.test.json"])
-    def test_guest_sets_expect_the_login_only_in_the_confirmation_turn(self, name: str) -> None:
+    @pytest.mark.parametrize(("name", "last"), [
+        # The data are there: the refused registration, then the login (card-recap flow, U2).
+        ("guest_quote.test.json", ["suggest_quote_items", "request_login"]),
+        ("guest_render.test.json", ["request_login"]),
+    ])
+    def test_guest_sets_expect_the_login_only_in_the_last_turn(self, name: str, last: list[str]) -> None:
         per_turn = self._per_turn(name)
-        assert per_turn[-1] == ["request_login"] and not any(per_turn[:-1])
+        assert per_turn[-1] == last and not any(per_turn[:-1])
         state = EvalSet.model_validate_json((self.MULTI_ROOM / name).read_text(encoding="utf-8")) \
             .eval_cases[0].session_input.state  # pyright: ignore[reportOptionalMemberAccess]
         assert state["syd_session_context"]["is_guest"] is True
 
     def test_the_registered_set_is_the_guest_chat_without_a_login(self) -> None:
-        assert self._per_turn("logged_in_quote.test.json") == [[], [], ["suggest_quote_items"]]
+        assert self._per_turn("logged_in_quote.test.json") == [[], ["suggest_quote_items"]]
 
-    def _run(self, calls: dict[str, list[tuple[str, str]]]):
+    def _run(self, calls: dict[str, list[tuple[str, str]]], refused: dict[str, list[tuple[str, str]]] | None = None):
         from tests.evals.multi_room.fakes import TOOL_CALLS, multi_room_backend
 
         with multi_room_backend("guest_quote.test.json") as run:
             TOOL_CALLS.calls = calls
+            TOOL_CALLS.refused = refused or {}
         return run
 
     def test_the_guest_check_counts_logins_per_turn_and_premium_tools(self) -> None:
@@ -715,6 +728,28 @@ class TestLoginAndGeneraleEvals:
         assert BACKEND_CHECKS["guest_quote.test.json"](premium) == ["turn 2: guest called quote.suggest_quote_items"]
         right = self._run({"t1": [("syd_orchestrator", "transfer_to_agent")], "t2": [("quote", "request_login")]})
         assert BACKEND_CHECKS["guest_quote.test.json"](right) == []
+        # The step gate refused the registration (it never ran): not a premium call.
+        gated = self._run(
+            {"t1": [], "t2": [("quote", "suggest_quote_items"), ("quote", "request_login")]},
+            refused={"t2": [("quote", "suggest_quote_items")]},
+        )
+        assert BACKEND_CHECKS["guest_quote.test.json"](gated) == []
+
+    async def test_the_recorder_leaves_out_the_calls_the_step_gate_refused(self) -> None:
+        from types import SimpleNamespace
+
+        from src.services.quote_step import STEP_REFUSED_PREFIX
+        from tests.evals.multi_room.fakes import ToolCallRecorder
+
+        calls = ToolCallRecorder()
+        context = SimpleNamespace(invocation_id="inv1", agent_name="quote")
+        for name, result in (("suggest_quote_items", f"{STEP_REFUSED_PREFIX} (passo: raccolta): ospite"),
+                             ("request_login", "ok")):
+            tool = SimpleNamespace(name=name)
+            await calls.before_tool_callback(tool=tool, tool_args={}, tool_context=context)
+            await calls.after_tool_callback(tool=tool, tool_args={}, tool_context=context, result={"result": result})
+        assert calls.turns() == [[("quote", "request_login")]]
+        assert calls.report() == ["turn 1: quote.suggest_quote_items (rifiutato), quote.request_login"]
 
     async def test_guest_sets_get_a_guest_gate_and_their_own_quote_history(self) -> None:
         from unittest.mock import MagicMock

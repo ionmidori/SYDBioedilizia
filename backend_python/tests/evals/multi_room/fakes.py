@@ -3,9 +3,9 @@
 The live model drives the real room tools, the real `generate_render` tool and
 the real `suggest_quote_items` (with the live InsightEngine), but rooms, project
 files, the chat history, the image backend and the quote store are fakes: the
-run writes nothing to Firestore or Storage, spends no render quota, never sends
-a request to the team, and records which photo every render started from, every
-quote it would have saved and every submission it would have made. The
+run writes nothing to Firestore or Storage, spends no render quota, and records
+which photo every render started from and every quote it would have saved (the
+agent never sends: only the card's "Invia al team" button does). The
 project matches the eval cases: a kitchen and a bathroom, photos uploaded
 kitchen → bathroom → kitchen.
 
@@ -50,6 +50,7 @@ from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult, QuoteSt
 from src.services.quote_followup import FollowupResult
 from src.services.quote_proposal import ProposalDraft
 from src.services.quote_state import ai_draft_action
+from src.services.quote_step import SEND_BUTTON, STEP_REFUSED_PREFIX
 from src.services.room_aggregation import load_rules
 from src.tools.quota import QuotaDecision
 from src.utils.datetime_utils import utc_now
@@ -355,25 +356,6 @@ class QuoteRecorder:
         return found
 
 
-@dataclass
-class SubmitRecorder:
-    """Every `submit_quote_request` call (instead of sending it to the team),
-    with how many quotes were saved before it."""
-
-    quotes: QuoteRecorder
-    after_quotes: list[int] = field(default_factory=list)
-
-    async def submit(self, **_: Any) -> str:
-        self.after_quotes.append(len(self.quotes.quotes))
-        return "✅ Richiesta di preventivo inviata (riferimento PRV-EVAL-0001). Il nostro team è stato avvisato."
-
-    def problems(self, expected: int) -> list[str]:
-        """Why the run broke "send only after the client's explicit yes, once"."""
-        if len(self.after_quotes) != expected:
-            return [f"submit_quote_request called {len(self.after_quotes)} times, expected {expected}"]
-        return [f"submission {i + 1} before any saved quote" for i, n in enumerate(self.after_quotes) if n == 0]
-
-
 class ResponseRecorder(BasePlugin):
     """Visible text and token usage of every complete model response, per
     invocation (turn), in order."""
@@ -432,10 +414,13 @@ class ToolCallRecorder(BasePlugin):
         super().__init__(name="eval_tool_call_recorder")
         self.calls: dict[str, list[tuple[str, str]]] = {}  # invocation → [(agent, tool)]
         self.results: dict[str, list[tuple[str, str]]] = {}  # invocation → [(agent.tool, reply)]
+        # invocation → [(agent, tool)] the step gate answered instead of the tool (src/adk/quote_gate.py)
+        self.refused: dict[str, list[tuple[str, str]]] = {}
 
     def reset(self) -> None:
         self.calls = {}
         self.results = {}
+        self.refused = {}
 
     async def before_run_callback(self, *, invocation_context: InvocationContext) -> types.Content | None:
         self.calls.setdefault(invocation_context.invocation_id, [])
@@ -453,6 +438,8 @@ class ToolCallRecorder(BasePlugin):
         # A plugin error stops the eval: any result shape is only logged.
         reply = result.get("result", result) if isinstance(result, dict) else result
         self.calls.setdefault(tool_context.invocation_id, [])  # the turn numbering of `report`
+        if isinstance(reply, str) and reply.startswith(STEP_REFUSED_PREFIX):
+            self.refused.setdefault(tool_context.invocation_id, []).append((tool_context.agent_name, tool.name))
         self.results.setdefault(tool_context.invocation_id, []).append(
             (f"{tool_context.agent_name}.{tool.name}", repr(reply)[:_TOOL_REPLY_LOGGED])
         )
@@ -467,14 +454,30 @@ class ToolCallRecorder(BasePlugin):
         ]
 
     def turns(self) -> list[list[tuple[str, str]]]:
-        return list(self.calls.values())
+        """The calls that ran, per turn: one the step gate refused never reached its tool."""
+        ran: list[list[tuple[str, str]]] = []
+        for invocation, calls in self.calls.items():
+            left = list(calls)
+            for call in self.refused.get(invocation, []):
+                if call in left:
+                    left.remove(call)
+            ran.append(left)
+        return ran
 
     def report(self) -> list[str]:
-        """One line per turn: agent.tool of each call."""
-        return [
-            f"turn {i}: " + (", ".join(f"{agent}.{tool}" for agent, tool in calls) or "-")
-            for i, calls in enumerate(self.turns(), 1)
-        ]
+        """One line per turn: agent.tool of each call, refused ones marked."""
+        lines = []
+        for i, (invocation, calls) in enumerate(self.calls.items(), 1):
+            refused = list(self.refused.get(invocation, []))
+            names = []
+            for call in calls:
+                mark = ""
+                if call in refused:
+                    refused.remove(call)
+                    mark = " (rifiutato)"
+                names.append(f"{call[0]}.{call[1]}{mark}")
+            lines.append(f"turn {i}: " + (", ".join(names) or "-"))
+        return lines
 
 
 TOOL_CALLS = ToolCallRecorder()
@@ -561,7 +564,6 @@ def _long_chat_problems(run: "MultiRoomRun") -> list[str]:
 class MultiRoomRun:
     renders: RenderRecorder
     quotes: QuoteRecorder
-    submissions: SubmitRecorder
     specs: "FakeSpecStore | None" = None
     responses: ResponseRecorder = field(default_factory=lambda: RESPONSES)
     compactions: CompactionRecorder = field(default_factory=CompactionRecorder)
@@ -571,7 +573,7 @@ class MultiRoomRun:
 
 LOGIN_TOOL = "request_login"
 # Refused to a guest server side (src/adk/tools.py): a guest's turn must never call them.
-PREMIUM_TOOLS = frozenset({"generate_render", "suggest_quote_items", "submit_quote_request"})
+PREMIUM_TOOLS = frozenset({"generate_render", "suggest_quote_items"})
 
 
 def _login_problems(run: MultiRoomRun, *, login_turn: int | None) -> list[str]:
@@ -592,11 +594,41 @@ def _login_problems(run: MultiRoomRun, *, login_turn: int | None) -> list[str]:
     return found
 
 
+# A question that asks to register or to send (U1/U2: the card is the summary, its button sends).
+_ASKS_TO_SEND = re.compile(
+    r"\bconfermi\s*\?|vuoi che (?:la |lo |io )?invi\w*[^?]*\?|preparo la richiesta[^?]*\?|procedo con l'invio[^?]*\?",
+    re.IGNORECASE,
+)
+
+
+def _send_question_problems(run: MultiRoomRun) -> list[str]:
+    """No reply asks to confirm the registration or the send."""
+    return [
+        f"turn {n} asks to confirm or to send: {reply[:160]!r}"
+        for n, reply in enumerate(run.responses.turns(), 1)
+        if _ASKS_TO_SEND.search(reply)
+    ]
+
+
+def _button_problems(run: MultiRoomRun) -> list[str]:
+    """The last reply points to the «Invia al team» button of the card."""
+    replies = run.responses.turns()
+    if not replies:
+        return ["no reply recorded"]
+    if SEND_BUTTON.lower() in replies[-1].lower():
+        return []
+    return [f"the last reply does not point to the «{SEND_BUTTON}» button: {replies[-1][:160]!r}"]
+
+
+def _card_flow_problems(run: MultiRoomRun) -> list[str]:
+    return _send_question_problems(run) + _button_problems(run)
+
+
 def _logged_in_problems(run: MultiRoomRun) -> list[str]:
-    """A registered user is never asked to log in, and gets the quote."""
+    """A registered user is never asked to log in, and gets the quote and the card's button."""
     logins = [n + 1 for n, calls in enumerate(run.tool_calls.turns()) if any(t == LOGIN_TOOL for _, t in calls)]
     found = [f"login requested in turn {n}" for n in logins]
-    return found + ([] if run.quotes.quotes else ["no quote was saved"])
+    return found + ([] if run.quotes.quotes else ["no quote was saved"]) + _card_flow_problems(run)
 
 
 # Company questions (Phase 141): turn (1-based) → the tool the answer needs.
@@ -645,7 +677,7 @@ def _measures_on_card_problems(run: MultiRoomRun) -> list[str]:
     spec = run.specs.specs.get(CHAT_SPEC_KEY) if run.specs else None
     if spec is None:
         return [*found, "no spec saved for the card"]
-    return found + _card_reply_problems(run) + run.submissions.problems(expected=0)
+    return found + _card_reply_problems(run) + _send_question_problems(run)
 
 
 _AREA_WORDS = ("metri quadri", "m²", "mq", "superficie")
@@ -673,26 +705,35 @@ def _floor_area_asked_problems(run: MultiRoomRun) -> list[str]:
         found.append(f"turn 2 asks the floor area again: {replies[1][:200]!r}")
     if "stima" not in replies[1].lower() and "suggest_quote_items" not in second_tools:
         found.append(f"turn 2 does not say the area will be estimated: {replies[1][:200]!r}")
-    return found + run.submissions.problems(expected=0)
+    return found + _send_question_problems(run)
 
 
 def _card_confirmed_problems(run: MultiRoomRun) -> list[str]:
-    """PR 2 of the card fixes: after the hidden card_confirmed turn the agent goes on to the send
-    question by itself: no tool (nothing to register again), the question, nothing sent."""
+    """After the hidden card_confirmed turn the agent restarts by itself: no tool (nothing to
+    register again), the card's «Invia al team» button, no send question (U1)."""
     turns = run.tool_calls.turns()
     tools = sorted({tool for _, tool in turns[0]}) if turns else []
     found = [f"tools called after the card was confirmed: {tools}"] if tools else []
+    return found + _button_problems(run) + _send_question_problems(run)
+
+
+def _quote_sent_problems(run: MultiRoomRun) -> list[str]:
+    """After the hidden quote_sent turn (the button sent it) the agent confirms the send:
+    no tool, no send question, the reply says the request reached the team."""
+    turns = run.tool_calls.turns()
+    tools = sorted({tool for _, tool in turns[0]}) if turns else []
+    found = [f"tools called after the send: {tools}"] if tools else []
     replies = run.responses.turns()
     reply = replies[0] if replies else ""
-    if "confermi" not in reply.lower() or "team" not in reply.lower():
-        found.append(f"the reply is not the send question: {reply[:200]!r}")
-    return found + run.submissions.problems(expected=0)
+    if "inviat" not in reply.lower() or "team" not in reply.lower():
+        found.append(f"the reply does not confirm the send to the team: {reply[:200]!r}")
+    return found + _send_question_problems(run)
 
 
 def _room_correction_problems(run: MultiRoomRun) -> list[str]:
     """PR 1 · D/E: the untagged correction reaches the bathroom analysis as a
     proposal next to the confirmed 5 mq, and the reply reports both values."""
-    found = run.quotes.problems() + run.submissions.problems(expected=0)
+    found = run.quotes.problems() + _send_question_problems(run)
     spec = run.specs.specs.get(BATH_ROOM_ID) if run.specs else None
     floor = next((m for m in spec.measures if m.name == "mq"), None) if spec else None
     if floor is None or floor.value != 5 or floor.proposed != 8:
@@ -708,7 +749,7 @@ def _quote_with_team_problems(run: MultiRoomRun) -> list[str]:
     """PR 3: the change reaches the team once, nothing is written or sent again.
     A request relayed without an AI proposal is right only while the analysis
     still needs the client's answers: the reply asks them."""
-    found = run.quotes.relay_problems() + run.submissions.problems(expected=0)
+    found = run.quotes.relay_problems() + _send_question_problems(run)
     replies = run.responses.turns()
     last = replies[-1] if replies else ""
     if None in run.quotes.proposals and "?" not in last:
@@ -739,28 +780,29 @@ def _bathroom_checklist_problems(run: MultiRoomRun) -> list[str]:
     replies = run.responses.turns()
     if not replies or "?" not in replies[0]:
         found.append("the reply asks nothing")
-    return found + run.submissions.problems(expected=0)
+    return found
 
 
 def _open_space_problems(run: MultiRoomRun) -> list[str]:
     """The active room is the kitchen (an open space), the project also has a bathroom:
     no agent receives the bathroom checklist (only the active room's playbook rides on the instruction)."""
     agents = run.instructions.agents_with(CHECKLIST_TITLE)
-    found = [f"the bathroom checklist reached {sorted(agents)} in an open space chat"] if agents else []
-    return found + run.submissions.problems(expected=0)
+    return [f"the bathroom checklist reached {sorted(agents)} in an open space chat"] if agents else []
 
 
 # What each multi-room eval set checks in the backend after its run (run_evals.py).
 BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "multi_room_flow.test.json": lambda run: run.renders.problems(),
-    # "Registra la richiesta" saves the quote and sends nothing: sending needs an explicit yes.
-    "multi_room_quote.test.json": lambda run: run.quotes.problems() + run.submissions.problems(expected=0),
-    "multi_room_submit.test.json": lambda run: run.quotes.problems() + run.submissions.problems(expected=1),
+    # "Registra la richiesta" saves the quote and points to the card's button (U1: only the button sends).
+    "multi_room_quote.test.json": lambda run: run.quotes.problems() + _card_flow_problems(run),
+    # "Sì, invia" in words: no send from the chat, the agent points to the button again.
+    "multi_room_submit.test.json": lambda run: run.quotes.problems() + _card_flow_problems(run),
     # Facts given before the compaction come back for the right room.
     "multi_room_long_chat.test.json": _long_chat_problems,
     # A corridor never created as a room: quoted once, in Generale.
-    "multi_room_general.test.json": lambda run: run.quotes.general_problems() + run.submissions.problems(expected=0),
-    # A guest is asked to log in once, in the turn it confirms, and never reaches a premium tool.
+    "multi_room_general.test.json": lambda run: run.quotes.general_problems() + _send_question_problems(run),
+    # A guest is asked to log in once, in the turn the request is ready, and never reaches a premium tool
+    # (a registration the step gate refused never ran).
     "guest_quote.test.json": lambda run: _login_problems(run, login_turn=-1),
     "guest_render.test.json": lambda run: _login_problems(run, login_turn=-1),
     # A price question is not a confirmation: the listino range, no login.
@@ -768,16 +810,18 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "logged_in_quote.test.json": _logged_in_problems,
     # Company questions: from the company info, served area decided by the tool, work not in the list stopped.
     "company_info.test.json": _company_problems,
-    # A sent quote + a new request: the next revision (same PRV), sent after the explicit yes.
-    "quote_revision.test.json": lambda run: run.quotes.revision_problems() + run.submissions.problems(expected=1),
+    # A sent quote + a new request: the next revision (same PRV), sent only with the card's button.
+    "quote_revision.test.json": lambda run: run.quotes.revision_problems() + _card_flow_problems(run),
     # The team has the quote: the change reaches the team, nothing written or sent again.
     "quote_with_team.test.json": _quote_with_team_problems,
     # PR 1 · C: a bathroom without measures goes straight to the tool and the card.
     "measures_on_card.test.json": _measures_on_card_problems,
     # A bedroom without its size: the floor area is asked once before the tool (18 Nov test chat).
     "floor_area_asked.test.json": _floor_area_asked_problems,
-    # PR 2 of the card fixes: the hidden card_confirmed turn goes to the send question.
+    # The hidden card_confirmed turn points to the card's button (PR A of the card-recap flow).
     "card_confirmed.test.json": _card_confirmed_problems,
+    # The hidden quote_sent turn (the button sent it): the agent confirms, no tool.
+    "quote_sent.test.json": _quote_sent_problems,
     # PR 1 · D/E: a correction typed with no room chip; the reply reports the values as the tool gives them.
     "room_correction.test.json": _room_correction_problems,
     # PR C: the bathroom checklist comes from the room playbook, for a registered user and for a guest (no rooms).
@@ -837,7 +881,7 @@ def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
         key: RoomInterventionSpec.model_validate({"generated_at": utc_now(), **spec})
         for key, spec in INITIAL_SPECS.get(set_name, {}).items()
     })
-    run = MultiRoomRun(renders=RenderRecorder(), quotes=quotes, submissions=SubmitRecorder(quotes), specs=specs)
+    run = MultiRoomRun(renders=RenderRecorder(), quotes=quotes, specs=specs)
     RESPONSES.reset()
     TOOL_CALLS.reset()
     INSTRUCTIONS.reset()
@@ -871,8 +915,7 @@ def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
         stack.enter_context(patch("src.services.pricing_service.PricingService.ensure_fresh", new=AsyncMock()))
         # The seed company info: no Firestore read, no background refresh on a mocked client.
         stack.enter_context(patch.object(CompanyInfoService, "refresh_now", new=AsyncMock()))
-        # Never send a request to the team or write the phone number from an eval.
-        stack.enter_context(patch("src.adk.tools.submit_quote_request_wrapper", new=run.submissions.submit))
+        # Never write the phone number from an eval.
         stack.enter_context(patch("src.db.firebase_client.get_async_firestore_client", new=MagicMock()))
         stack.enter_context(patch.object(
             LlmEventSummarizer, "maybe_summarize_events",

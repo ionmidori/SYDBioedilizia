@@ -17,8 +17,15 @@ from src.adk.session_context import (
     HOUSE_QUOTE_STATE_KEY,
     SESSION_CONTEXT_STATE_KEY,
 )
-from src.adk.turn_reading import client_words, last_reply, last_turn_calls, last_turn_responses, turn_calls
-from src.services.card_event import CARD_CONFIRMED_EVENT
+from src.adk.turn_reading import (
+    client_words,
+    last_reply,
+    last_turn_calls,
+    last_turn_responses,
+    refused_calls,
+    turn_calls,
+)
+from src.services.card_event import CARD_CONFIRMED_EVENT, QUOTE_SENT_EVENT
 from src.services.quote_step import REGISTER_TOOL, QuoteFacts
 
 
@@ -36,9 +43,9 @@ def quote_facts(
     session = state.get(SESSION_CONTEXT_STATE_KEY) or {}
     quote = state.get(HOUSE_QUOTE_STATE_KEY) or {}
     card = state.get(CARD_PENDING_STATE_KEY)
+    event = state.get(CARD_EVENT_STATE_KEY)
     return QuoteFacts(
         is_guest=bool(session.get("is_guest", True)),
-        phone_on_file=bool(session.get("phone_on_file")),
         quote_status=quote.get("status"),
         delivery_status=quote.get("delivery_status"),
         card_pending=card if isinstance(card, bool) else None,
@@ -47,6 +54,8 @@ def quote_facts(
         turn_calls=tuple(turn_calls(events, invocation_id, answered_only=answered_only)),
         client_words=client_words(events, invocation_id, user_content),
         last_register_reply="\n".join(last_turn_responses(events, invocation_id, REGISTER_TOOL)),
-        card_confirmed=state.get(CARD_EVENT_STATE_KEY) == CARD_CONFIRMED_EVENT,
+        card_confirmed=event == CARD_CONFIRMED_EVENT,
+        quote_sent=event == QUOTE_SENT_EVENT,
         quote_empty=bool(quote.get("empty")),
+        register_refused=REGISTER_TOOL in refused_calls(events, invocation_id),
     )

@@ -1,12 +1,13 @@
 """
-The step of the quote as a control (strada B, PR 2): the `quote` agent reads the
-step in its session block, and a tool called out of step is not run.
+The step of the quote as a control (strada B, PR 2; flow of 27 Nov, PR A): the
+`quote` agent reads the step in its session block, and a tool called out of
+step is not run.
 
-Blocked only where the step reader is reliable and the error costs: registering
-before the client confirmed, the login before the confirmation, the phone not
-yet asked, a second registration in one turn. A wrong step costs one more
-question. The refused call does not count as called (the next model call and
-the next turn read the same step).
+Blocked only where the step reader is reliable and the error costs: a guest's
+registration (the login first), the login before the collection is complete,
+a second registration in one turn. The send is not the agent's: only the
+"Invia al team" button of the card sends (U1). The refused call does not count
+as called (the next model call and the next turn read the same step).
 """
 from collections.abc import AsyncGenerator
 from dataclasses import replace
@@ -31,26 +32,20 @@ from src.services.quote_step import (
     LOGIN_MESSAGE,
     LOGIN_TOOL,
     PHONE_QUESTION,
-    REGISTER_QUESTION,
     REGISTER_TOOL,
-    SEND_QUESTION,
     STEP_LINE_MARKER,
     STEP_REFUSED_PREFIX,
     QuoteFacts,
     QuoteStep,
-    asked_to_register,
     quote_step,
     step_guide,
     step_line,
     step_refusal,
 )
-from src.services.reply_reading import asked_to_send
-from src.tools.send_consent import consent_refusal
-from tests.unit.send_consent_fakes import TURN, text_event, user_message
+from tests.unit.adk_event_fakes import TURN, text_event, user_message
 
 BASE = QuoteFacts(
     is_guest=False,
-    phone_on_file=True,
     quote_status=None,
     delivery_status=None,
     card_pending=None,
@@ -63,13 +58,10 @@ BASE = QuoteFacts(
 
 # ── The sentences the readers recognise ───────────────────────────────────────
 
-def test_the_guide_questions_are_the_ones_the_readers_recognise():
-    """The next turn's step reads the model's question back: the guide and the
-    refusals must ask it with the words the readers know."""
-    assert asked_to_register(REGISTER_QUESTION)
+def test_the_login_message_is_the_one_the_reader_recognises():
+    """The next turn's step reads the login message back (a rebuilt session has no tool calls)."""
     assert quote_step(replace(BASE, is_guest=True, last_reply=LOGIN_MESSAGE)) is QuoteStep.ACCESSO
-    assert quote_step(replace(BASE, phone_on_file=False, last_reply=PHONE_QUESTION)) is QuoteStep.REGISTRA
-    assert asked_to_send("Bagno: rifacimento. " + SEND_QUESTION.replace("[stanze]", "Bagno"))
+    assert quote_step(replace(BASE, last_reply=LOGIN_MESSAGE)) is QuoteStep.REGISTRA
 
 
 @pytest.mark.parametrize("step", list(QuoteStep))
@@ -79,75 +71,84 @@ def test_every_step_has_a_guide(step):
     assert step_line(step, None).startswith(f"{STEP_LINE_MARKER}: {step.value} — ")
 
 
-def test_collecting_on_a_draft_updates_it_without_the_registration_question():
-    assert REGISTER_QUESTION in step_guide(QuoteStep.RACCOLTA, None)
-    assert REGISTER_QUESTION not in step_guide(QuoteStep.RACCOLTA, "update")
+@pytest.mark.parametrize("step", list(QuoteStep))
+def test_no_guide_sends_or_asks_to_confirm(step):
+    """U1: the click on the card is the consent; the chat never asks "Confermi?"."""
+    for action in (None, "update", "relay"):
+        for sent in (False, True):
+            guide = step_guide(step, action, quote_sent=sent)
+            assert "submit_quote_request" not in guide and "Confermi?" not in guide
+
+
+def test_collecting_registers_when_the_data_are_there():
+    """U2: no "Preparo la richiesta?": the model calls the tool, the phone is asked once."""
+    guide = step_guide(QuoteStep.RACCOLTA, None)
+    assert REGISTER_TOOL in guide and PHONE_QUESTION in guide and "una sola volta" in guide
+    assert "Preparo la richiesta" not in guide
+
+
+def test_collecting_on_a_draft_updates_it():
     assert REGISTER_TOOL in step_guide(QuoteStep.RACCOLTA, "update")
+
+
+def test_the_summary_points_to_the_button():
+    guide = step_guide(QuoteStep.RIEPILOGO, "update")
+    assert "Invia al team" in guide and "scheda" in guide
+
+
+def test_the_card_points_to_the_button_too():
+    guide = step_guide(QuoteStep.SCHEDA, "update")
+    assert "Invia al team" in guide and "In un turno successivo" in guide
+
+
+def test_the_sent_signal_is_confirmed_without_tools():
+    guide = step_guide(QuoteStep.AL_TEAM, "relay", quote_sent=True)
+    assert "inviato" in guide and "senza strumenti" in guide
+    assert guide != step_guide(QuoteStep.AL_TEAM, "relay")
 
 
 # ── Which tool each step admits ───────────────────────────────────────────────
 
-@pytest.mark.parametrize("step", [QuoteStep.RACCOLTA, QuoteStep.DOMANDA_REGISTRAZIONE])
-def test_no_registration_before_the_client_confirms_it(step):
-    refusal = step_refusal(step, None, REGISTER_TOOL, registered_this_turn=False)
+def test_a_signed_in_client_registers_while_collecting():
+    """The model decides when the data are enough (U2)."""
+    assert step_refusal(QuoteStep.RACCOLTA, REGISTER_TOOL, registered_this_turn=False, is_guest=False) is None
+
+
+@pytest.mark.parametrize("step", [QuoteStep.RACCOLTA, QuoteStep.ACCESSO])
+def test_a_guest_logs_in_before_the_registration(step):
+    """The tool would refuse a guest too, but its answer would count as a registration."""
+    refusal = step_refusal(step, REGISTER_TOOL, registered_this_turn=False, is_guest=True)
     assert refusal is not None and refusal.startswith(STEP_REFUSED_PREFIX)
-    assert REGISTER_QUESTION in refusal and step.value in refusal
+    assert LOGIN_MESSAGE in refusal and "request_login_adk" in refusal
 
 
-@pytest.mark.parametrize("step", [QuoteStep.RACCOLTA, QuoteStep.DOMANDA_REGISTRAZIONE])
-def test_no_login_before_the_client_confirms(step):
-    refusal = step_refusal(step, None, LOGIN_TOOL, registered_this_turn=False)
-    assert refusal is not None and REGISTER_QUESTION in refusal
+def test_no_login_while_collecting():
+    """A photo, a price question or the path chosen are no reason to ask the login."""
+    refusal = step_refusal(QuoteStep.RACCOLTA, LOGIN_TOOL, registered_this_turn=False, is_guest=True)
+    assert refusal is not None and REGISTER_TOOL in refusal
 
 
-def test_a_draft_is_updated_while_collecting():
-    """On a draft the client may give measures in words: the reader cannot tell them apart."""
-    assert step_refusal(QuoteStep.RACCOLTA, "update", REGISTER_TOOL, registered_this_turn=False) is None
-    assert step_refusal(QuoteStep.RACCOLTA, "update", LOGIN_TOOL, registered_this_turn=False) is not None
-
-
-def test_the_phone_is_asked_before_the_registration():
-    refusal = step_refusal(QuoteStep.TELEFONO, None, REGISTER_TOOL, registered_this_turn=False)
-    assert refusal is not None and PHONE_QUESTION in refusal
+def test_the_login_runs_at_the_login_step():
+    assert step_refusal(QuoteStep.ACCESSO, LOGIN_TOOL, registered_this_turn=False, is_guest=True) is None
 
 
 @pytest.mark.parametrize(
-    "step",
-    [QuoteStep.REGISTRA, QuoteStep.SCHEDA, QuoteStep.DOMANDA_INVIO, QuoteStep.INVIO, QuoteStep.AL_TEAM,
-     QuoteStep.INOLTRO],
+    "step", [QuoteStep.REGISTRA, QuoteStep.SCHEDA, QuoteStep.RIEPILOGO, QuoteStep.AL_TEAM, QuoteStep.INOLTRO],
 )
 @pytest.mark.parametrize("tool", [REGISTER_TOOL, LOGIN_TOOL])
 def test_the_other_steps_let_the_tools_run(step, tool):
-    assert step_refusal(step, "update", tool, registered_this_turn=False) is None
-
-
-def test_a_guest_logs_in_before_the_registration():
-    """The tool would refuse a guest too, but its answer would count as a registration:
-    the step would say "registered" to a guest who never saw the login card."""
-    refusal = step_refusal(QuoteStep.ACCESSO, None, REGISTER_TOOL, registered_this_turn=False)
-    assert refusal is not None and LOGIN_MESSAGE in refusal
-    assert step_refusal(QuoteStep.ACCESSO, None, LOGIN_TOOL, registered_this_turn=False) is None
-
-
-def test_an_unread_house_quote_does_not_hold_the_registration_back():
-    """The quote could not be read: it may be a draft the client is giving measures for."""
-    assert step_refusal(QuoteStep.RACCOLTA, None, REGISTER_TOOL, registered_this_turn=False, quote_known=False) is None
-    assert step_refusal(QuoteStep.RACCOLTA, None, LOGIN_TOOL, registered_this_turn=False, quote_known=False)
-
-
-def test_the_card_guide_calls_the_tool_again_only_in_a_later_turn():
-    assert "In un turno successivo" in step_guide(QuoteStep.SCHEDA, "update")
+    assert step_refusal(step, tool, registered_this_turn=False, is_guest=False) is None
 
 
 @pytest.mark.parametrize("step", list(QuoteStep))
 def test_one_registration_per_turn(step):
-    refusal = step_refusal(step, "update", REGISTER_TOOL, registered_this_turn=True)
+    refusal = step_refusal(step, REGISTER_TOOL, registered_this_turn=True, is_guest=False)
     assert refusal is not None and refusal.startswith(STEP_REFUSED_PREFIX)
 
 
-@pytest.mark.parametrize("tool", ["save_contact_phone", "submit_quote_request", "select_room"])
+@pytest.mark.parametrize("tool", ["save_contact_phone", "select_room", "get_room_context"])
 def test_the_other_tools_are_never_gated(tool):
-    assert step_refusal(QuoteStep.RACCOLTA, None, tool, registered_this_turn=True) is None
+    assert step_refusal(QuoteStep.RACCOLTA, tool, registered_this_turn=True, is_guest=True) is None
 
 
 # ── The callback on the ADK session ───────────────────────────────────────────
@@ -200,46 +201,53 @@ async def _gate_parallel(name: str, call_id: str, calls: list[tuple[str, str]], 
     )
 
 
-async def test_the_gate_refuses_a_registration_while_collecting():
-    response = await _gate(REGISTER_TOOL, [text_event("user", "rifare il bagno")], _signed_in_state(), "e il pavimento")
+def _guest_state() -> dict:
+    return session_context_delta(is_guest=True, phone_on_file=False, session_id="proj-1")
+
+
+async def test_the_gate_lets_a_signed_in_registration_run_while_collecting():
+    assert await _gate(REGISTER_TOOL, [text_event("user", "rifare il bagno")], _signed_in_state(), "6 mq") is None
+
+
+async def test_the_gate_refuses_a_guest_registration_with_the_login():
+    response = await _gate(REGISTER_TOOL, [text_event("user", "rifare il bagno")], _guest_state(), "6 mq, Roma")
     assert response is not None and response["result"].startswith(STEP_REFUSED_PREFIX)
+    assert LOGIN_MESSAGE in response["result"]
 
 
-async def test_the_gate_lets_the_confirmed_registration_run():
-    """The call being gated is already in the session: it does not move the step to "scheda"."""
-    events = [text_event("user", "rifare il bagno"), text_event("quote", REGISTER_QUESTION)]
-    assert await _gate(REGISTER_TOOL, events, _signed_in_state(), "sì") is None
+async def test_the_gate_lets_the_login_run_after_the_refused_registration():
+    """The guest's collection is complete: the refused registration opens the login step."""
+    events = [
+        _call_event(REGISTER_TOOL, "c-reg"),
+        _response_event(REGISTER_TOOL, "c-reg", f"{STEP_REFUSED_PREFIX} (passo: raccolta): …"),
+    ]
+    assert await _gate(LOGIN_TOOL, events, _guest_state(), "6 mq, Roma") is None
+
+
+async def test_the_gate_refuses_the_login_while_collecting():
+    response = await _gate(LOGIN_TOOL, [text_event("user", "rifare il bagno")], _guest_state(), "ecco una foto")
+    assert response is not None and response["result"].startswith(STEP_REFUSED_PREFIX)
 
 
 async def test_the_gate_refuses_a_second_registration_in_the_turn():
     events = [
-        text_event("quote", REGISTER_QUESTION),
         _call_event(REGISTER_TOOL, "c-first"),
         _response_event(REGISTER_TOOL, "c-first", "Richiesta registrata."),
     ]
-    response = await _gate(REGISTER_TOOL, events, _signed_in_state(), "sì")
+    response = await _gate(REGISTER_TOOL, events, _signed_in_state(), "bagno 6 mq")
     assert response is not None and "già" in response["result"]
 
 
-async def test_a_parallel_phone_save_does_not_unlock_the_registration():
-    calls = [("save_contact_phone", "c-phone"), (REGISTER_TOOL, "c-reg")]
-    words = "bagno 6 m², il mio numero è 3331234567"
-    response = await _gate_parallel(REGISTER_TOOL, "c-reg", calls, _signed_in_state(phone=False), words)
-    assert response is not None and response["result"].startswith(STEP_REFUSED_PREFIX)
-
-
 async def test_a_parallel_login_and_registration_are_both_held_back_while_collecting():
-    guest: dict[str, Any] = session_context_delta(is_guest=True, phone_on_file=False, session_id="proj-1")
     calls = [(LOGIN_TOOL, "c-login"), (REGISTER_TOOL, "c-reg")]
     for name, call_id in calls:
-        assert await _gate_parallel(name, call_id, calls, guest, "vorrei rifare il bagno") is not None
+        assert await _gate_parallel(name, call_id, calls, _guest_state(), "vorrei rifare il bagno") is not None
 
 
 async def test_of_two_parallel_registrations_the_first_one_goes():
     calls = [(REGISTER_TOOL, "c-one"), (REGISTER_TOOL, "c-two")]
-    before = [text_event("quote", REGISTER_QUESTION)]
-    assert await _gate_parallel(REGISTER_TOOL, "c-one", calls, _signed_in_state(), "sì", before) is None
-    second = await _gate_parallel(REGISTER_TOOL, "c-two", calls, _signed_in_state(), "sì", before)
+    assert await _gate_parallel(REGISTER_TOOL, "c-one", calls, _signed_in_state(), "bagno 6 mq") is None
+    second = await _gate_parallel(REGISTER_TOOL, "c-two", calls, _signed_in_state(), "bagno 6 mq")
     assert second is not None and "già" in second["result"]
 
 
@@ -260,7 +268,7 @@ async def test_the_gate_is_off_outside_a_chat_turn():
 
 async def test_the_gate_logs_the_refusal_without_ids(caplog):
     caplog.set_level("WARNING")
-    await _gate(REGISTER_TOOL, [], _signed_in_state(), "rifare il bagno")
+    await _gate(REGISTER_TOOL, [], _guest_state(), "rifare il bagno")
     [record] = [r for r in caplog.records if getattr(r, "event", None) == "quote_step_gate"]
     assert record.quote_step == "raccolta" and record.tool == REGISTER_TOOL
     assert "proj-1" not in str(record.__dict__)
@@ -294,13 +302,6 @@ def test_a_refused_call_is_not_counted_in_the_last_turn():
     assert last_turn_calls(events, TURN) == []
 
 
-def test_a_refused_registration_does_not_stop_the_send():
-    """consent_refusal reads "suggest_quote_items ran in this turn": a refused one did not."""
-    send_ask = "Invio al nostro team la richiesta di preventivo per Bagno. Confermi?"
-    events = [text_event("quote", send_ask), *_refused_registration()]
-    assert consent_refusal(events, TURN, user_message("sì")) is None
-
-
 # ── The step in the quote agent's instruction ─────────────────────────────────
 
 def _readonly(state: dict, events: list[Event], words: str) -> SimpleNamespace:
@@ -311,8 +312,8 @@ def _readonly(state: dict, events: list[Event], words: str) -> SimpleNamespace:
 
 
 def test_the_quote_agent_reads_its_step_in_the_session_block():
-    events = [text_event("quote", REGISTER_QUESTION)]
-    block = quote_agent_instruction(_readonly(_signed_in_state(), events, "sì"))
+    events = [text_event("quote", "Quanti metri quadri è il bagno?")]
+    block = quote_agent_instruction(_readonly(_signed_in_state(), events, "registra la richiesta"))
     line = step_line(QuoteStep.REGISTRA, None)
     assert line in block
     assert block.index("PREVENTIVO DELLA CASA") < block.index(line) < block.index("SCHEDA SYD")
@@ -352,21 +353,25 @@ def _say(text: str) -> types.Content:
     return types.Content(role="model", parts=[types.Part(text=text)])
 
 
-async def _run_turn(previous_reply: str, words: str) -> tuple[list[Event], _ScriptedLlm, list[str]]:
+async def _run_turn(state: dict, script: list[types.Content], words: str) -> tuple[list[Event], _ScriptedLlm, list[str]]:
     ran: list[str] = []
 
     async def suggest_quote_items() -> str:
         ran.append(REGISTER_TOOL)
         return "Richiesta registrata."
 
-    llm = _ScriptedLlm(script=[_call(REGISTER_TOOL), _say("Fatto.")], requests=[])
+    async def request_login() -> str:
+        ran.append(LOGIN_TOOL)
+        return "Login mostrato."
+
+    llm = _ScriptedLlm(script=script, requests=[])
     agent = LlmAgent(
-        name="quote", model=llm, tools=[FunctionTool(suggest_quote_items)],
+        name="quote", model=llm, tools=[FunctionTool(suggest_quote_items), FunctionTool(request_login)],
         instruction=quote_agent_instruction, before_tool_callback=quote_step_gate,
     )
     service = InMemorySessionService()
-    session = await service.create_session(app_name="gate", user_id="u1", state=_signed_in_state())
-    for event in (text_event("user", "rifare il bagno"), text_event("quote", previous_reply)):
+    session = await service.create_session(app_name="gate", user_id="u1", state=state)
+    for event in (text_event("user", "rifare il bagno"), text_event("quote", "Quanti metri quadri è?")):
         await service.append_event(session, event)
     runner = Runner(app_name="gate", agent=agent, session_service=service)
     async for _ in runner.run_async(user_id="u1", session_id=session.id, new_message=user_message(words)):
@@ -382,21 +387,21 @@ def _instruction_text(request: LlmRequest) -> str:
     ) + str(request.config.system_instruction or "")
 
 
-async def test_with_the_runner_a_registration_while_collecting_is_refused_and_not_counted():
-    events, llm, ran = await _run_turn("Raccontami del bagno: cosa vuoi cambiare?", "vorrei anche il pavimento")
-    assert ran == []
+async def test_with_the_runner_a_signed_in_client_is_registered_when_the_data_are_there():
+    events, llm, ran = await _run_turn(_signed_in_state(), [_call(REGISTER_TOOL), _say("Fatto.")], "6 mq, Roma")
+    assert ran == [REGISTER_TOOL]
+    assert step_line(QuoteStep.RACCOLTA, None) in _instruction_text(llm.requests[0])
+    assert step_line(QuoteStep.SCHEDA, None) in _instruction_text(llm.requests[1])
+    assert turn_calls(events, events[-1].invocation_id) == [REGISTER_TOOL]
+
+
+async def test_with_the_runner_a_guest_is_sent_to_the_login_and_not_registered():
+    script = [_call(REGISTER_TOOL), _call(LOGIN_TOOL), _say(LOGIN_MESSAGE)]
+    events, llm, ran = await _run_turn(_guest_state(), script, "6 mq, Roma")
+    assert ran == [LOGIN_TOOL]
     responses = [p.function_response for e in events for p in (e.content.parts if e.content else []) or []
                  if p.function_response]
     assert str((responses[0].response or {})["result"]).startswith(STEP_REFUSED_PREFIX)
-    turn = events[-1].invocation_id
-    assert turn_calls(events, turn) == []
-    # The model call after the refusal still reads "raccolta", not "scheda".
-    assert step_line(QuoteStep.RACCOLTA, None) in _instruction_text(llm.requests[1])
-
-
-async def test_with_the_runner_the_confirmed_registration_runs():
-    events, llm, ran = await _run_turn(REGISTER_QUESTION, "sì")
-    assert ran == [REGISTER_TOOL]
-    assert step_line(QuoteStep.REGISTRA, None) in _instruction_text(llm.requests[0])
-    assert step_line(QuoteStep.SCHEDA, None) in _instruction_text(llm.requests[1])
-    assert turn_calls(events, events[-1].invocation_id) == [REGISTER_TOOL]
+    # The model call after the refusal reads the login step; the refused call is not counted.
+    assert step_line(QuoteStep.ACCESSO, None) in _instruction_text(llm.requests[1])
+    assert turn_calls(events, events[-1].invocation_id) == [LOGIN_TOOL]

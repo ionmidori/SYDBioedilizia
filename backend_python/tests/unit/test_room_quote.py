@@ -26,6 +26,7 @@ from src.services.insight_engine import (
 from src.services.intervention_expansion import MEASURE_QUESTIONS
 from src.services.pricing_service import PricingService
 from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult
+from src.services.quote_step import SEND_BUTTON
 from src.tools import quote_tools
 from src.tools.quote_tools import (
     _CARD_DRAFT_NOTE,
@@ -974,7 +975,7 @@ async def test_draft_reply_invites_confirmation():
         reply = await _quote()
 
     assert _CARD_DRAFT_NOTE in reply and "scheda" in _CARD_DRAFT_NOTE
-    assert reply.index(_CARD_DRAFT_NOTE) < reply.index("Vuoi che invii ora la richiesta al team?")
+    assert reply.index(_CARD_DRAFT_NOTE) < reply.index(SEND_BUTTON)
 
 
 async def test_draft_reply_does_not_invite_for_what_the_client_said():
@@ -983,6 +984,15 @@ async def test_draft_reply_does_not_invite_for_what_the_client_said():
         reply = await _quote()
 
     assert _CARD_DRAFT_NOTE not in reply
+
+
+async def test_draft_reply_points_to_the_send_button_and_asks_nothing():
+    """U1: the click on the card is the consent: the chat never asks to send."""
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}):
+        reply = await _quote()
+
+    assert f"«{SEND_BUTTON}»" in reply and "scheda" in reply
+    assert "Vuoi che invii" not in reply and "Confermi" not in reply and not reply.rstrip().endswith("?")
 
 
 async def test_draft_reply_does_not_invite_when_everything_is_confirmed():
@@ -1009,6 +1019,7 @@ async def test_a_revision_does_not_invite_to_the_card():
         reply = await _quote()
 
     assert "nuova revisione" in reply and _CARD_DRAFT_NOTE not in reply
+    assert f"«{SEND_BUTTON}»" in reply and "Vuoi che invii" not in reply
 
 
 async def test_no_amount_in_reply():

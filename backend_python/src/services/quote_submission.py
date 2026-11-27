@@ -1,9 +1,9 @@
 """
 Direct submission of a project's quote to the team (Phase 138 PR-4).
 
-One quote per project (sections per room), one submission: the chat tool
-submit_quote_request and the dashboard "Invia al team" button both call
-submit_project_quote. It replaces the quote batch, which was the only way to
+One quote per project (sections per room), one submission: the "Invia al team"
+button (the chat's summary card and the dashboard) calls submit_project_quote
+through POST /api/quote/{id}/submit; the agent never sends (card-recap flow, U1). It replaces the quote batch, which was the only way to
 reach the team.
 
 In ONE Firestore transaction (transactional outbox, see email/outbox.py):

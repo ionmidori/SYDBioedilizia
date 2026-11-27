@@ -165,7 +165,7 @@ def test_the_quote_always_asks_the_comune_of_the_site():
     flow = _flat(MODE_B_SURVEYOR)
     assert "COMUNE DEL CANTIERE" in flow
     assert "In quale comune si trova l'immobile?" in flow
-    assert flow.index("COMUNE DEL CANTIERE") < flow.index("STEP CONFERMA DELLA REGISTRAZIONE")
+    assert flow.index("COMUNE DEL CANTIERE") < flow.index("STEP AUTH_GATE")
     assert "Hai raccolto Comune del cantiere + Scope" in flow  # registration waits for it
 
 

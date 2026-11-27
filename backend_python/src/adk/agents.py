@@ -40,7 +40,6 @@ from src.adk.tools import (
     search_prezzario_adk,
     select_room_adk,
     show_project_gallery_adk,
-    submit_quote_request_adk,
     suggest_quote_items_adk,
 )
 from src.core.models import ModelRole, build_generate_content_config
@@ -372,7 +371,7 @@ quote_agent = Agent(
     name="quote",
     description=(
         "Prepara il preventivo / computo metrico per il progetto dell'utente: raccolta dati, "
-        "voci di lavorazione, prezzi, invio della richiesta. Non per domande di prezzo puntuali."
+        "voci di lavorazione, prezzi, scheda di riepilogo della richiesta. Non per domande di prezzo puntuali."
     ),
     model=build_adk_model(ModelRole.QUOTE),
     generate_content_config=build_generate_content_config(ModelRole.QUOTE),
@@ -380,8 +379,7 @@ quote_agent = Agent(
         pricing_engine_tool_adk,
         market_prices_adk,
         suggest_quote_items_adk,
-        submit_quote_request_adk,
-        request_login_adk,
+            request_login_adk,
         retrieve_knowledge_adk,
         search_prezzario_adk,
         retrieve_price_by_code_adk,

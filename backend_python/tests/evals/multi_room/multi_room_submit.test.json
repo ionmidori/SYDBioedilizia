@@ -1,10 +1,10 @@
 {
   "eval_set_id": "syd_multi_room_submit_v1",
   "name": "SYD Multi-Room Quote Submission (Phase 138, PR-4)",
-  "description": "The quote of the multi-room chat, then the client's explicit yes. Turn 3 (\"registra la richiesta\") must only save the quote; after \"sì, invia\" the agent calls submit_quote_request for the current project. The runner checks one saved quote with a section per room and exactly one submission, made after the quote was saved (tests/evals/multi_room/fakes.py: nothing reaches the team).",
+  "description": "The quote of the multi-room chat, then the client asks to send it in words. Turn 3 (\"registra la richiesta\") saves the quote and points to the card's «Invia al team» button; after \"sì, invia\" the agent calls no tool and points to the button again: only the button sends (U1). The runner checks one saved quote with a section per room, no question asking to confirm or to send, the button in the last reply. Card-recap flow (PR A, 27 Nov): no \"Preparo la richiesta?\", no send question, only the card's «Invia al team» button sends.",
   "eval_cases": [
     {
-      "eval_id": "bathroom_and_kitchen_quote_then_explicit_yes",
+      "eval_id": "bathroom_and_kitchen_quote_then_send_in_words",
       "session_input": {
         "app_name": "syd_orchestrator",
         "user_id": "eval-user",
@@ -89,7 +89,7 @@
           "final_response": {
             "parts": [
               {
-                "text": "Ho registrato la richiesta di preventivo."
+                "text": "Ho registrato la richiesta di preventivo. Trovi il riepilogo nella scheda qui sotto: controllalo e, se è tutto giusto, premi «Invia al team»."
               }
             ],
             "role": "model"
@@ -117,19 +117,13 @@
           "final_response": {
             "parts": [
               {
-                "text": "Richiesta inviata! Il nostro team la sta esaminando."
+                "text": "Per inviarla al team basta premere «Invia al team» sulla scheda qui sotto: la richiesta parte solo da lì."
               }
             ],
             "role": "model"
           },
           "intermediate_data": {
-            "tool_uses": [
-              {
-                "name": "submit_quote_request",
-                "args": {},
-                "id": "call_submit_001"
-              }
-            ]
+            "tool_uses": []
           }
         }
       ]

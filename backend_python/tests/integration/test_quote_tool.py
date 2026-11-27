@@ -149,7 +149,7 @@ async def test_a_new_request_on_a_sent_quote_opens_a_revision(sent_before):
     relay.assert_not_awaited()
     assert "nuova revisione del preventivo (riferimento **PRV-2026-0009**)" in result
     assert ("che hai già ricevuto resta valido" in result) is sent_before
-    assert "Vuoi che invii ora la revisione al team?" in result
+    assert "«Invia al team»" in result and "Vuoi che invii" not in result
     assert "€" not in result
 
 

@@ -2,10 +2,9 @@
 What the conversation says, read from the ADK session events: the reply the
 client saw before this turn, the tools called and the client's own words.
 
-Shared by the explicit-yes check of the send (`src/tools/send_consent.py`) and
-the facts of the quote step (`src/adk/quote_facts.py`): both read the same
-facts the same way. What a text says (a plain yes, the send question) is in
-`src/services/reply_reading.py`.
+Read by the facts of the quote step (`src/adk/quote_facts.py`) and by the
+tools that need the client's words of this turn. What a text says (a change,
+a courtesy) is in `src/services/reply_reading.py`.
 """
 from __future__ import annotations
 
@@ -55,6 +54,15 @@ def turn_calls(events: Sequence[Event], invocation_id: str, *, answered_only: bo
     return [
         c.name or "" for c in calls
         if not answered_only or c.id is None or c.id in answered
+    ]
+
+
+def refused_calls(events: Sequence[Event], invocation_id: str) -> list[str]:
+    """The tools the step gate refused in this turn (they did not run)."""
+    return [
+        p.function_response.name or ""
+        for p in _parts(events, invocation_id)
+        if p.function_response and _refused(p.function_response)
     ]
 
 

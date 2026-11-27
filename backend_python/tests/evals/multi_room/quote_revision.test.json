@@ -1,7 +1,7 @@
 {
   "eval_set_id": "syd_quote_revision_v1",
   "name": "SYD Quote Revision — a new request on a sent quote (Phase 139, PR-3)",
-  "description": "The house quote was sent; the client asks for more work: suggest_quote_items opens the next revision of the same quote (no new PRV), submitted only after the explicit yes.",
+  "description": "The house quote was sent; the client asks for more work: suggest_quote_items opens the next revision of the same quote (no new PRV, back to draft), sent only with the card's «Invia al team» button: \"sì, invia\" in words gets the button, no tool. Card-recap flow (PR A, 27 Nov): no \"Preparo la richiesta?\", no send question, only the card's «Invia al team» button sends.",
   "eval_cases": [
     {
       "eval_id": "sent_quote_new_request",
@@ -36,7 +36,7 @@
           "final_response": {
             "parts": [
               {
-                "text": "Ho preparato una nuova revisione del preventivo PRV-EVAL-0001. Vuoi che la invii al team?"
+                "text": "Ho preparato una nuova revisione del preventivo PRV-EVAL-0001. Controlla il riepilogo nella scheda qui sotto e premi «Invia al team» per inviarla."
               }
             ],
             "role": "model"
@@ -64,19 +64,13 @@
           "final_response": {
             "parts": [
               {
-                "text": "Richiesta inviata!"
+                "text": "Per inviare la revisione basta premere «Invia al team» sulla scheda qui sotto."
               }
             ],
             "role": "model"
           },
           "intermediate_data": {
-            "tool_uses": [
-              {
-                "name": "submit_quote_request",
-                "args": {},
-                "id": "call_inv_sent_quote_new_request_002_1"
-              }
-            ]
+            "tool_uses": []
           }
         }
       ]
