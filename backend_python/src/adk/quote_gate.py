@@ -7,9 +7,9 @@ same readers as `QuoteStepPlugin` (`src/adk/quote_facts.py`):
   model reads the step instead of working it out from the prompt. It is computed
   on every model call: after a tool the next call reads the step that follows.
 - `quote_step_gate` (before_tool_callback): a tool called out of step is not run;
-  the agent gets back what to do instead (`step_refusal`), like the explicit yes
-  of the send (`src/tools/send_consent.py`). The refused call does not count as
-  called (`src/adk/turn_reading.py`).
+  the agent gets back what to do instead (`step_refusal`). The refused call does
+  not count as called (`src/adk/turn_reading.py`), but a refused registration
+  opens the login step of a guest (`QuoteFacts.register_refused`).
 
 Both stay out of a turn without the session facts (evals without the
 orchestrator), and a fault in reading the step never stops the turn: no line,
@@ -23,7 +23,7 @@ from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools import BaseTool, ToolContext
 
 from src.adk.quote_facts import quote_facts
-from src.adk.session_context import HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY, session_context_instruction
+from src.adk.session_context import SESSION_CONTEXT_STATE_KEY, session_context_instruction
 from src.adk.turn_reading import calls_before
 from src.core.logger import get_logger
 from src.services.quote_state import ai_draft_action
@@ -54,7 +54,7 @@ def quote_agent_instruction(context: ReadonlyContext) -> str:
     if state.get(SESSION_CONTEXT_STATE_KEY):
         try:
             facts = quote_facts(context.session.events, context.invocation_id, context.user_content, state)
-            line = step_line(quote_step(facts), _action(facts))
+            line = step_line(quote_step(facts), _action(facts), quote_sent=facts.quote_sent, is_guest=facts.is_guest)
         except _READ_ERRORS as e:
             logger.warning(f"[QuoteGate] Step line not computed: {type(e).__name__}")
     return session_context_instruction(context, step_line=line, playbook_field="prompt_guidance")
@@ -76,10 +76,8 @@ async def quote_step_gate(tool: BaseTool, args: dict[str, Any], tool_context: To
         step = quote_step(facts)
         before = calls_before(session.events, tool_context.invocation_id, tool_context.function_call_id)
         refusal = step_refusal(
-            step, _action(facts), tool.name,
-            registered_this_turn=REGISTER_TOOL in before,
-            # A guest has no quote; a signed-in client's quote that could not be read may be a draft.
-            quote_known=facts.is_guest or session.state.get(HOUSE_QUOTE_STATE_KEY) is not None,
+            step, tool.name, registered_this_turn=REGISTER_TOOL in before, is_guest=facts.is_guest,
+            quote_sent=facts.quote_sent,
         )
     except _READ_ERRORS as e:
         logger.warning(f"[QuoteGate] Step not computed, tool let through: {type(e).__name__}")

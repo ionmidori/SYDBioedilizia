@@ -25,11 +25,41 @@ def test_what_follows_the_card_is_the_job_of_the_step_not_of_the_prompt():
     """The prompt no longer says "go to STEP 2 or wait": the step line does (quote_step)."""
     assert "STEP 2 senza richiamare il tool" not in _STEP_1
     assert "dà o corregge misure a parole" in step_guide(QuoteStep.SCHEDA, None)
-    assert quote_step.SEND_QUESTION in step_guide(QuoteStep.DOMANDA_INVIO, None)
+    assert quote_step.SEND_BUTTON in step_guide(QuoteStep.RIEPILOGO, None)
+
+
+_STEP_2 = MODE_B_SURVEYOR.split("**STEP 2 ")[1].split("**PREVENTIVO GIÀ ESISTENTE**")[0]
+
+
+def test_only_the_button_of_the_card_sends():
+    """U1: the click is the consent. No send tool, no send question, no "Preparo la richiesta?"."""
+    assert "submit_quote_request" not in MODE_B_SURVEYOR
+    assert f"«{quote_step.SEND_BUTTON}»" in _STEP_2 and "Il clic del cliente è il consenso" in _STEP_2
+    assert "Non dire mai che l'hai inviata tu" in _STEP_2
+    flat = " ".join(MODE_B_SURVEYOR.split())
+    assert "Invio al nostro team la richiesta di preventivo per [stanze]. Confermi?" not in flat
+    assert "Ho tutto quello che mi serve. Preparo la richiesta di preventivo?" not in flat
+
+
+def test_the_card_asks_only_what_is_missing():
+    """U3: what the client said and the code's calculations are accepted; the card asks the rest."""
+    assert "Da completare" in _STEP_2 and "già accettati" in _STEP_2
+
+
+def test_the_phone_is_asked_once_while_collecting_and_never_blocks():
+    flat = " ".join(_MIDDLE.split())
+    assert " ".join(quote_step.PHONE_QUESTION.split()) in flat
+    assert "UNA volta sola" in flat and "non bloccare mai la raccolta" in flat
+    assert "PHONE CHECK" not in MODE_B_SURVEYOR
+
+
+def test_after_the_send_signal_the_agent_confirms_without_tools():
+    check = MODE_B_SURVEYOR.split("<post_execution_check>")[1].split("</post_execution_check>")[0]
+    assert "Invia al team" in check and "nessuno strumento" in check
 
 
 def test_the_order_rules_the_code_enforces_are_gone_from_the_prompt():
-    """The gate and `consent_refusal` keep these (test_quote_gate, test_send_consent)."""
+    """The gate keeps these (test_quote_gate); the send is the card's button only."""
     for gone in (
         "NON confermano la registrazione",
         "NON autorizza l'invio",
@@ -43,14 +73,11 @@ def test_the_order_rules_the_code_enforces_are_gone_from_the_prompt():
 
 
 def test_the_phrases_the_readers_look_for_stay_in_the_prompt():
-    """`quote_step` recognises the agent's own questions by these words: a rewrite
-    of the prompt must not lose them (each one is also in the step guide)."""
+    """`quote_step` recognises the login message by these words: a rewrite of the
+    prompt must not lose it (it is also in the step guide)."""
     flat = " ".join(MODE_B_SURVEYOR.split())
-    for phrase in (quote_step.REGISTER_QUESTION, quote_step.LOGIN_MESSAGE, quote_step.PHONE_QUESTION):
+    for phrase in (quote_step.LOGIN_MESSAGE, quote_step.PHONE_QUESTION):
         assert " ".join(phrase.split()) in flat, phrase
-    # The send question carries a placeholder the prompt spells with brackets too.
-    assert "Invio al nostro team la richiesta di preventivo per [stanze]. Confermi?" in flat
-    assert quote_step.SEND_QUESTION == "Invio al nostro team la richiesta di preventivo per [stanze]. Confermi?"
 
 
 def test_the_card_invitation_is_passed_on_without_amounts():
@@ -103,7 +130,7 @@ def test_a_change_for_the_team_asks_the_floor_area_of_a_new_room_first():
     relay = next(line for line in MODE_B_SURVEYOR.splitlines() if line.startswith('- Stato "inviato al team"'))
     assert "nemmeno i m² del pavimento" not in relay
     assert "m² del pavimento" in relay and "se non li conosci già" in relay
-    assert "suggest_quote_items" in relay and "submit_quote_request" in relay
+    assert "suggest_quote_items" in relay and "submit_quote_request" not in relay
 
 
 def test_floor_area_that_does_not_fit_the_photo_is_checked_once():

@@ -78,8 +78,9 @@ def test_guest_rule_gates_renders_and_quotes_only_and_keeps_the_order():
     block = session_context_instruction(
         MagicMock(state=session_context_delta(is_guest=True, phone_on_file=False, session_id="p"))
     )
-    for name in ("generate_render", "suggest_quote_items", "submit_quote_request"):
+    for name in ("generate_render", "suggest_quote_items"):
         assert name in block
+    assert "submit_quote_request" not in block  # only the card's button sends (U1)
     for name in (
         "search_prezzario", "retrieve_price_by_code", "pricing_engine", "market_prices", "search_listino",
         "get_company_info", "check_service_area",

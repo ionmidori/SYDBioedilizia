@@ -1,4 +1,4 @@
-import { CARD_CONFIRMED_EVENT, HIDDEN_METADATA, isHiddenMessage, withoutHidden } from '../hidden-message';
+import { CARD_CONFIRMED_EVENT, CHAT_EVENTS, HIDDEN_METADATA, QUOTE_SENT_EVENT, isHiddenMessage, withoutHidden } from '../hidden-message';
 
 describe('hidden messages (the signals the client sends by itself)', () => {
   it('knows a message sent as a signal', () => {
@@ -26,7 +26,9 @@ describe('hidden messages (the signals the client sends by itself)', () => {
     expect(withoutHidden(messages)).toBe(messages);
   });
 
-  it('names the event the backend knows (ChatRequest.event)', () => {
+  it('names the events the backend knows (ChatRequest.event)', () => {
     expect(CARD_CONFIRMED_EVENT).toBe('card_confirmed');
+    expect(QUOTE_SENT_EVENT).toBe('quote_sent');
+    expect(CHAT_EVENTS).toEqual(['card_confirmed', 'quote_sent']);
   });
 });

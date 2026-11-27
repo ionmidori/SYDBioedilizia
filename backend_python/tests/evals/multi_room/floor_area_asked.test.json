@@ -1,7 +1,7 @@
 {
   "eval_set_id": "syd_floor_area_asked_v1",
   "name": "SYD Floor area asked once before the quote",
-  "description": "A bedroom described without its size and without asking to prepare the quote: the agent asks the floor area (m²) once, in words, and registers nothing yet. Test chat of 18 Nov: the card showed SYD's estimate as if it were the client's. Nothing is sent.",
+  "description": "A bedroom described without its size and without asking to prepare the quote: the agent asks the floor area (m²) once, in words, and registers nothing yet. \"Non lo so\": the estimate, and the registration with no question to confirm. Test chat of 18 Nov: the card showed SYD's estimate as if it were the client's. Nothing is sent. Card-recap flow (PR A, 27 Nov): no \"Preparo la richiesta?\", no send question, only the card's «Invia al team» button sends.",
   "eval_cases": [
     {
       "eval_id": "bedroom_without_floor_area",
@@ -53,13 +53,19 @@
           "final_response": {
             "parts": [
               {
-                "text": "Nessun problema: userò una stima, che potrai correggere nella scheda di conferma. Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"
+                "text": "Nessun problema: userò una stima, che potrai correggere nella scheda di conferma. Ho registrato la richiesta di preventivo. Trovi il riepilogo nella scheda qui sotto: controllalo e, se è tutto giusto, premi «Invia al team»."
               }
             ],
             "role": "model"
           },
           "intermediate_data": {
-            "tool_uses": []
+            "tool_uses": [
+              {
+                "name": "suggest_quote_items",
+                "args": {},
+                "id": "call_inv_area_002_1"
+              }
+            ]
           }
         }
       ]

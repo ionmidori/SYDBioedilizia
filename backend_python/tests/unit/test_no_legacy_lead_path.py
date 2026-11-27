@@ -1,7 +1,7 @@
 """The legacy lead path and the n8n tool are gone from the agent surface.
 
-Quote requests go through suggest_quote_items -> submit_quote_request (after
-the client's explicit yes), and the admin is notified by the transactional email
+Quote requests go through suggest_quote_items -> the card's "Invia al team" button
+(POST /api/quote/{id}/submit), and the admin is notified by the transactional email
 outbox (Phase 128). The old path — chat lead form -> "[LEAD_DATA_SUBMISSION]"
 message -> trigger_n8n_webhook tool / POST /api/submit-lead — was unreachable
 (no agent exposed display_lead_form) but still handed the model a tool that
@@ -29,9 +29,10 @@ def test_no_agent_exposes_n8n_or_lead_tools(agent) -> None:
     assert not {n for n in names if "n8n" in n or "lead" in n}, names
 
 
-def test_quote_agent_still_has_the_native_submission_tools() -> None:
+def test_quote_agent_registers_but_never_sends() -> None:
+    """Only the "Invia al team" button of the card sends: the click is the consent (U1)."""
     names = _tool_names(agents.quote_agent)
-    assert {"suggest_quote_items", "submit_quote_request"} <= names
+    assert "suggest_quote_items" in names and "submit_quote_request" not in names
 
 
 @pytest.mark.parametrize("agent", ALL_AGENTS, ids=lambda a: a.name)

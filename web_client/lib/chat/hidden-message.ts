@@ -1,13 +1,18 @@
 /**
- * Hidden messages: a signal the web client sends by itself (e.g. after the last confirmation on the
- * quote card), not something the client wrote. It goes to the AI SDK as a message carrying
+ * Hidden messages: a signal the web client sends by itself (after the last confirmation on the
+ * quote card, or after its "Invia al team" button sent the request), not something the client wrote. It goes to the AI SDK as a message carrying
  * `metadata.hidden`, and with `body.event` for the backend (`ChatRequest.event`): the backend never
  * saves it and the agent reads its own fixed words. The chat never draws it.
  */
 
-/** The only event the backend knows (`CardEvent` in backend_python/src/services/card_event.py). */
+/** The events the backend knows (`CardEvent` in backend_python/src/services/card_event.py). */
 export const CARD_CONFIRMED_EVENT = 'card_confirmed';
-export type ChatEvent = typeof CARD_CONFIRMED_EVENT;
+export const QUOTE_SENT_EVENT = 'quote_sent';
+export const CHAT_EVENTS = [CARD_CONFIRMED_EVENT, QUOTE_SENT_EVENT] as const;
+export type ChatEvent = (typeof CHAT_EVENTS)[number];
+
+export const isChatEvent = (value: unknown): value is ChatEvent =>
+  (CHAT_EVENTS as readonly unknown[]).includes(value);
 
 /** Metadata of a message sent as a signal (AI SDK v7: `sendMessage({ text, metadata })`). */
 export const HIDDEN_METADATA = { hidden: true } as const;

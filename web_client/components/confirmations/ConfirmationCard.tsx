@@ -1,7 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import { Send } from 'lucide-react';
+import { SubmitQuoteDialog } from '@/components/dashboard/SubmitQuoteDialog';
+import { Button } from '@/components/ui/button';
 import { useConfirmationMutation, useConfirmations } from '@/hooks/use-confirmations';
+import { useHouseQuote } from '@/hooks/use-house-quote';
 import { describeApiError } from '@/lib/api-client';
 import type { ConfirmationResult, ConfirmationUpdate, SectionState } from '@/types/confirmation';
 import { ConfirmationSection } from './ConfirmationSection';
@@ -23,6 +27,14 @@ function blockedNote(sections: readonly SectionState[], total = sections.length)
     : 'Stima non aggiornata: manca ancora una misura.';
 }
 
+/** Why "Invia al team" waits: the rooms with something to complete (named when all have a name). */
+function completeNote(sections: readonly SectionState[]): string {
+  const rooms = sections.flatMap((section) => (section.label === null ? [] : [section.label]));
+  return rooms.length > 0 && rooms.length === sections.length
+    ? `Completa le misure di ${ROOMS.format(rooms)}.`
+    : 'Completa le misure della richiesta.';
+}
+
 /** What a screen reader hears once a section is saved. */
 function savedMessage(section: SectionState, result: ConfirmationResult): string {
   const saved = section.label === null ? 'Confermato.' : `${section.label}: confermato.`;
@@ -39,17 +51,19 @@ interface VoiceRef {
 }
 
 /**
- * The card where a signed-in client confirms the measures and the works of the request
- * (Phase 140, step 3). It reads and writes by itself: the chat draws it under the agent's
- * reply, the client area can draw it too. Never an amount: only the precision of the estimate.
- * What is still to confirm is asked all together under one "Conferma". What is already confirmed
- * stays on the card as a summary, each voice with its own "Modifica" while the quote is a draft:
- * it opens only that voice. Nothing when there is nothing to confirm or change, or when the
- * state cannot be read (a guest gets 403).
+ * The summary of the request of a signed-in client (Phase 140 step 3; card-recap flow, PR A). It
+ * reads and writes by itself: the chat draws it under the agent's reply, the client area can draw
+ * it too. Never an amount: only the precision of the estimate. What the client said and what the
+ * code computed is accepted; only what is missing is asked, on top under "Da completare", with one
+ * "Conferma". Everything else is a summary, each voice with its own "Modifica" while the quote is a
+ * draft. Its "Invia al team" button is the only way the request reaches the team: the click is the
+ * consent (U1). Nothing when there is nothing to show, or when the state cannot be read (a guest
+ * gets 403).
  */
 export function ConfirmationCard({
   projectId,
   onAllConfirmed,
+  onQuoteSent,
 }: {
   projectId: string;
   /**
@@ -57,9 +71,14 @@ export function ConfirmationCard({
    * (the chat then restarts the agent by itself). Never for a change to something already confirmed.
    */
   onAllConfirmed?: () => void;
+  /** Called once the "Invia al team" button sent the request (not when it was already with the team). */
+  onQuoteSent?: () => void;
 }) {
+  const sendHintId = useId();
   const { data } = useConfirmations(projectId);
+  const { data: quote } = useHouseQuote(projectId);
   const mutation = useConfirmationMutation(projectId);
+  const [sendOpen, setSendOpen] = useState(false);
   const [editing, setEditing] = useState<VoiceRef | null>(null);
   // The voice just closed: its "Modifica" gets the focus back.
   const [closed, setClosed] = useState<VoiceRef | null>(null);
@@ -70,7 +89,60 @@ export function ConfirmationCard({
   // The sections the last save left without a recomputed estimate.
   const [blocked, setBlocked] = useState<readonly string[]>([]);
 
-  if (!data) return null;
+  // The dialog stays mounted whatever the card shows: after the send the card is read again as
+  // read-only and would otherwise take the "Richiesta inviata" message away with it.
+  const dialog = (
+    <SubmitQuoteDialog
+      open={sendOpen}
+      onOpenChange={setSendOpen}
+      projectId={projectId}
+      onSent={(result) => {
+        if (!result.duplicate) onQuoteSent?.();
+      }}
+    />
+  );
+  const sendBlock = (hint: string | null, enabled: boolean) => (
+    <div className="space-y-1.5 border-t border-line pt-3">
+      {/* aria-disabled, not disabled: the button stays focusable and its reason is read with it. */}
+      <Button
+        type="button"
+        className="h-11 w-full gap-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-primary"
+        aria-disabled={!enabled || undefined}
+        aria-describedby={hint ? sendHintId : undefined}
+        onClick={() => enabled && setSendOpen(true)}
+      >
+        <Send aria-hidden="true" className="size-4" />
+        Invia al team
+      </Button>
+      {hint && (
+        <p id={sendHintId} className="text-xs text-ink-muted">
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+  // A draft with works and no section to show (the spec could not be saved, or the card could not be
+  // read): the agent points to the button anyway, so the card keeps just the button.
+  const draftWithWork = quote != null && quote.status === 'draft' && quote.items.length > 0;
+  const sendOnly = (
+    <section
+      aria-label="Riepilogo della richiesta"
+      data-testid="confirmation-card"
+      className="not-prose w-full max-w-md space-y-4 rounded-2xl border border-line bg-surface-muted p-4 shadow-1"
+    >
+      <p className="text-sm font-semibold text-ink">Riepilogo della richiesta</p>
+      {sendBlock(null, !mutation.isPending)}
+    </section>
+  );
+
+  if (!data) {
+    return (
+      <>
+        {draftWithWork && sendOnly}
+        {dialog}
+      </>
+    );
+  }
   // Once the quote is with the team nothing can be changed here: only what is still pending is shown.
   const shown = data.sections.filter((section) => section.pending || (data.editable && hasContent(section)));
   // Only a confirmed voice of a section on screen, while the quote is a draft, can be open: if the
@@ -89,15 +161,25 @@ export function ConfirmationCard({
   // Nothing to confirm or change: the card stays only to say how precise the estimate is, or why
   // the last save failed (the team took the quote meanwhile: the read-only card shows nothing else).
   if (shown.length === 0 && !mutation.isError && !(mutation.isSuccess && data.precision !== null)) {
-    return announcement ? (
+    return (
       <>
-        {null}
-        {liveRegion}
+        {data.editable && draftWithWork && sendOnly}
+        {dialog}
+        {announcement && liveRegion}
       </>
-    ) : null;
+    );
   }
 
   const saving = mutation.isPending ? origin : null;
+  // "Invia al team": the card is a draft, nothing to complete, the request has works (U1).
+  const toComplete = data.sections.filter((section) => section.pending);
+  let sendHint: string | null = null;
+  if (toComplete.length > 0) sendHint = completeNote(toComplete);
+  else if (open) sendHint = 'Chiudi prima la modifica aperta.';
+  else if (quote !== undefined && (quote === null || quote.items.length === 0)) {
+    sendHint = 'La richiesta non ha ancora lavorazioni.';
+  }
+  const canSend = sendHint === null && quote != null && !mutation.isPending;
   // Only what still misses a measure: a section confirmed since (from the chat too) drops out.
   const stillBlocked = data.sections.filter((section) => section.pending && blocked.includes(section.section_key));
 
@@ -133,11 +215,11 @@ export function ConfirmationCard({
   return (
     <>
       <section
-        aria-label="Conferma misure e lavori"
+        aria-label="Riepilogo della richiesta"
         data-testid="confirmation-card"
         className="not-prose w-full max-w-md space-y-4 rounded-2xl border border-line bg-surface-muted p-4 shadow-1"
       >
-        <p className="text-sm font-semibold text-ink">Conferma misure e lavori</p>
+        <p className="text-sm font-semibold text-ink">Riepilogo della richiesta</p>
         {shown.map((section) => (
           <ConfirmationSection
             key={section.section_key}
@@ -169,7 +251,9 @@ export function ConfirmationCard({
         {data.precision !== null && (
           <p className="text-sm font-medium text-success-ink">Stima precisa al {data.precision} %</p>
         )}
+        {data.editable && sendBlock(sendHint, canSend)}
       </section>
+      {dialog}
       {liveRegion}
     </>
   );

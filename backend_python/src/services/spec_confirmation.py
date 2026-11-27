@@ -7,8 +7,9 @@ kept as a proposal the card shows to the client, and the team gets a check
 without the model (`analysis_from_spec`). Pure: no I/O.
 """
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from decimal import Decimal
+from typing import Protocol
 
 from src.core.money import to_decimal
 from src.schemas.assembly_library import MEASURE_LABELS, ElementAction
@@ -19,6 +20,7 @@ from src.schemas.intervention_spec import (
     StoredAdminCheck,
     StoredElementChoice,
     StoredMeasure,
+    StoredMeasureSource,
 )
 from src.services.insight_engine import ElementChoice, InsightAnalysis
 from src.services.intervention_expansion import ACTION_LABELS, conflict_check, requested_actions
@@ -27,6 +29,8 @@ from src.services.intervention_expansion import ACTION_LABELS, conflict_check, r
 _STORED_EXTRA_REASONING = "Voce singola dell'ultima analisi, ricalcolata con le misure confermate"
 # A measure label ends with its unit: "pavimento della stanza (m²)".
 _LABEL_UNIT = re.compile(r"(.+) \(([^()]+)\)")
+# Values nobody gave: a photo reading, the model's estimate. The client confirms them on the card.
+_SOURCES_TO_CONFIRM: frozenset[StoredMeasureSource | None] = frozenset({"photo", "estimated"})
 
 
 def _number(value: float) -> str:
@@ -105,9 +109,35 @@ def proposal_notes(spec: RoomInterventionSpec, before: RoomInterventionSpec | No
     return notes
 
 
+class _Measure(Protocol):
+    """A stored measure, or one the card shows (`MeasureState`: `value` None when missing)."""
+
+    @property
+    def name(self) -> str: ...
+    @property
+    def value(self) -> float | None: ...
+    @property
+    def source(self) -> StoredMeasureSource | None: ...
+    @property
+    def proposed(self) -> float | None: ...
+
+
+def measure_needs_answer(m: _Measure, conflicts: Mapping[str, Sequence[float]]) -> bool:
+    """Whether the card asks the client about this measure: it is missing, in
+    conflict, has a proposal to answer, or comes from a photo or the model's
+    estimate. What the client said, the room brief and the code's calculation
+    are accepted as they are (decision U3, 27 Nov): the card shows them as a summary."""
+    return (
+        m.value is None
+        or m.name in conflicts
+        or m.proposed is not None
+        or m.source in _SOURCES_TO_CONFIRM
+    )
+
+
 def has_unconfirmed_measures(spec: RoomInterventionSpec) -> bool:
-    """A measure the client has not confirmed yet, or one with a proposal still unanswered."""
-    return any(m.source != "confirmed" or m.proposed is not None for m in spec.measures)
+    """The spec still asks the client something about its measures (`measure_needs_answer`)."""
+    return bool(spec.missing_measures) or any(measure_needs_answer(m, spec.conflicts) for m in spec.measures)
 
 
 def proposal_checks(spec: RoomInterventionSpec) -> list[str]:

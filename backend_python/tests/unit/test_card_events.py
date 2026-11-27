@@ -1,8 +1,11 @@
-"""After the last confirmation on the card the agent restarts by itself (PR 2 of the card fixes).
+"""The hidden signals of the quote card: the agent restarts by itself.
 
-The web client sends a hidden turn with `event: "card_confirmed"`. It is a signal, not a
-client message: never saved to the chat, never read as the client's words, and the text the
-agent receives is fixed by the backend (the client's own text is never trusted for it).
+The web client sends a hidden turn with `event: "card_confirmed"` after the last
+confirmation on the card (PR 2 of the card fixes), and `event: "quote_sent"` after the
+"Invia al team" button of the card sent the request (PR A of the card-recap flow). A
+signal is not a client message: never saved to the chat, never read as the client's
+words, and the text the agent receives is fixed by the backend (the client's own text is
+never trusted for it).
 """
 from dataclasses import replace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -18,11 +21,16 @@ from src.adk.session_context import CARD_EVENT_STATE_KEY, TURN_MESSAGE_STATE_KEY
 from src.auth.jwt_handler import verify_token
 from src.core.config import settings
 from src.schemas.internal import UserSession
-from src.services.card_event import CARD_CONFIRMED_EVENT, CARD_CONFIRMED_TEXT
+from src.services.card_event import (
+    CARD_CONFIRMED_EVENT,
+    CARD_CONFIRMED_TEXT,
+    CARD_EVENT_TEXTS,
+    QUOTE_SENT_EVENT,
+    QUOTE_SENT_TEXT,
+)
 from src.services.orchestrator_factory import get_orchestrator
 from src.services.quote_step import QuoteFacts, QuoteStep, asks_to_register, quote_step
-from src.services.reply_reading import plain_yes
-from tests.unit.send_consent_fakes import SEND_QUESTION, text_event, user_message
+from tests.unit.adk_event_fakes import user_message
 from tests.unit.test_adk_orchestrator import (
     _collect_chunks,
     _make_orchestrator_with_events,
@@ -36,20 +44,29 @@ _BODY = {
     "sessionId": "my-chat",
     "messages": [{"id": "m1", "role": "user", "content": "qualsiasi testo del client"}],
 }
+EVENTS = [CARD_CONFIRMED_EVENT, QUOTE_SENT_EVENT]
 
 BASE = QuoteFacts(
-    is_guest=False, phone_on_file=True, quote_status="draft", delivery_status=None, card_pending=False,
+    is_guest=False, quote_status="draft", delivery_status=None, card_pending=False,
     last_reply="", last_turn_calls=(), turn_calls=(), client_words="", last_register_reply="",
 )
 
 
 # ── The request ───────────────────────────────────────────────────────────────
 
-def test_the_request_accepts_only_the_known_event():
-    assert ChatRequest.model_validate({**_BODY, "event": CARD_CONFIRMED_EVENT}).event == CARD_CONFIRMED_EVENT
+@pytest.mark.parametrize("event", EVENTS)
+def test_the_request_accepts_the_known_events(event):
+    assert ChatRequest.model_validate({**_BODY, "event": event}).event == event
+
+
+def test_the_request_refuses_any_other_event():
     assert ChatRequest.model_validate(_BODY).event is None
     with pytest.raises(ValidationError):
         ChatRequest.model_validate({**_BODY, "event": "send_quote"})
+
+
+def test_every_event_has_its_fixed_text():
+    assert CARD_EVENT_TEXTS == {CARD_CONFIRMED_EVENT: CARD_CONFIRMED_TEXT, QUOTE_SENT_EVENT: QUOTE_SENT_TEXT}
 
 
 # ── The route: a signal is not a message of the chat ──────────────────────────
@@ -87,13 +104,14 @@ async def _post(body: dict) -> tuple[int, MagicMock]:
     return response.status_code, repo
 
 
-async def test_a_card_confirmed_turn_is_not_saved_as_a_user_message(_overrides):
-    status, repo = await _post({**_BODY, "event": CARD_CONFIRMED_EVENT})
+@pytest.mark.parametrize("event", EVENTS)
+async def test_a_signal_turn_is_not_saved_as_a_user_message(_overrides, event):
+    status, repo = await _post({**_BODY, "event": event})
     assert status == 200
     repo.save_message.assert_not_awaited()
     # The room briefs wait for the user message to be saved: with none to save they must not wait.
     assert _overrides["saved_done"] is True
-    assert _overrides["body"].event == CARD_CONFIRMED_EVENT
+    assert _overrides["body"].event == event
 
 
 async def test_a_normal_turn_is_still_saved(_overrides):
@@ -104,56 +122,50 @@ async def test_a_normal_turn_is_still_saved(_overrides):
 
 # ── The words of the signal ───────────────────────────────────────────────────
 
-def test_the_signal_text_is_no_answer_nor_request_of_the_client():
-    assert not plain_yes(CARD_CONFIRMED_TEXT)
-    assert not asks_to_register(CARD_CONFIRMED_TEXT)
-    for step in (QuoteStep.INVIO, QuoteStep.REGISTRA):
-        assert quote_step(replace(BASE, client_words=CARD_CONFIRMED_TEXT, card_confirmed=True)) is not step
+@pytest.mark.parametrize("text", [CARD_CONFIRMED_TEXT, QUOTE_SENT_TEXT])
+def test_the_signal_text_is_no_request_of_the_client(text):
+    assert not asks_to_register(text)
+    assert quote_step(replace(BASE, client_words=text)) is not QuoteStep.REGISTRA
 
 
 # ── The step ──────────────────────────────────────────────────────────────────
 
-def test_the_last_confirmation_goes_to_the_send_question_even_after_the_send_was_asked():
-    """The agent had already asked to send while the card was open: the signal is not an
-    answer to that question (it would go back to collecting)."""
-    facts = replace(BASE, last_reply=SEND_QUESTION, client_words=CARD_CONFIRMED_TEXT)
-    assert quote_step(facts) is QuoteStep.RACCOLTA  # without the signal: the old behaviour
-    assert quote_step(replace(facts, card_confirmed=True)) is QuoteStep.DOMANDA_INVIO
+@pytest.mark.parametrize("card_pending", [False, True, None])
+def test_the_last_confirmation_is_the_summary(card_pending):
+    """The card is closed: the agent points to the button (U1), whatever it asked before."""
+    facts = replace(BASE, card_pending=card_pending, client_words=CARD_CONFIRMED_TEXT, card_confirmed=True)
+    assert quote_step(facts) is QuoteStep.RIEPILOGO
 
 
-def test_the_signal_with_the_card_still_open_stays_on_the_card():
-    facts = replace(BASE, card_pending=True, client_words=CARD_CONFIRMED_TEXT, card_confirmed=True)
-    assert quote_step(facts) is QuoteStep.SCHEDA
+def test_the_send_signal_is_with_the_team():
+    facts = replace(BASE, quote_status="pending_review", client_words=QUOTE_SENT_TEXT, quote_sent=True)
+    assert quote_step(facts) is QuoteStep.AL_TEAM
 
 
-def test_the_facts_read_the_signal_from_the_session_state():
-    state = {CARD_EVENT_STATE_KEY: CARD_CONFIRMED_EVENT}
-    assert quote_facts([], "inv", user_message(CARD_CONFIRMED_TEXT), state).card_confirmed is True
-    assert quote_facts([], "inv", user_message("ciao"), {}).card_confirmed is False
-    assert quote_facts([], "inv", user_message("ciao"), {CARD_EVENT_STATE_KEY: None}).card_confirmed is False
+@pytest.mark.parametrize(("event", "card_confirmed", "quote_sent"), [
+    (CARD_CONFIRMED_EVENT, True, False), (QUOTE_SENT_EVENT, False, True), (None, False, False),
+])
+def test_the_facts_read_the_signal_from_the_session_state(event, card_confirmed, quote_sent):
+    facts = quote_facts([], "inv", user_message("ciao"), {CARD_EVENT_STATE_KEY: event})
+    assert (facts.card_confirmed, facts.quote_sent) == (card_confirmed, quote_sent)
 
 
 # ── The tools never read it as the client's message ───────────────────────────
 
-async def test_the_quote_tool_gets_no_turn_message_for_the_signal():
-    content = types.Content(role="user", parts=[types.Part(text=f"###\n{CARD_CONFIRMED_TEXT}\n###")])
+@pytest.mark.parametrize("event", EVENTS)
+async def test_the_quote_tool_gets_no_turn_message_for_the_signal(event):
+    content = types.Content(role="user", parts=[types.Part(text=f"###\n{CARD_EVENT_TEXTS[event]}\n###")])
     ctx = MagicMock()
     ctx.session.id = "s1"
     ctx.session.events = []
     ctx.invocation_id = "inv"
     ctx.user_id = "u1"
     ctx.user_content = content
-    ctx.state = {TURN_MESSAGE_STATE_KEY: {"id": "m1", "room_id": None}, CARD_EVENT_STATE_KEY: CARD_CONFIRMED_EVENT}
+    ctx.state = {TURN_MESSAGE_STATE_KEY: {"id": "m1", "room_id": None}, CARD_EVENT_STATE_KEY: event}
     with patch.object(tools, "is_anonymous_user", new=AsyncMock(return_value=False)), \
          patch("src.tools.quote_tools.suggest_quote_items_wrapper", new=AsyncMock(return_value="ok")) as wrapper:
         await tools.suggest_quote_items(session_id="s1", tool_context=ctx)
     assert wrapper.await_args.kwargs["turn_message"] is None
-
-
-def test_the_send_question_text_helper_is_a_question_the_signal_does_not_answer():
-    events = [text_event("quote", SEND_QUESTION)]
-    facts = quote_facts(events, "inv-now", user_message(CARD_CONFIRMED_TEXT), {})
-    assert not plain_yes(facts.client_words)
 
 
 # ── The orchestrator: fixed words, a state key, never the client's text ───────
@@ -172,13 +184,15 @@ async def _run(event, mock_get_session, mock_get_repo, mock_settings):
     return " ".join(p.text or "" for p in kwargs["new_message"].parts), kwargs["state_delta"]
 
 
-async def test_the_agent_reads_the_fixed_text_of_the_signal_not_the_clients():
-    text, state = await _run(CARD_CONFIRMED_EVENT)
-    assert CARD_CONFIRMED_TEXT in text and "TESTO DEL CLIENT" not in text
-    assert state[CARD_EVENT_STATE_KEY] == CARD_CONFIRMED_EVENT
+@pytest.mark.parametrize("event", EVENTS)
+async def test_the_agent_reads_the_fixed_text_of_the_signal_not_the_clients(event):
+    text, state = await _run(event)
+    assert CARD_EVENT_TEXTS[event] in text and "TESTO DEL CLIENT" not in text
+    assert state[CARD_EVENT_STATE_KEY] == event
 
 
 async def test_a_normal_turn_clears_the_signal_and_keeps_the_clients_words():
     text, state = await _run(None)
-    assert "TESTO DEL CLIENT" in text and CARD_CONFIRMED_TEXT not in text
+    assert "TESTO DEL CLIENT" in text
+    assert not any(fixed in text for fixed in CARD_EVENT_TEXTS.values())
     assert state[CARD_EVENT_STATE_KEY] is None

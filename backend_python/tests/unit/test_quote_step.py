@@ -1,9 +1,11 @@
 """
-The step of the quote, computed by code (strada B, passo 1: log only).
+The step of the quote, computed by code.
 
-One test per arrow of the diagram in the analysis ("I passi nella strada B"),
-then the edge cases: session rebuilt without history, yes with a courtesy,
-turn run again without an unreadable video.
+Flow of 27 Nov (plan "card-recap-flow", PR A): collect → (a guest logs in) →
+register → the card is the summary → "Invia al team" on the card. No question
+to register, no phone step, no send question: the click on the card is the consent.
+One test per arrow, then the edge cases: session rebuilt without history, the
+completeness gate, the hidden signals of the card.
 """
 import ast
 from dataclasses import replace
@@ -14,23 +16,21 @@ import pytest
 from google.adk.events import Event
 from google.genai import types
 from src.adk.quote_facts import quote_facts
-from src.adk.session_context import HOUSE_QUOTE_STATE_KEY
+from src.adk.session_context import CARD_EVENT_STATE_KEY, HOUSE_QUOTE_STATE_KEY
 from src.adk.video_attachments import skipped_model_note
 from src.services import quote_step as quote_step_module
-from src.services.quote_step import NEEDS_DETAILS, QuoteFacts, QuoteStep, quote_step
-from src.tools.quote_tools import _rooms_reply, _single_unit_reply
-from tests.unit.send_consent_fakes import TURN, text_event, user_message
-
-REGISTER_ASK = "Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"
-SEND_ASK = "Bagno: rifacimento completo. Invio al nostro team la richiesta di preventivo per Bagno. Confermi?"
-PHONE_ASK = (
-    "Vuoi ricevere aggiornamenti anche su WhatsApp? Se sì, lasciami il numero "
-    "*(opzionale — lo ricordo per i prossimi progetti)*"
+from src.services.quote_step import (
+    NEEDS_DETAILS,
+    STEP_REFUSED_PREFIX,
+    QuoteFacts,
+    QuoteStep,
+    quote_step,
 )
+from src.tools.quote_tools import _rooms_reply, _single_unit_reply
+from tests.unit.adk_event_fakes import TURN, text_event, user_message
 
 BASE = QuoteFacts(
     is_guest=False,
-    phone_on_file=True,
     quote_status=None,
     delivery_status=None,
     card_pending=None,
@@ -55,50 +55,27 @@ def test_the_step_is_a_service_without_adk():
     assert not [m for m in imported if m.startswith(("src.adk", "google.adk"))]
 
 
+def test_the_steps_of_the_card_flow():
+    """No registration question, no phone step, no send question (U1, U2)."""
+    assert [s.value for s in QuoteStep] == [
+        "raccolta", "accesso", "registra", "scheda", "riepilogo", "al_team", "inoltro",
+    ]
+
+
 # ── RACCOLTA ──────────────────────────────────────────────────────────────────
 
 def test_a_new_chat_collects_the_works():
     assert _step(client_words="vorrei rifare il bagno") is QuoteStep.RACCOLTA
 
 
-def test_the_registration_question_waits_for_the_answer():
-    """R -> D: the question was asked; a question back keeps the client there."""
-    assert _step(last_reply=REGISTER_ASK, client_words="quanto tempo ci vuole?") is QuoteStep.DOMANDA_REGISTRAZIONE
-
-
-@pytest.mark.parametrize("answer", ["no, aggiungi anche la cucina", "aspetta", "sì ma cambia le piastrelle"])
-def test_anything_but_a_yes_to_the_registration_question_goes_back_to_collecting(answer):
-    """D -> R (altro)."""
-    assert _step(last_reply=REGISTER_ASK, client_words=answer) is QuoteStep.RACCOLTA
-
-
-# ── registration confirmed: ospite? ───────────────────────────────────────────
-
-def test_a_yes_to_the_registration_question_registers():
-    """D -> G (no) -> T (phone on file) -> S."""
-    assert _step(last_reply=REGISTER_ASK, client_words="sì") is QuoteStep.REGISTRA
-
-
-@pytest.mark.parametrize("ask", [
-    "Vuoi che prepari il preventivo?",
-    "Preparo la richiesta di preventivo per bagno e cucina. Confermi?",
-    "Registro la richiesta?",
-])
-def test_other_wordings_of_the_registration_question_count(ask):
-    assert _step(last_reply=ask, client_words="sì") is QuoteStep.REGISTRA
-
-
-@pytest.mark.parametrize("ask", [
-    "Procedo con l'invio della richiesta al team?",
-    "Invio al team la richiesta registrata?",
-])
-def test_the_send_question_is_not_the_registration_question(ask):
-    assert _step(last_reply=ask, client_words="sì") is QuoteStep.RACCOLTA
+@pytest.mark.parametrize("answer", ["sì", "3331234567", "no grazie"])
+def test_the_answers_while_collecting_keep_collecting(answer):
+    """The model decides when the data are enough and calls the tool (U2): no yes moves the step."""
+    assert _step(last_reply="Quanti metri quadri è il bagno?", client_words=answer) is QuoteStep.RACCOLTA
 
 
 @pytest.mark.parametrize("words", ["prepara il preventivo", "registra la richiesta", "fammi il preventivo"])
-def test_an_explicit_request_registers_without_the_question(words):
-    """R -> G ('prepara / registra il preventivo')."""
+def test_an_explicit_request_registers(words):
     assert _step(client_words=words) is QuoteStep.REGISTRA
 
 
@@ -114,15 +91,6 @@ def test_a_request_asked_as_a_question_is_no_request():
     assert _step(client_words="Registra la richiesta anche per la cucina?") is QuoteStep.RACCOLTA
 
 
-def test_a_question_with_a_change_at_the_registration_question_goes_back_to_collecting():
-    assert _step(last_reply=REGISTER_ASK, client_words="si può aggiungere la cucina?") is QuoteStep.RACCOLTA
-
-
-def test_an_offer_that_also_sends_is_the_send_question():
-    """Registering and sending in one question is never the registration alone."""
-    assert _step(last_reply="Registro la richiesta e la invio al team?", client_words="sì") is QuoteStep.RACCOLTA
-
-
 def test_a_no_elsewhere_in_the_message_keeps_the_request():
     assert _step(client_words="prepara il preventivo, non serve altro") is QuoteStep.REGISTRA
 
@@ -136,20 +104,24 @@ def test_a_question_about_the_quote_is_no_request(words):
     assert _step(is_guest=True, client_words=words) is QuoteStep.RACCOLTA
 
 
-@pytest.mark.parametrize("ask", [
-    "Per prepararti il preventivo, mi dici se i sanitari li sostituiamo tutti?",
-    "Preferisci registrare un video o caricare foto per il preventivo?",
-])
-def test_a_collecting_question_naming_the_quote_is_not_the_registration_question(ask):
-    assert _step(is_guest=True, last_reply=ask, client_words="sì, tutti") is QuoteStep.RACCOLTA
+def test_a_phone_saved_while_collecting_keeps_collecting():
+    """The phone is asked once while collecting (U2): saving it moves nothing."""
+    words = "bagno 6 m², rifare il pavimento, il mio numero è 3331234567"
+    assert _step(client_words=words, turn_calls=("save_contact_phone",)) is QuoteStep.RACCOLTA
 
 
-def test_a_guest_who_confirms_goes_to_the_login():
-    """G (sì) -> L."""
-    assert _step(is_guest=True, last_reply=REGISTER_ASK, client_words="sì") is QuoteStep.ACCESSO
+# ── ACCESSO (a guest) ─────────────────────────────────────────────────────────
+
+def test_a_guest_asking_for_the_quote_logs_in():
+    assert _step(is_guest=True, client_words="prepara il preventivo") is QuoteStep.ACCESSO
 
 
-LOGIN_ASK = (  # modes.py, STEP AUTH_GATE
+def test_a_guest_whose_collection_is_complete_logs_in():
+    """The model tried to register: the gate refused it for a guest, so the login comes next."""
+    assert _step(is_guest=True, register_refused=True) is QuoteStep.ACCESSO
+
+
+LOGIN_ASK = (  # quote_step.LOGIN_MESSAGE
     "Per registrare la richiesta di preventivo serve un account gratuito — bastano pochi secondi! "
     "Accedi qui sotto e riprendo subito da qui."
 )
@@ -171,125 +143,76 @@ def test_the_login_in_this_turn_is_the_login_step():
     assert _step(is_guest=True, turn_calls=("request_login",)) is QuoteStep.ACCESSO
 
 
-def test_after_the_login_the_confirmed_registration_goes_on():
-    """L (login fatto) -> T -> S: the confirmation is not asked again."""
-    assert _step(last_reply=LOGIN_ASK, last_turn_calls=("request_login",), client_words="fatto") is QuoteStep.REGISTRA
-
-
-def test_after_the_login_without_a_phone_asks_the_phone():
-    assert _step(phone_on_file=False, last_reply=LOGIN_ASK, last_turn_calls=("request_login",)) is QuoteStep.TELEFONO
+@pytest.mark.parametrize("phone_on_file", [True, False])
+def test_after_the_login_the_request_is_registered(phone_on_file):
+    """L (login fatto) -> S: no confirmation and no phone step in between."""
+    step = _step(last_reply=LOGIN_ASK, last_turn_calls=("request_login",), client_words="fatto")
+    assert step is QuoteStep.REGISTRA
 
 
 def test_a_session_rebuilt_after_the_login_reads_the_login_message():
     """History restored from Firestore keeps no tool calls (a guest who logs in
     to an existing account gets a new session): the message is the trace."""
-    assert _step(phone_on_file=False, last_reply=LOGIN_ASK, client_words="fatto") is QuoteStep.TELEFONO
+    assert _step(last_reply=LOGIN_ASK, client_words="fatto") is QuoteStep.REGISTRA
 
 
 def test_a_rebuilt_session_after_a_render_login_is_no_quote_step():
     assert _step(last_reply=RENDER_LOGIN, client_words="fatto") is QuoteStep.RACCOLTA
 
 
-# ── TELEFONO ──────────────────────────────────────────────────────────────────
-
-def test_a_registration_without_a_phone_asks_the_phone():
-    """G (no) -> T: only when it is missing."""
-    assert _step(phone_on_file=False, last_reply=REGISTER_ASK, client_words="sì") is QuoteStep.TELEFONO
-
-
-@pytest.mark.parametrize("answer", ["3331234567", "no grazie"])
-def test_the_phone_is_asked_once(answer):
-    """T -> S whatever the answer."""
-    assert _step(phone_on_file=False, last_reply=PHONE_ASK, client_words=answer) is QuoteStep.REGISTRA
-
-
-def test_a_call_from_the_technician_is_not_the_phone_question():
-    ask = "Vuoi che il tecnico ti chiami al telefono per un sopralluogo?"
-    assert _step(last_reply=ask, client_words="sì") is QuoteStep.RACCOLTA
-
-
-def test_a_guest_is_never_asked_the_phone():
-    step = _step(is_guest=True, phone_on_file=False, last_reply=PHONE_ASK, client_words="3331234567")
-    assert step is QuoteStep.RACCOLTA
-
-
-def test_a_question_about_a_number_is_not_the_phone_question():
-    assert _step(last_reply="Qual è il numero dei bagni da rifare?", client_words="due") is QuoteStep.RACCOLTA
-
-
-def test_a_phone_saved_in_this_turn_registers():
-    """The client confirms and leaves the number in the same message."""
-    facts = {"phone_on_file": False, "last_reply": REGISTER_ASK, "client_words": "sì, il mio numero è 3331234567"}
-    assert _step(**facts, turn_calls=("save_contact_phone",)) is QuoteStep.REGISTRA
-
-
-def test_a_phone_saved_while_collecting_does_not_skip_the_confirmation():
-    words = "bagno 6 m², rifare il pavimento, il mio numero è 3331234567"
-    assert _step(phone_on_file=False, client_words=words, turn_calls=("save_contact_phone",)) is QuoteStep.RACCOLTA
-
-
-# ── SCHEDA ────────────────────────────────────────────────────────────────────
+# ── SCHEDA / RIEPILOGO ────────────────────────────────────────────────────────
 
 def test_the_registration_in_this_turn_leads_to_the_card():
-    """S -> C."""
-    assert _step(last_reply=REGISTER_ASK, client_words="sì", turn_calls=("suggest_quote_items",)) is QuoteStep.SCHEDA
+    assert _step(client_words="bagno 6 mq", turn_calls=("suggest_quote_items",)) is QuoteStep.SCHEDA
 
 
-def test_a_draft_with_measures_to_confirm_is_at_the_card():
+def test_a_draft_with_something_to_answer_is_at_the_card():
     assert _step(quote_status="draft", card_pending=True, client_words="ok") is QuoteStep.SCHEDA
+
+
+@pytest.mark.parametrize("card_pending", [False, None])
+def test_a_draft_with_nothing_to_answer_is_the_summary(card_pending):
+    """The card is complete (or could not be read): the client sends it with the button."""
+    assert _step(quote_status="draft", card_pending=card_pending, client_words="ok") is QuoteStep.RIEPILOGO
+
+
+@pytest.mark.parametrize("words", ["invia", "sì, invia la richiesta", "Confermo"])
+def test_a_yes_on_a_draft_is_still_the_summary(words):
+    """U1: no send from the chat; the agent points to the button."""
+    assert _step(quote_status="draft", card_pending=False, client_words=words) is QuoteStep.RIEPILOGO
 
 
 @pytest.mark.parametrize("card_pending", [True, False])
 def test_more_work_on_a_draft_goes_back_to_collecting(card_pending):
-    """Not only at the send question: new work is a new request (modifiche -> R)."""
     step = _step(quote_status="draft", card_pending=card_pending, client_words="aggiungi anche la cucina")
     assert step is QuoteStep.RACCOLTA
 
 
-# ── DOMANDA INVIO / INVIO ─────────────────────────────────────────────────────
-
-def test_a_confirmed_card_asks_to_send():
-    """C (tutto confermato) -> I."""
-    assert _step(quote_status="draft", card_pending=False, client_words="fatto") is QuoteStep.DOMANDA_INVIO
+def test_a_courtesy_that_closes_the_request_is_no_change():
+    step = _step(quote_status="draft", card_pending=False, client_words="ok, non ho altro da aggiungere")
+    assert step is QuoteStep.RIEPILOGO
 
 
-def test_a_draft_whose_card_is_unknown_asks_to_send():
-    """The card could not be read: the send stays guarded by the explicit yes."""
-    assert _step(quote_status="draft") is QuoteStep.DOMANDA_INVIO
-
-
-def test_a_yes_to_the_send_question_sends():
-    """I (sì semplice) -> V."""
-    assert _step(quote_status="draft", card_pending=False, last_reply=SEND_ASK, client_words="sì") is QuoteStep.INVIO
-
-
-@pytest.mark.parametrize("answer", ["sì, ma aggiungi il corridoio", "cambia il pavimento", "no"])
-def test_changes_at_the_send_question_go_back_to_collecting(answer):
-    """I (modifiche) -> R."""
-    step = _step(quote_status="draft", card_pending=False, last_reply=SEND_ASK, client_words=answer)
+def test_a_change_after_a_courtesy_is_still_a_change():
+    step = _step(quote_status="draft", card_pending=False, client_words="è tutto, ma cambia il pavimento")
     assert step is QuoteStep.RACCOLTA
-
-
-def test_a_question_with_a_change_at_the_send_question_goes_back_to_collecting():
-    step = _step(quote_status="draft", card_pending=False, last_reply=SEND_ASK,
-                 client_words="si può aggiungere il balcone?")
-    assert step is QuoteStep.RACCOLTA
-
-
-def test_a_question_at_the_send_question_asks_again():
-    step = _step(quote_status="draft", card_pending=False, last_reply=SEND_ASK, client_words="quando arriva?")
-    assert step is QuoteStep.DOMANDA_INVIO
 
 
 def test_an_explicit_request_on_a_draft_registers_again():
     assert _step(quote_status="draft", card_pending=False, client_words="registra la richiesta") is QuoteStep.REGISTRA
 
 
+@pytest.mark.parametrize("card_pending", [False, True, None])
+def test_the_card_confirmed_signal_is_the_summary(card_pending):
+    step = _step(quote_status="draft", card_pending=card_pending, card_confirmed=True,
+                 client_words="Evento di sistema: il cliente ha confermato tutte le sezioni della scheda.")
+    assert step is QuoteStep.RIEPILOGO
+
+
 # ── AL TEAM / INOLTRO ─────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("status", ["pending_review", "in_review", "approved"])
 def test_a_quote_with_the_team_is_with_the_team(status):
-    """V -> X."""
     assert _step(quote_status=status, client_words="a che punto siamo?") is QuoteStep.AL_TEAM
 
 
@@ -297,9 +220,16 @@ def test_a_sent_quote_still_in_the_mail_is_with_the_team():
     assert _step(quote_status="sent", delivery_status="queued", client_words="ciao") is QuoteStep.AL_TEAM
 
 
+@pytest.mark.parametrize("status", ["pending_review", None, "draft"])
+def test_the_quote_sent_signal_is_with_the_team(status):
+    """The button sent it: the turn only confirms, even if the quote read before the turn is older."""
+    step = _step(quote_status=status, quote_sent=True,
+                 client_words="Evento di sistema: il cliente ha inviato la richiesta al team dalla scheda.")
+    assert step is QuoteStep.AL_TEAM
+
+
 @pytest.mark.parametrize("words", ["aggiungi anche il balcone", "vorrei cambiare le piastrelle", "prepara il preventivo"])
 def test_new_requests_with_the_team_are_relayed(words):
-    """X (nuove richieste) -> F."""
     assert _step(quote_status="in_review", client_words=words) is QuoteStep.INOLTRO
 
 
@@ -318,7 +248,7 @@ def test_the_relay_in_this_turn_is_the_relay_step():
 
 @pytest.mark.parametrize("status", ["sent", "rejected"])
 def test_a_sent_or_rejected_quote_starts_collecting_again(status):
-    """X (inviato al cliente / rifiutato) -> R: the next revision is a new request."""
+    """The next revision is a new request."""
     assert _step(quote_status=status, delivery_status="delivered", client_words="vorrei aggiungere la cucina") is (
         QuoteStep.RACCOLTA
     )
@@ -335,12 +265,6 @@ def test_a_session_rebuilt_without_history_reads_the_stored_quote():
     assert _step(quote_status="draft", card_pending=True, last_reply="") is QuoteStep.SCHEDA
 
 
-def test_a_yes_with_a_courtesy_is_a_yes():
-    step = _step(quote_status="draft", card_pending=False, last_reply=SEND_ASK,
-                 client_words="sì, non ho altro da aggiungere")
-    assert step is QuoteStep.INVIO
-
-
 # ── after the completeness gate: the answer is registered ────────────────────
 
 # What suggest_quote_items answered in the test chat of 18/11 (turn 8).
@@ -354,7 +278,7 @@ GATED = {"last_turn_calls": ("suggest_quote_items",), "last_register_reply": GAT
 @pytest.mark.parametrize("answer", ["Il soggiorno non lo includere", "Sì lascia solo camera da letto e bagno"])
 def test_the_answer_to_the_gate_registers(answer):
     """The tool asked instead of registering: the answer goes back to it (turns 9 and 10)."""
-    assert _step(quote_status="sent", phone_on_file=False, client_words=answer, **GATED) is QuoteStep.REGISTRA
+    assert _step(quote_status="sent", client_words=answer, **GATED) is QuoteStep.REGISTRA
 
 
 def test_the_answer_to_the_gate_on_a_draft_registers():
@@ -376,10 +300,10 @@ def test_a_change_at_the_gate_goes_back_to_collecting():
 
 
 def test_a_registered_draft_is_not_a_gate():
-    """Turn 11: the last turn registered (no questions), the client says yes to the send."""
-    step = _step(quote_status="draft", card_pending=False, last_reply=SEND_ASK, client_words="Confermo",
+    """The last turn registered (no questions): the client is at the summary."""
+    step = _step(quote_status="draft", card_pending=False, client_words="ok",
                  last_turn_calls=("suggest_quote_items",), last_register_reply="Ho registrato la nuova revisione.")
-    assert step is QuoteStep.INVIO
+    assert step is QuoteStep.RIEPILOGO
 
 
 def _gated_unit() -> SimpleNamespace:
@@ -398,25 +322,44 @@ def test_the_gate_replies_of_the_tool_carry_the_marker():
 
 
 def test_the_step_is_a_plain_string_for_the_log():
-    assert QuoteStep.DOMANDA_INVIO == "domanda_invio"
+    assert QuoteStep.RIEPILOGO == "riepilogo"
+
+
+def test_a_draft_left_without_lines_by_a_clear_is_collected_again_not_sent():
+    """Review finding (PR 3): after a full clear the draft has no lines: never the summary to send."""
+    step = _step(quote_status="draft", card_pending=False, client_words="ciao", quote_empty=True)
+    assert step is QuoteStep.RACCOLTA
 
 
 # ── facts from the ADK session ────────────────────────────────────────────────
 
-def _call(name: str, invocation_id: str) -> Event:
+def _call(name: str, invocation_id: str, call_id: str | None = None) -> Event:
     return Event(
         invocation_id=invocation_id,
         author="quote",
-        content=types.Content(role="model", parts=[types.Part(function_call=types.FunctionCall(name=name, args={}))]),
+        content=types.Content(role="model", parts=[
+            types.Part(function_call=types.FunctionCall(id=call_id, name=name, args={})),
+        ]),
+    )
+
+
+def _response(name: str, invocation_id: str, result: object, call_id: str | None = None) -> Event:
+    return Event(
+        invocation_id=invocation_id,
+        author="quote",
+        content=types.Content(role="user", parts=[
+            types.Part(function_response=types.FunctionResponse(id=call_id, name=name, response=result)),
+        ]),
     )
 
 
 def test_facts_read_the_session():
+    ask = "Quanti metri quadri è il bagno?"
     events = [
         text_event("user", "vorrei rifare il bagno"),
         _call("request_login", "inv-before"),
-        text_event("quote", REGISTER_ASK),
-        text_event("user", "sì", TURN),
+        text_event("quote", ask),
+        text_event("user", "6", TURN),
         _call("save_contact_phone", TURN),
     ]
     state = {
@@ -425,17 +368,42 @@ def test_facts_read_the_session():
                             "delivery_status": None},
         "syd_card_pending": True,  # read by the orchestrator before the turn
     }
-    facts = quote_facts(events, TURN, user_message("###\nsì\n###"), state)
+    facts = quote_facts(events, TURN, user_message("###\n6\n###"), state)
     assert facts == QuoteFacts(
-        is_guest=False, phone_on_file=True, quote_status="draft", delivery_status=None, card_pending=True,
-        last_reply=REGISTER_ASK, last_turn_calls=("request_login",), turn_calls=("save_contact_phone",),
-        client_words="###\nsì\n###", last_register_reply="",
+        is_guest=False, quote_status="draft", delivery_status=None, card_pending=True,
+        last_reply=ask, last_turn_calls=("request_login",), turn_calls=("save_contact_phone",),
+        client_words="###\n6\n###", last_register_reply="",
     )
+
+
+def test_facts_read_a_registration_the_gate_refused_in_this_turn():
+    refusal = {"result": f"{STEP_REFUSED_PREFIX} (passo: raccolta): il cliente è un ospite…"}
+    events = [
+        text_event("user", "bagno 6 mq a Roma", TURN),
+        _call("suggest_quote_items", TURN, "c-1"),
+        _response("suggest_quote_items", TURN, refusal, "c-1"),
+    ]
+    facts = quote_facts(events, TURN, user_message("bagno 6 mq a Roma"), {}, answered_only=True)
+    assert facts.register_refused and facts.turn_calls == ()
+
+
+def test_facts_ignore_a_refusal_of_an_older_turn():
+    refusal = {"result": f"{STEP_REFUSED_PREFIX} (passo: raccolta): …"}
+    events = [_call("suggest_quote_items", "inv-old", "c-1"), _response("suggest_quote_items", "inv-old", refusal, "c-1")]
+    assert not quote_facts(events, TURN, user_message("ok"), {}).register_refused
+
+
+@pytest.mark.parametrize(("event", "card_confirmed", "quote_sent"), [
+    ("card_confirmed", True, False), ("quote_sent", False, True), (None, False, False),
+])
+def test_facts_read_the_hidden_signal(event, card_confirmed, quote_sent):
+    facts = quote_facts([], TURN, None, {CARD_EVENT_STATE_KEY: event})
+    assert (facts.card_confirmed, facts.quote_sent) == (card_confirmed, quote_sent)
 
 
 def test_facts_without_session_context_are_a_guest_without_quote():
     facts = quote_facts([], TURN, user_message("ciao"), {})
-    assert facts.is_guest and not facts.phone_on_file and facts.quote_status is None
+    assert facts.is_guest and facts.quote_status is None
 
 
 def test_facts_of_an_unreadable_quote_are_no_quote():
@@ -444,24 +412,15 @@ def test_facts_of_an_unreadable_quote_are_no_quote():
 
 
 def test_facts_of_a_turn_without_its_video_read_the_failed_message():
+    ask = "Quanti metri quadri è il bagno?"
     failed = types.Content(role="user", parts=[
-        types.Part(text="###\nsì\n###"),
+        types.Part(text="###\n6\n###"),
         types.Part(file_data=types.FileData(file_uri="gs://b/v.mp4", mime_type="video/mp4")),
     ])
-    events = [text_event("quote", SEND_ASK), Event(invocation_id="inv-failed", author="user", content=failed)]
+    events = [text_event("quote", ask), Event(invocation_id="inv-failed", author="user", content=failed)]
     note = types.Content(role="user", parts=[skipped_model_note(1)])
     facts = quote_facts(events, TURN, note, {})
-    assert facts.client_words == "###\nsì\n###" and facts.last_reply == SEND_ASK
-
-
-def _response(name: str, invocation_id: str, result: object) -> Event:
-    return Event(
-        invocation_id=invocation_id,
-        author="quote",
-        content=types.Content(role="user", parts=[
-            types.Part(function_response=types.FunctionResponse(name=name, response=result)),
-        ]),
-    )
+    assert facts.client_words == "###\n6\n###" and facts.last_reply == ask
 
 
 def test_facts_read_the_register_reply_of_the_last_turn():
@@ -489,12 +448,6 @@ def test_the_forward_step_asks_the_floor_area_of_a_new_room_first():
     """Test chat of 19/11 (salone sent with no m²): the step line is read last, so it must say it."""
     guide = quote_step_module.step_guide(QuoteStep.INOLTRO, None)
     assert "m² del pavimento" in guide and "chiedili prima" in guide and "nel turno della risposta" in guide
-
-
-def test_a_draft_left_without_lines_by_a_clear_is_collected_again_not_sent():
-    """Review finding (PR 3): after a full clear the draft has no lines: never the send question."""
-    step = _step(quote_status="draft", card_pending=False, client_words="ciao", quote_empty=True)
-    assert step is QuoteStep.RACCOLTA
 
 
 def test_the_facts_read_an_empty_draft_from_the_house_quote():

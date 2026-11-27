@@ -38,8 +38,6 @@ from src.tools import gallery, project_files, room_tools
 from src.tools.company_tools import company_section, service_area
 from src.tools.project_files_view import ProjectFilesView
 from src.tools.quota import check_quota, increment_quota, quota_denial
-from src.tools.quote_submit_tools import submit_quote_request_wrapper
-from src.tools.send_consent import consent_refusal
 
 logger = logging.getLogger(__name__)
 
@@ -120,37 +118,6 @@ async def pricing_engine_tool(sku: str, qty: float) -> dict[str, Any]:
         "qty": qty,
         "total": to_json_number(line_total(qty, unit_price)),
     }
-
-
-# ─── Quote Submission (shared with the dashboard "Invia al team" button) ─────
-
-@instrumented_tool("submit_quote_request")
-async def submit_quote_request(session_id: str, tool_context) -> str:
-    """Sends the quote request of the CURRENT project to the admin team for review.
-
-    One project per chat, with a section per room: the whole quote is sent at
-    once — the SAME path as the dashboard "Invia al team" button. The admin is
-    notified by email and the client receives the final quote by email after
-    approval.
-
-    CRITICAL: call ONLY after the user gave an EXPLICIT confirmation
-    ("sì, invia") on a summary of the rooms and works being sent. Never call
-    automatically, never right after suggest_quote_items.
-
-    Args:
-        session_id: The current session identifier (used to resolve the user).
-        tool_context: ADK ToolContext injected automatically by the runner.
-    """
-    if await _is_guest(tool_context):
-        logger.warning("[ADK Tool] submit_quote_request blocked: anonymous user")
-        return _QUOTE_LOGIN_REQUIRED
-    # The prompt asks for the explicit yes; this makes it a control.
-    if refusal := consent_refusal(tool_context.session.events, tool_context.invocation_id, tool_context.user_content):
-        logger.warning("[ADK Tool] submit_quote_request refused: no explicit yes to the send question")
-        return refusal
-    return await submit_quote_request_wrapper(
-        session_id=_trusted_session_id(tool_context, session_id), user_id=tool_context.user_id
-    )
 
 
 # ─── Market Prices ───────────────────────────────────────────────────────────
@@ -665,9 +632,10 @@ _LOGIN_NOT_NEEDED = (
 async def request_login(tool_context) -> str:
     """Shows the login card to a guest, once per turn.
 
-    Call it ONLY for a guest (OSPITE ANONIMO), in the turn in which the user
-    CONFIRMED a render or a quote, instead of the premium tool. Never before
-    the confirmation, never after the premium tool.
+    Call it ONLY for a guest (OSPITE ANONIMO): in the turn in which the user
+    confirmed a render (instead of generate_render), or when suggest_quote_items
+    answered that the guest must log in first. Never for a photo, a price
+    question or the path chosen.
 
     Args:
         tool_context: ADK ToolContext injected automatically by the runner.
@@ -733,7 +701,6 @@ async def save_contact_phone(phone: str, session_id: str, tool_context) -> str:
 # ─── FunctionTool wrappers (ADK 1.26: pass func directly) ────────────────────
 
 pricing_engine_tool_adk = FunctionTool(pricing_engine_tool)
-submit_quote_request_adk = FunctionTool(submit_quote_request)
 market_prices_adk = FunctionTool(get_market_prices)
 
 generate_render_adk = FunctionTool(generate_render)

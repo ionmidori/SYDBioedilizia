@@ -46,7 +46,7 @@ from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_
 from src.services.quote_followup import FollowupResult, relay_client_request
 from src.services.quote_proposal import ProposalDraft
 from src.services.quote_state import QuoteStatus, ai_draft_action
-from src.services.quote_step import NEEDS_DETAILS
+from src.services.quote_step import NEEDS_DETAILS, SEND_BUTTON
 from src.services.room_aggregation import load_rules
 from src.services.room_archive import is_archived, last_activity
 from src.services.room_mentions import message_rooms
@@ -448,8 +448,19 @@ _CARD_MEASURES_NOTE = "Conferma le misure nella scheda qui sotto: preparo il pre
 # Heading of the measures the lines used while a new value waits on the card: the
 # agent repeats them word for word (MODE_B_SURVEYOR STEP 1, "MISURE E STATO").
 MEASURES_TO_REPORT = "MISURE DA RIPORTARE AL CLIENTE, parola per parola, prima di tutto il resto:"
+# The card is the summary and only its button sends (card-recap flow, U1): no send question.
 _CARD_DRAFT_NOTE = (
-    "Puoi confermare misure e lavori nella scheda qui sotto: la richiesta si aggiorna da sola e diventa più precisa."
+    "Nella scheda qui sotto completa le voci segnate «Da completare»: la richiesta si aggiorna da sola. "
+    f"Poi premi «{SEND_BUTTON}» per inviarla."
+)
+def _card_note(results: "Sequence[_UnitResult]") -> str:
+    """How the reply points to the card: what to complete first, or straight to the button."""
+    return _CARD_DRAFT_NOTE if any(r.card_to_confirm for r in results) else _CARD_SEND_NOTE
+
+
+_CARD_SEND_NOTE = (
+    f"Trovi il riepilogo nella scheda qui sotto: controllalo e, se è tutto giusto, premi «{SEND_BUTTON}». "
+    "La richiesta parte solo allora."
 )
 # Without the assembly library the model has no package to choose: its single
 # lines are quoted as they are (the expansion keeps the price-book checks).
@@ -1430,24 +1441,22 @@ async def suggest_quote_items_wrapper(
             return (
                 _measures_block(results)
                 + f"{headline}\n\n"
-                f"Ho preparato una nuova revisione del preventivo{reference}: ho identificato "
+                f"Ho preparato una nuova revisione del preventivo{reference}, non ancora inviata: ho identificato "
                 f"{len(quote.items)} lavorazioni{sections} da sottoporre al nostro team tecnico.{still_valid}\n\n"
-                "Il team esaminerà le modifiche e riceverai il preventivo aggiornato via email.\n\n"
-                "Vuoi che invii ora la revisione al team?"
+                "Quando la invii, il team esaminerà le modifiche e riceverai il preventivo aggiornato via email.\n\n"
+                + _card_note(results)
             )
         response = (
             _measures_block(results)
             + f"{headline}\n\n"
-            f"Ho registrato la tua richiesta di preventivo{reference}: ho identificato "
+            f"Ho registrato la tua richiesta di preventivo{reference}, non ancora inviata: ho identificato "
             f"{len(quote.items)} lavorazioni{sections} da sottoporre al nostro team tecnico.\n\n"
-            "Il team esaminerà la richiesta, definirà le voci e i prezzi e "
+            "Quando la invii, il team esaminerà la richiesta, definirà le voci e i prezzi e "
             "riceverai il preventivo dettagliato via email dopo la revisione.\n\n"
-            + (f"{_CARD_DRAFT_NOTE}\n\n" if any(r.card_to_confirm for r in results) else "")
-            + "Vuoi che invii ora la richiesta al team?"
+            + _card_note(results)
         )
 
-        # The team is notified only when the client confirms the submission
-        # (submit_quote_request tool or the "Invia al team" button).
+        # The team is notified only by the "Invia al team" button of the card (U1).
 
         return response
 

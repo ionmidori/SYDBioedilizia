@@ -13,9 +13,7 @@ import pytest
 from src.adk.quote_step_plugin import QuoteStepPlugin
 from src.adk.session_context import CARD_PENDING_STATE_KEY, HOUSE_QUOTE_STATE_KEY, SESSION_CONTEXT_STATE_KEY
 from src.core.context import set_request_id
-from tests.unit.send_consent_fakes import TURN, text_event, user_message
-
-REGISTER_ASK = "Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"
+from tests.unit.adk_event_fakes import TURN, text_event, user_message
 
 
 @pytest.fixture(autouse=True)
@@ -46,8 +44,9 @@ def _steps(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
 
 async def test_the_step_is_logged_once_without_ids(caplog):
     caplog.set_level(logging.INFO)
-    events = [text_event("user", "rifare il bagno"), text_event("quote", REGISTER_ASK)]
-    result = await QuoteStepPlugin().before_run_callback(invocation_context=_context(_signed_in({}), events))
+    events = [text_event("user", "rifare il bagno"), text_event("quote", "Quanti metri quadri è?")]
+    context = _context(_signed_in({}), events, words="registra la richiesta")
+    result = await QuoteStepPlugin().before_run_callback(invocation_context=context)
     assert result is None
     [record] = _steps(caplog)
     assert record.quote_step == "registra"
@@ -71,7 +70,7 @@ async def test_a_turn_without_session_facts_is_not_logged(caplog):
     assert _steps(caplog) == []
 
 
-@pytest.mark.parametrize(("card", "step"), [(True, "scheda"), (False, "domanda_invio"), (None, "domanda_invio")])
+@pytest.mark.parametrize(("card", "step"), [(True, "scheda"), (False, "riepilogo"), (None, "riepilogo")])
 async def test_the_card_of_a_draft_comes_from_the_state(caplog, card, step):
     caplog.set_level(logging.INFO)
     state = _signed_in({"status": "draft", "version": 1, "quote_number": "PRV-2026-0001"}, card=card)

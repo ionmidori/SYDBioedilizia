@@ -80,35 +80,36 @@ _PLAYBOOK_TITLE: dict[PlaybookField, str] = {
 # Without an active room the playbooks come from the rooms of the project: more than two is noise.
 _PLAYBOOKS_MAX = 2
 
-# The login is asked once, at the confirmation (Phase 138 PR-6): asked earlier,
-# the guest left; asked by every agent, it showed up three times. The premium
-# tools refuse a guest anyway (tools._is_guest): this decides only the moment.
+# The login is asked once (Phase 138 PR-6): asked earlier, the guest left; asked by
+# every agent, it showed up three times. The premium tools refuse a guest anyway
+# (tools._is_guest): this decides only the moment. For the quote the moment is the
+# request ready to register (card-recap flow, 27 Nov: no "Preparo la richiesta?").
 _GUEST_RULE = (
     "STATO AUTENTICAZIONE: L'utente è un OSPITE ANONIMO.\n"
-    "Tool premium (riservati agli utenti registrati): generate_render, suggest_quote_items, "
-    "submit_quote_request.\n"
+    "Tool premium (riservati agli utenti registrati): generate_render, suggest_quote_items.\n"
     "Liberi per tutti, ospiti compresi, senza login: search_listino, search_prezzario, "
     "retrieve_price_by_code, pricing_engine, market_prices, get_company_info, check_service_area "
     "(domande su prezzi o sulla società non richiedono l'accesso).\n"
     "ECCEZIONE: per un lavoro fuori elenco (regola LAVORO FUORI ELENCO del protocollo company_info) non chiedere "
-    "né conferma né accesso, e nel turno dell'avviso CANTIERE FUORI ZONA non chiedere l'accesso; gli altri lavori "
+    "l'accesso, e nel turno dell'avviso CANTIERE FUORI ZONA non chiedere l'accesso; gli altri lavori "
     "della richiesta seguono la sequenza.\n"
     "SEQUENZA OBBLIGATORIA per rendering e preventivo:\n"
-    "1) Raccogli i dati e ottieni la CONFERMA esplicita dell'utente (ok al riepilogo del rendering, "
-    "richiesta di preparare il preventivo o sì alla tua domanda). La scelta del percorso, una domanda "
-    "di prezzo o una foto caricata NON sono conferme: in quei turni NON chiedere l'accesso.\n"
-    "2) Nel turno della conferma chiama request_login_adk UNA SOLA VOLTA (al posto del tool premium), "
+    "1) Raccogli i dati. Rendering: ottieni la CONFERMA esplicita dell'utente al riepilogo. Preventivo: nessuna "
+    "domanda di conferma; quando hai i dati (comune, lavori, misure) o l'utente chiede il preventivo, chiama "
+    "suggest_quote_items: ti risponderà di chiedere l'accesso. La scelta del percorso, una domanda di prezzo o "
+    "una foto caricata NON sono quel momento: in quei turni NON chiedere l'accesso.\n"
+    "2) Quando serve l'accesso (rendering confermato, o suggest_quote_items te lo chiede) chiama "
+    "request_login_adk UNA SOLA VOLTA (al posto del tool premium), "
     "di' all'utente che serve un account gratuito e che riprendi subito dopo, e FERMATI. "
     "NON chiamare il tool premium e NON richiamare request_login_adk nello stesso turno.\n"
-    "3) DOPO IL LOGIN (lo stato autenticazione di questo blocco cambia) esegui il tool premium confermato."
+    "3) DOPO IL LOGIN (lo stato autenticazione di questo blocco cambia) esegui il tool premium."
 )
 _LOGGED_IN_RULE = (
     "STATO AUTENTICAZIONE: L'utente è GIA' LOGGATO con un account verificato. "
     "NON DEVI MAI USARE il tool request_login_adk per nessun motivo. "
-    "Se la tua ULTIMA risposta chiedeva l'accesso per un rendering o per la registrazione del preventivo "
-    "che l'utente aveva già confermato, e non l'hai ancora eseguito, esegui ora generate_render o "
-    "suggest_quote_items senza chiedere di nuovo conferma (una volta sola). L'invio al team "
-    "(submit_quote_request) richiede sempre il sì esplicito all'invio."
+    "Se la tua ULTIMA risposta chiedeva l'accesso per un rendering confermato o per la registrazione del "
+    "preventivo, e non l'hai ancora eseguito, esegui ora generate_render o suggest_quote_items senza chiedere "
+    "conferma (una volta sola). L'invio al team non si fa in chat: solo il pulsante «Invia al team» della scheda."
 )
 
 

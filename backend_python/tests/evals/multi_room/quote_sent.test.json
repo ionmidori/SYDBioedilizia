@@ -1,0 +1,53 @@
+{
+  "eval_set_id": "syd_quote_sent_v1",
+  "name": "SYD After the «Invia al team» button of the card (PR A of the card-recap flow)",
+  "description": "The client pressed «Invia al team» on the card: the request went to the team through POST /api/quote/{id}/submit and the web client sends a hidden turn (event quote_sent, state syd_card_event). The agent confirms in a sentence that the request reached the team, with no tool and no send question. Written, NOT run (Gemini evals only on explicit request).",
+  "eval_cases": [
+    {
+      "eval_id": "quote_sent_is_confirmed",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": false,
+            "phone_on_file": true,
+            "session_id": "eval-quote-sent"
+          },
+          "syd_rooms": [],
+          "syd_house_quote": {
+            "quote_number": "PRV-EVAL-0002",
+            "status": "pending_review",
+            "version": 1
+          },
+          "syd_card_pending": null,
+          "syd_card_event": "quote_sent"
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_quote_sent_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nEvento di sistema: il cliente ha inviato la richiesta di preventivo al team con il pulsante della scheda.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Richiesta inviata al team! ✅ Ti invieremo il preventivo via email dopo la revisione."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -43,7 +43,6 @@ from src.adk.session_context import (
     session_context_delta,
     turn_message_entry,
 )
-from src.adk.turn_fallback import MODEL_FAILURES, confirmed_since_send, sent_reply
 from src.adk.video_attachments import (
     UNREADABLE_VIDEOS_STATE_KEY,
     is_media_rejection,
@@ -60,7 +59,7 @@ from src.repositories.conversation_repository import get_conversation_repository
 from src.repositories.room_repository import get_room_repository
 from src.schemas.room import RoomSchema
 from src.services.base_orchestrator import BaseOrchestrator
-from src.services.card_event import CARD_CONFIRMED_EVENT, CARD_CONFIRMED_TEXT
+from src.services.card_event import CARD_EVENT_TEXTS
 from src.services.confirmation_service import confirmation_state
 from src.services.quote_drafts import read_quote_status
 from src.services.quote_state import QuoteStatus
@@ -466,10 +465,6 @@ class _TurnText:
         self.redacted = True
         return [redact_chunk(self.text)]
 
-    def append_own(self, text: str) -> list[dict[str, Any]]:
-        """Text of our own (a tool's confirmation), after what the model showed."""
-        return self._append(f"\n\n{text}" if self.text else text)
-
     def feed_partial(self, chunk: str) -> list[dict[str, Any]]:
         if not self._stream:
             return []
@@ -597,8 +592,8 @@ class ADKOrchestrator(BaseOrchestrator):
         # A hidden signal (e.g. the card confirmed): the agent reads the backend's fixed
         # words, never the text the client sent with it.
         event = getattr(request, "event", None)
-        if event == CARD_CONFIRMED_EVENT:
-            user_message_text = CARD_CONFIRMED_TEXT
+        if event in CARD_EVENT_TEXTS:
+            user_message_text = CARD_EVENT_TEXTS[event]
         elif hasattr(request, "messages") and request.messages:
             last_msg_content = request.messages[-1].content
             user_message_text = last_msg_content if isinstance(last_msg_content, str) else str(last_msg_content)
@@ -653,7 +648,7 @@ class ADKOrchestrator(BaseOrchestrator):
         # Not yet in Firestore while the turn runs (saved after the stream): the
         # quote tool adds it to the history it reads.
         # Written every turn: None clears the last turn's signal.
-        context_delta[CARD_EVENT_STATE_KEY] = event if event == CARD_CONFIRMED_EVENT else None
+        context_delta[CARD_EVENT_STATE_KEY] = event if event in CARD_EVENT_TEXTS else None
         context_delta[TURN_MESSAGE_STATE_KEY] = turn_message_entry(
             request.messages[-1].id if getattr(request, "messages", None) else None, room_id
         )
@@ -773,16 +768,6 @@ class ADKOrchestrator(BaseOrchestrator):
             # that comes without an id (ADK may not preserve it); a queue so two
             # parallel calls of the same tool keep their own ids.
             pending_tool_calls: dict[str, list[str]] = {}
-            # The send tool's confirmation: the reply if the model fails after the quote left.
-            sent_confirmation: str | None = None
-            sent_text_len = 0  # the turn's text when the send returned
-
-            def _confirmation_chunks() -> list[dict[str, Any]]:
-                """The send's confirmation after a model failure, unless the model already gave it."""
-                if sent_confirmation is None or confirmed_since_send(turn_text.text[sent_text_len:]):
-                    return []
-                return turn_text.append_own(sent_confirmation)
-
             try:
                 # Pass user message directly via new_message parameter (ADK 1.x API)
                 if not content_parts:
@@ -1041,8 +1026,6 @@ class ADKOrchestrator(BaseOrchestrator):
                                             )
                                             async for chunk in stream_tool_result(call_id, raw_response):
                                                 yield chunk
-                                            if (confirmation := sent_reply(getattr(fr, "name", None), raw_response)) is not None:
-                                                sent_confirmation, sent_text_len = confirmation, len(turn_text.text)
 
                                             # The agent moved the conversation to another room:
                                             # the rest of the turn is tagged with it and the
@@ -1153,28 +1136,8 @@ class ADKOrchestrator(BaseOrchestrator):
                     await vertex_ai_breaker.on_failure(
                         TimeoutError("run_async timed out after 180s")
                     )
-                    logger.error(
-                        "[ADK] run_async timed out after 180s",
-                        extra={"fallback": "send_confirmation" if sent_confirmation is not None else None},
-                    )
-                    if sent_confirmation is None:
-                        async for chunk in stream_error("Syd ha impiegato troppo tempo a rispondere. Riprova tra poco."):
-                            yield chunk
-                    else:
-                        for chunk in _confirmation_chunks():
-                            yield chunk
-                except MODEL_FAILURES as model_exc:
-                    # The quote has left: the client reads the send tool's confirmation, not an error.
-                    if sent_confirmation is None:
-                        raise
-                    if turn is not None:
-                        turn.set_outcome("fallback_after_error")
-                    await vertex_ai_breaker.on_failure(model_exc)
-                    logger.error(
-                        "[ADK] Model call failed after the send: confirmation streamed from the tool reply.",
-                        exc_info=True, extra={"fallback": "send_confirmation"},
-                    )
-                    for chunk in _confirmation_chunks():
+                    logger.error("[ADK] run_async timed out after 180s")
+                    async for chunk in stream_error("Syd ha impiegato troppo tempo a rispondere. Riprova tra poco."):
                         yield chunk
 
                 # --- LOCAL PERSISTENCE BRIDGE (Save Assistant) ---

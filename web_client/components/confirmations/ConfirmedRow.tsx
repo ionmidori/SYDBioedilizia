@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 interface ConfirmedRowProps {
   label: string;
   value: string;
+  /** Where the value comes from (a measure the client did not confirm on the card): shown under it. */
+  note?: string;
   /** The quote is still a draft: the voice can be changed. */
   canEdit: boolean;
   /** Something else is open or being saved. */
@@ -15,8 +17,17 @@ interface ConfirmedRowProps {
   onEdit: () => void;
 }
 
-/** One voice the client already confirmed: what was confirmed, and a button to change just that. */
-export function ConfirmedRow({ label, value, canEdit, disabled, restoreFocus, onRestored, onEdit }: ConfirmedRowProps) {
+/** One voice of the summary: its value (and where it comes from), and a button to change just that. */
+export function ConfirmedRow({
+  label,
+  value,
+  note,
+  canEdit,
+  disabled,
+  restoreFocus,
+  onRestored,
+  onEdit,
+}: ConfirmedRowProps) {
   const button = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!restoreFocus) return;
@@ -26,7 +37,10 @@ export function ConfirmedRow({ label, value, canEdit, disabled, restoreFocus, on
 
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
-      <span className="min-w-0 text-ink-muted">{label}</span>
+      <span className="min-w-0 text-ink-muted">
+        {label}
+        {note && <span className="block text-xs">{note}</span>}
+      </span>
       <span className="flex items-center gap-2">
         <span className="tabular-nums text-ink">{value}</span>
         {canEdit && (

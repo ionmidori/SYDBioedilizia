@@ -18,6 +18,7 @@ import { Message } from '@/types/chat';
 import { getVisibleText, stripDuplicateImages } from '@/lib/chat/message-text';
 import { resolveToolInvocations } from '@/lib/chat/tool-invocations';
 import { ConfirmationCard } from '@/components/confirmations/ConfirmationCard';
+import { CARD_CONFIRMED_EVENT, QUOTE_SENT_EVENT, type ChatEvent } from '@/lib/chat/hidden-message';
 import { useSmoothText } from '@/hooks/useSmoothText';
 import { MemoizedMarkdown, safeUrlTransform, type UrlTransform } from '@/components/chat/MemoizedMarkdown';
 import { ContactActions } from '@/components/chat/ContactActions';
@@ -58,10 +59,11 @@ interface MessageItemProps {
      */
     showConfirmations?: boolean;
     /**
-     * The last confirmation on the card was saved: the chat restarts the agent by itself. A stable
-     * function (useCallback), so React.memo still skips messages that did not change.
+     * A signal of the card (the last confirmation saved, or the request sent with "Invia al team"):
+     * the chat restarts the agent by itself. A stable function (useCallback), so React.memo still
+     * skips messages that did not change.
      */
-    onConfirmationsDone?: () => void;
+    onCardSignal?: (event: ChatEvent) => void;
 }
 
 interface WelcomeQuickAction {
@@ -101,7 +103,7 @@ const WELCOME_QUICK_ACTIONS: readonly WelcomeQuickAction[] = [
  * Handles rendering of one chat message with its avatar, content, and attachments
  * ✅ Memoized to prevent unnecessary re-renders
  */
-export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onQuickPrompt, historyMessage, animate = false, showConfirmations = false, onConfirmationsDone }) => {
+export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onQuickPrompt, historyMessage, animate = false, showConfirmations = false, onCardSignal }) => {
     const { user } = useAuth();
     const identity = useCompanyIdentity();
     // Vercel AI SDK strips custom fields like "rating" from the messages array during internal state updates.
@@ -457,8 +459,14 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                     </div>
                 )}
 
-                {/* Confirm measures and works, under the reply that prepared the quote */}
-                {showCard && <ConfirmationCard projectId={sessionId} onAllConfirmed={onConfirmationsDone} />}
+                {/* The summary of the request, under the reply that prepared the quote */}
+                {showCard && (
+                    <ConfirmationCard
+                        projectId={sessionId}
+                        onAllConfirmed={onCardSignal && (() => onCardSignal(CARD_CONFIRMED_EVENT))}
+                        onQuoteSent={onCardSignal && (() => onCardSignal(QUOTE_SENT_EVENT))}
+                    />
+                )}
 
                 {/* Quick ways to reach SYD, under a reply that writes a company contact */}
                 {showContactActions && identity && <ContactActions identity={identity} />}

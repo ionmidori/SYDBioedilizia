@@ -27,7 +27,7 @@ from src.prompts.room_playbooks import GUIDANCE_MAX_CHARS, REGISTRY, playbooks_f
 from src.prompts.room_playbooks.bagno import BAGNO
 from src.prompts.room_playbooks.schema import RoomPlaybook
 from src.schemas.room import DEFAULT_ROOM_ID, ROOM_TYPES
-from tests.unit.send_consent_fakes import user_message
+from tests.unit.adk_event_fakes import user_message
 
 # ── The registry ──────────────────────────────────────────────────────────────
 

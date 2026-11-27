@@ -220,7 +220,8 @@ async def test_state_lists_pending_and_conflict_candidates() -> None:
     assert (state.editable, state.precision) == (True, 80)
     assert [s.section_key for s in state.sections] == ["bagno1", "cucina1"]
     bagno_state, cucina_state = state.sections
-    assert bagno_state.label == "Bagno" and bagno_state.pending  # a proposal to answer, elements to confirm
+    assert bagno_state.label == "Bagno" and bagno_state.pending  # a proposal to answer
+    assert cucina_state.pending  # a missing measure
     assert bagno_state.measures == [MeasureState(name="mq", label=MEASURE_LABELS["mq"], value=8, source="confirmed",
                                                  proposed=6)]
     assert bagno_state.element_choices[0] == ElementChoiceState(
@@ -238,6 +239,24 @@ async def test_state_lists_pending_and_conflict_candidates() -> None:
 def _options(*actions: ElementAction) -> list[ElementOption]:
     """The client reads the actions with the words the team reads in its checks."""
     return [ElementOption(action=action, label=ACTION_LABELS[action]) for action in actions]
+
+
+async def test_what_the_client_said_and_the_code_computed_asks_nothing() -> None:
+    """The card is a summary (U3): declared and calculated measures, and element
+    choices nobody confirmed, leave the section with nothing to answer."""
+    bagno = _spec(StoredMeasure(name="mq", value=6, source="declared"),
+                  StoredMeasure(name="mq_pareti", value=20, source="calculated"))
+    with _project({"bagno1": bagno}, _draft()):
+        state = await confirmation_state(PID)
+    (section,) = state.sections
+    assert not any(c.confirmed for c in section.element_choices)
+    assert not section.pending
+
+
+async def test_a_photo_estimate_asks_the_client() -> None:
+    with _project({"bagno1": _spec(StoredMeasure(name="mq", value=6, source="photo"))}, _draft()):
+        state = await confirmation_state(PID)
+    assert [s.pending for s in state.sections] == [True]
 
 
 async def test_a_fully_confirmed_section_is_not_pending() -> None:

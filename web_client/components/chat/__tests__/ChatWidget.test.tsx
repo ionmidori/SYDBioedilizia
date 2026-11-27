@@ -82,8 +82,8 @@ const MockChatHeader = jest.fn(() => <div data-testid="chat-header">Header</div>
 jest.mock('../ChatHeader', () => ({ ChatHeader: (props: Record<string, unknown>) => MockChatHeader(props) }));
 
 // Other Mocks
-const MockChatMessages = jest.fn<React.ReactElement, [{ messages?: Array<{ id: string }>; activeRoomLabel?: string | null; onImageClick?: (url: string) => void; onConfirmationsDone?: () => void }]>(() => <div />);
-jest.mock('../ChatMessages', () => ({ ChatMessages: (props: { messages?: Array<{ id: string }>; activeRoomLabel?: string | null; onImageClick?: (url: string) => void; onConfirmationsDone?: () => void }) => MockChatMessages(props) }));
+const MockChatMessages = jest.fn<React.ReactElement, [{ messages?: Array<{ id: string }>; activeRoomLabel?: string | null; onImageClick?: (url: string) => void; onCardSignal?: (event: 'card_confirmed' | 'quote_sent') => void }]>(() => <div />);
+jest.mock('../ChatMessages', () => ({ ChatMessages: (props: { messages?: Array<{ id: string }>; activeRoomLabel?: string | null; onImageClick?: (url: string) => void; onCardSignal?: (event: 'card_confirmed' | 'quote_sent') => void }) => MockChatMessages(props) }));
 const MockChatInput = jest.fn<React.ReactElement, [{ authLoading?: boolean; onSubmit?: (e?: React.FormEvent) => Promise<void> | void }]>(() => <div />);
 jest.mock('../ChatInput', () => ({ ChatInput: (props: { authLoading?: boolean; onSubmit?: (e?: React.FormEvent) => Promise<void> | void }) => MockChatInput(props) }));
 interface MockChatToggleButtonProps {
@@ -145,24 +145,27 @@ describe('ChatWidget', () => {
         mockUseAuth.mockReturnValue({ isInitialized: true, user: { uid: 'u1' }, refreshToken: jest.fn() });
     });
 
-    test('the last confirmation on the card restarts the agent with the hidden signal, once per call', async () => {
-        mockSendSignal.mockResolvedValue(undefined);
-        render(<ChatWidget variant="inline" />);
+    test.each(['card_confirmed', 'quote_sent'] as const)(
+        'the %s signal of the card restarts the agent with the hidden turn, once per call',
+        async (event) => {
+            mockSendSignal.mockResolvedValue(undefined);
+            render(<ChatWidget variant="inline" />);
 
-        await act(async () => {
-            MockChatMessages.mock.calls.at(-1)?.[0].onConfirmationsDone?.();
-        });
+            await act(async () => {
+                MockChatMessages.mock.calls.at(-1)?.[0].onCardSignal?.(event);
+            });
 
-        expect(mockSendSignal).toHaveBeenCalledTimes(1);
-        expect(mockSendSignal).toHaveBeenCalledWith('card_confirmed');
-    });
+            expect(mockSendSignal).toHaveBeenCalledTimes(1);
+            expect(mockSendSignal).toHaveBeenCalledWith(event);
+        },
+    );
 
     test('a refused signal is no error banner: the client can go on by writing', async () => {
         mockSendSignal.mockRejectedValue(new Error('boom'));
         render(<ChatWidget variant="inline" />);
 
         await act(async () => {
-            MockChatMessages.mock.calls.at(-1)?.[0].onConfirmationsDone?.();
+            MockChatMessages.mock.calls.at(-1)?.[0].onCardSignal?.('card_confirmed');
         });
 
         expect(screen.queryByRole('alert')).not.toBeInTheDocument();

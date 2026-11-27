@@ -25,7 +25,8 @@ services directly.
   expands deterministically in `Decimal` against the assembly library (`renovation_assemblies.json`)
   and the live price book, supplemented by the Prezzario Regione Lazio 2023 (RAG on Pinecone).
   Clients confirm measures and works on interactive chat cards (`PUT /api/quote/{id}/confirmation-cards`)
-  that recalculate the draft without calling Gemini; sending to the team is enforced in code (`src/tools/send_consent.py`).
+  that recalculate the draft without calling Gemini; only the card's "Invia al team" button sends the request
+  to the team (`POST /api/quote/{id}/submit`): the agent registers it, it never sends it.
   An admin reviews and approves each quote in `/admin/quotes` (recording diffs in `learning_ledger`);
   approved quotes are rendered to PDF with ReportLab (`src/brand/` tokens) and delivered by email.
 - **Company profile (`CompanyInfoService`)**: single source of truth on Firestore (`app_config/company_info`,

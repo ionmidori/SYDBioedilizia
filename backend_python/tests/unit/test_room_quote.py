@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from google.api_core.exceptions import GoogleAPICallError, NotFound
 from pydantic import ValidationError
 from src.core.money import sum_amounts
@@ -26,6 +27,7 @@ from src.services.insight_engine import (
 from src.services.intervention_expansion import MEASURE_QUESTIONS
 from src.services.pricing_service import PricingService
 from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult
+from src.services.quote_step import SEND_BUTTON
 from src.tools import quote_tools
 from src.tools.quote_tools import (
     _CARD_DRAFT_NOTE,
@@ -968,12 +970,30 @@ async def test_the_tool_draft_has_a_price_range():
 
 
 async def test_draft_reply_invites_confirmation():
-    """The draft was made from measures the model took (declared): the client may confirm them."""
-    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}):
+    """The draft rests on a measure the model estimated: the client confirms it on the card."""
+    estimated = [SpecMeasure(name="mq", value=6, source="estimated")]
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom(measures=estimated)}):
         reply = await _quote()
 
     assert _CARD_DRAFT_NOTE in reply and "scheda" in _CARD_DRAFT_NOTE
-    assert reply.index(_CARD_DRAFT_NOTE) < reply.index("Vuoi che invii ora la richiesta al team?")
+    assert reply.index(_CARD_DRAFT_NOTE) < reply.index(SEND_BUTTON)
+
+
+async def test_draft_reply_does_not_invite_for_what_the_client_said():
+    """A measure the client declared is accepted as it is (U3): nothing to confirm."""
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}):
+        reply = await _quote()
+
+    assert _CARD_DRAFT_NOTE not in reply
+
+
+async def test_draft_reply_points_to_the_send_button_and_asks_nothing():
+    """U1: the click on the card is the consent: the chat never asks to send."""
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}):
+        reply = await _quote()
+
+    assert f"«{SEND_BUTTON}»" in reply and "scheda" in reply
+    assert "Vuoi che invii" not in reply and "Confermi" not in reply and not reply.rstrip().endswith("?")
 
 
 async def test_draft_reply_does_not_invite_when_everything_is_confirmed():
@@ -1000,6 +1020,28 @@ async def test_a_revision_does_not_invite_to_the_card():
         reply = await _quote()
 
     assert "nuova revisione" in reply and _CARD_DRAFT_NOTE not in reply
+    assert f"«{SEND_BUTTON}»" in reply and "Vuoi che invii" not in reply
+
+
+async def test_a_revision_with_something_to_complete_says_so():
+    """U3 holds for a revision too: the client completes «Da completare» before the button."""
+    estimated = [SpecMeasure(name="mq", value=6, source="estimated")]
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom(measures=estimated)}) as mocks:
+        mocks["saved"].return_value = DraftSaveResult(DraftSaveOutcome.REVISED, "draft", "PRV-2026-0042", 2, True)
+        reply = await _quote()
+
+    assert _CARD_DRAFT_NOTE in reply
+
+
+@pytest.mark.parametrize("outcome", [DraftSaveOutcome.UPDATED, DraftSaveOutcome.REVISED])
+async def test_the_reply_never_reads_as_if_the_team_had_the_request(outcome):
+    """Review finding: "Il team esaminerà la richiesta" right after "Ho registrato" read as sent."""
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks:
+        mocks["saved"].return_value = DraftSaveResult(outcome, "draft", "PRV-2026-0042", 2, False)
+        reply = await _quote()
+
+    assert "non ancora inviata" in reply and "Quando la invii" in reply
+    assert "Il team esaminerà" not in reply
 
 
 async def test_no_amount_in_reply():

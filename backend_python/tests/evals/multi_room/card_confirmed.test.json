@@ -1,10 +1,10 @@
 {
   "eval_set_id": "syd_card_confirmed_v1",
   "name": "SYD After the last confirmation on the card (PR 2 of the card fixes)",
-  "description": "The client confirmed the last section of the confirmation card: the web client sends a hidden turn (event card_confirmed, state syd_card_event) and the agent restarts by itself: it goes on to the send question, no tool, no registration again, no menu, and never mentions a message of the client. Written, NOT run (Gemini evals only on explicit request).",
+  "description": "The client confirmed the last section of the confirmation card: the web client sends a hidden turn (event card_confirmed, state syd_card_event) and the agent restarts by itself: it points to the card's «Invia al team» button, no tool, no registration again, no send question, and never mentions a message of the client. Written, NOT run (Gemini evals only on explicit request).",
   "eval_cases": [
     {
-      "eval_id": "card_confirmed_goes_to_the_send_question",
+      "eval_id": "card_confirmed_points_to_the_button",
       "session_input": {
         "app_name": "syd_orchestrator",
         "user_id": "eval-user",
@@ -38,7 +38,7 @@
           "final_response": {
             "parts": [
               {
-                "text": "Bagno: rifacimento completo con doccia walk-in. Invio al nostro team la richiesta di preventivo per Bagno. Confermi?"
+                "text": "La scheda è completa. Controlla il riepilogo del Bagno e, se è tutto giusto, premi «Invia al team»."
               }
             ],
             "role": "model"
