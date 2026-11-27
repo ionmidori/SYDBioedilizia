@@ -5,6 +5,7 @@ import { MessageItem } from '@/components/chat/MessageItem';
 import { Message } from '@/types/chat'; // ✅ Message interface compatible with AI SDK
 import { ReasoningStep } from '@/types/reasoning'; // 🔥 CoT Types
 import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
+import type { ChatEvent } from '@/lib/chat/hidden-message';
 import { hasVisibleText } from '@/lib/chat/message-text';
 import { lastQuoteToolIndex } from '@/lib/chat/tool-invocations';
 
@@ -17,8 +18,11 @@ interface ChatMessagesProps {
     sessionId?: string | null;
     onImageClick?: (url: string) => void;
     onQuickPrompt?: (prompt: string) => void;
-    /** The last confirmation on the card was saved: the chat restarts the agent (stable function). */
-    onConfirmationsDone?: () => void;
+    /**
+     * A signal of the card (the last confirmation saved, or the request sent with "Invia al team"):
+     * the chat restarts the agent (stable function).
+     */
+    onCardSignal?: (event: ChatEvent) => void;
 
     // Status Logic 
     statusMessage?: string | null;
@@ -46,7 +50,7 @@ const ChatMessagesComponent = ({
     sessionId,
     onImageClick,
     onQuickPrompt,
-    onConfirmationsDone,
+    onCardSignal,
     statusMessage,
     data, // Capture data
     messagesContainerRef,
@@ -144,7 +148,7 @@ const ChatMessagesComponent = ({
                                 historyMessage={msg.id ? historyById.get(msg.id) : undefined}
                                 animate={!!msg.id && liveReplyIds.has(msg.id)}
                                 showConfirmations={idx === confirmationsIndex}
-                                onConfirmationsDone={onConfirmationsDone}
+                                onCardSignal={onCardSignal}
                             />
                         ))}
                     </AnimatePresence>

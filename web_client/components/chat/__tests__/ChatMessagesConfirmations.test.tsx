@@ -8,14 +8,14 @@ jest.mock('@/components/chat/MessageItem', () => ({
   MessageItem: ({
     message,
     showConfirmations,
-    onConfirmationsDone,
+    onCardSignal,
   }: {
     message: Message;
     showConfirmations?: boolean;
-    onConfirmationsDone?: () => void;
+    onCardSignal?: (event: 'card_confirmed' | 'quote_sent') => void;
   }) => (
     <div data-testid={`message-${message.id}`} data-confirmations={String(Boolean(showConfirmations))}>
-      <button type="button" onClick={onConfirmationsDone}>{`done-${message.id}`}</button>
+      <button type="button" onClick={() => onCardSignal?.('quote_sent')}>{`done-${message.id}`}</button>
     </div>
   ),
 }));
@@ -75,21 +75,21 @@ describe('ChatMessages — where the confirmation card goes', () => {
   });
 });
 
-describe('ChatMessages — the last confirmation on the card', () => {
+describe('ChatMessages — the signals of the card', () => {
   it('hands every message the callback of the chat', () => {
-    const onConfirmationsDone = jest.fn();
+    const onCardSignal = jest.fn();
     render(
       <ChatMessages
         messages={[assistant('a', [quoteTool()])]}
         isLoading={false}
         sessionId="s1"
-        onConfirmationsDone={onConfirmationsDone}
+        onCardSignal={onCardSignal}
         {...refs}
       />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'done-a' }));
 
-    expect(onConfirmationsDone).toHaveBeenCalledTimes(1);
+    expect(onCardSignal).toHaveBeenCalledWith('quote_sent');
   });
 });

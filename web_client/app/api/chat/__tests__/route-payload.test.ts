@@ -60,8 +60,8 @@ describe('buildBackendPayload — the card confirmed (hidden signal)', () => {
         sessionId: 's1',
     };
 
-    test('forwards the event: a field left out here never reaches the backend', () => {
-        expect(buildBackendPayload({ ...base, event: 'card_confirmed' }).event).toBe('card_confirmed');
+    test.each(['card_confirmed', 'quote_sent'] as const)('forwards the %s event: a field left out here never reaches the backend', (event) => {
+        expect(buildBackendPayload({ ...base, event }).event).toBe(event);
     });
 
     test('sends no event for a normal turn', () => {

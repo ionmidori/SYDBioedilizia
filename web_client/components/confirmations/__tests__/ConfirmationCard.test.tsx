@@ -10,6 +10,10 @@ import type { ConfirmationState, MeasureState, SectionState } from '@/types/conf
 jest.mock('@/lib/confirmations-api', () => ({
   confirmationsApi: { getState: jest.fn(), confirm: jest.fn() },
 }));
+// The card reads the house quote for its "Invia al team" button (ConfirmationCardRecap.test.tsx).
+jest.mock('@/lib/quotes-api', () => ({
+  quotesApi: { getQuote: jest.fn().mockResolvedValue(null), submitQuote: jest.fn() },
+}));
 const getState = confirmationsApi.getState as jest.Mock;
 const confirm = confirmationsApi.confirm as jest.Mock;
 
@@ -73,6 +77,10 @@ const cucina = (patch: Partial<SectionState> = {}): SectionState => ({
   ...patch,
 });
 
+/** A section with one measure to confirm, already filled (SYD's estimate): its "Conferma" works at once. */
+const quick = (patch: Partial<SectionState> = {}): SectionState =>
+  bagno({ measures: [bagno().measures[0]], element_choices: [], ...patch });
+
 const state = (patch: Partial<ConfirmationState> = {}): ConfirmationState => ({
   sections: [bagno()],
   editable: true,
@@ -102,21 +110,21 @@ beforeEach(() => {
 });
 
 describe('ConfirmationCard — what the client confirms', () => {
-  it('shows each measure with where its value comes from, and the element choices', async () => {
+  it('shows each measure to complete with where its value comes from, and the element choices as a summary', async () => {
     renderCard();
 
-    expect(await screen.findByRole('region', { name: 'Conferma misure e lavori' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'Riepilogo della richiesta' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Bagno' })).toBeInTheDocument();
     expect(screen.getByLabelText('Superficie pavimento')).toHaveValue(6);
     expect(screen.getByText('stimata da SYD')).toBeInTheDocument();
     expect(screen.getByLabelText('Superficie pareti')).toHaveValue(null);
     expect(screen.getByText('da indicare')).toBeInTheDocument();
-    expect(
-      within(screen.getByRole('radiogroup', { name: 'Vasca' })).getByRole('radio', { name: 'Sostituisci' }),
-    ).toBeChecked();
+    // U3: an element choice is a summary row with "Modifica", never a field to confirm.
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Modifica Vasca' })).toBeInTheDocument();
   });
 
-  it('confirms a section: measures and choices go to the backend', async () => {
+  it('confirms a section: the measures to complete go to the backend', async () => {
     confirm.mockResolvedValue({
       recalculated: true,
       blocked_sections: [],
@@ -126,7 +134,6 @@ describe('ConfirmationCard — what the client confirms', () => {
     renderCard();
 
     await user.type(await screen.findByLabelText('Superficie pareti'), '18');
-    await user.click(screen.getByRole('radio', { name: 'Lascia in posa' }));
     await user.click(await confirmButton());
 
     await waitFor(() =>
@@ -135,7 +142,7 @@ describe('ConfirmationCard — what the client confirms', () => {
           { name: 'mq', value: 6 },
           { name: 'mq_pareti', value: 18 },
         ],
-        element_choices: [{ element: 'vasca', action: 'keep' }],
+        element_choices: [],
       }),
     );
   });
@@ -187,8 +194,10 @@ describe('ConfirmationCard — what the client confirms', () => {
       ],
     });
     getState.mockResolvedValue(state({ sections: [noReuse] }));
+    const user = userEvent.setup();
     renderCard();
 
+    await user.click(await screen.findByRole('button', { name: 'Modifica WC' }));
     const group = await screen.findByRole('radiogroup', { name: 'WC' });
     expect(within(group).getAllByRole('radio')).toHaveLength(2);
     expect(within(group).queryByRole('radio', { name: 'Riutilizza' })).not.toBeInTheDocument();
@@ -214,7 +223,7 @@ describe('ConfirmationCard — what the client confirms', () => {
     getState.mockResolvedValue(state({ sections: [bagno({ section_key: 'chat', label: null })] }));
     renderCard();
 
-    await screen.findByRole('region', { name: 'Conferma misure e lavori' });
+    await screen.findByRole('region', { name: 'Riepilogo della richiesta' });
     expect(screen.queryByRole('heading')).not.toBeInTheDocument();
   });
 });
@@ -227,7 +236,7 @@ describe('ConfirmationCard — after the client confirms', () => {
       blocked_sections: [],
       state: done,
     });
-    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] })] })).mockResolvedValue(done);
+    getState.mockResolvedValueOnce(state({ sections: [quick()] })).mockResolvedValue(done);
     const user = userEvent.setup();
     const { container } = renderCard();
 
@@ -254,7 +263,7 @@ describe('ConfirmationCard — after the client confirms', () => {
 describe('ConfirmationCard — one confirmation at a time', () => {
   it('locks every section while one is being saved', async () => {
     getState.mockResolvedValue(
-      state({ sections: [bagno({ measures: [] }), bagno({ section_key: 'cucina1', label: 'Cucina', measures: [] })] }),
+      state({ sections: [quick(), quick({ section_key: 'cucina1', label: 'Cucina' })] }),
     );
     confirm.mockReturnValue(new Promise(() => undefined));
     const user = userEvent.setup();
@@ -291,7 +300,7 @@ describe('ConfirmationCard — one confirmation at a time', () => {
   it('closes once everything is confirmed and the estimate has no precision to show', async () => {
     const done = state({ sections: [], precision: null });
     confirm.mockResolvedValue({ recalculated: false, blocked_sections: [], state: done });
-    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] })] })).mockResolvedValue(done);
+    getState.mockResolvedValueOnce(state({ sections: [quick()] })).mockResolvedValue(done);
     const user = userEvent.setup();
     renderCard();
 
@@ -310,7 +319,7 @@ describe('ConfirmationCard — when there is nothing to do', () => {
 
     expect(await screen.findByText('Per cambiare qualcosa scrivi in chat.')).toBeInTheDocument();
     expect(screen.getByLabelText('Superficie pavimento')).toBeDisabled();
-    expect(screen.getByRole('radio', { name: 'Lascia in posa' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /^Modifica/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Conferma' })).not.toBeInTheDocument();
   });
 
@@ -501,7 +510,7 @@ describe('ConfirmationCard — changing one thing of a confirmed section', () =>
   });
 
   it('cannot be opened while another section is being saved', async () => {
-    getState.mockResolvedValue(state({ sections: [cucina(), bagno({ measures: [] })] }));
+    getState.mockResolvedValue(state({ sections: [cucina(), quick()] }));
     confirm.mockReturnValue(new Promise(() => undefined));
     const user = userEvent.setup();
     renderCard();
@@ -639,7 +648,8 @@ describe('ConfirmationCard — when the card is read again while the client is c
 
     await edit(user, 'Superficie pavimento');
 
-    const [voiceButton, groupButton] = screen.getAllByRole('button', { name: 'Conferma' });
+    // "Da completare" comes first, the summary (with the open voice) below it.
+    const [groupButton, voiceButton] = screen.getAllByRole('button', { name: 'Conferma' });
     expect(voiceButton).not.toHaveAttribute('aria-disabled');
     expect(groupButton).toHaveAttribute('aria-disabled', 'true');
     expect(groupButton).toHaveAccessibleDescription('Chiudi prima la modifica aperta.');
@@ -668,18 +678,6 @@ describe('ConfirmationCard — when the card is read again while the client is c
     expect(screen.getByLabelText('Superficie pareti')).toHaveValue(18);
   });
 
-  it('keeps the element the client chose when the card is read again', async () => {
-    const user = userEvent.setup();
-    const { client } = renderCard();
-
-    await user.click(await screen.findByRole('radio', { name: 'Lascia in posa' }));
-    getState.mockResolvedValue(state({ sections: [bagno()], precision: 40 }));
-    await readAgain(client);
-
-    await screen.findByText('Stima precisa al 40 %');
-    expect(screen.getByRole('radio', { name: 'Lascia in posa' })).toBeChecked();
-  });
-
   it('closes the open voice when the quote stops being a draft, other sections still shown', async () => {
     getState.mockResolvedValue(state({ sections: [cucina(), bagno()] }));
     const user = userEvent.setup();
@@ -695,12 +693,8 @@ describe('ConfirmationCard — when the card is read again while the client is c
   });
 
   it.each([
-    ['its value now comes from the chat', withMeasure({ source: 'declared' }), 'Superficie pavimento'],
-    [
-      'its choice is no longer confirmed',
-      cucina({ element_choices: cucina().element_choices.map((c) => ({ ...c, confirmed: false })) }),
-      'Piano cucina',
-    ],
+    ['its value is now an estimate of SYD', withMeasure({ source: 'estimated' }), 'Superficie pavimento'],
+    ['its value is now in conflict', withMeasure({ candidates: [10, 14] }), 'Superficie pavimento'],
   ])('closes the open voice when %s: it is a field to confirm again', async (_, changed, voice) => {
     getState.mockResolvedValue(state({ sections: [cucina()] }));
     const user = userEvent.setup();
@@ -826,7 +820,7 @@ describe('ConfirmationCard — the last confirmation restarts the agent', () => 
   it('tells once that everything is confirmed, when the save leaves nothing to confirm', async () => {
     const onAllConfirmed = jest.fn();
     afterSave([cucina()]);
-    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] })] })).mockResolvedValue(state({ sections: [cucina()] }));
+    getState.mockResolvedValueOnce(state({ sections: [quick()] })).mockResolvedValue(state({ sections: [cucina()] }));
     const user = userEvent.setup();
     renderCard({ onAllConfirmed });
 
@@ -839,7 +833,7 @@ describe('ConfirmationCard — the last confirmation restarts the agent', () => 
     const onAllConfirmed = jest.fn();
     const altro = bagno({ section_key: 'camera1', label: 'Camera' });
     afterSave([cucina(), altro]);
-    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] }), altro] }));
+    getState.mockResolvedValueOnce(state({ sections: [quick(), altro] }));
     const user = userEvent.setup();
     renderCard({ onAllConfirmed });
 
@@ -852,7 +846,7 @@ describe('ConfirmationCard — the last confirmation restarts the agent', () => 
   it('does not tell while the estimate is blocked for a missing measure', async () => {
     const onAllConfirmed = jest.fn();
     afterSave([cucina()], ['cucina1']);
-    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] })] }));
+    getState.mockResolvedValueOnce(state({ sections: [quick()] }));
     const user = userEvent.setup();
     renderCard({ onAllConfirmed });
 
@@ -865,7 +859,7 @@ describe('ConfirmationCard — the last confirmation restarts the agent', () => 
   it('does not tell when the save fails', async () => {
     const onAllConfirmed = jest.fn();
     confirm.mockRejectedValue(new Error('boom'));
-    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] })] }));
+    getState.mockResolvedValueOnce(state({ sections: [quick()] }));
     const user = userEvent.setup();
     renderCard({ onAllConfirmed });
 
@@ -878,7 +872,7 @@ describe('ConfirmationCard — the last confirmation restarts the agent', () => 
   it('tells once for a double click: the card locks while it saves', async () => {
     const onAllConfirmed = jest.fn();
     afterSave([cucina()]);
-    getState.mockResolvedValueOnce(state({ sections: [bagno({ measures: [] })] })).mockResolvedValue(state({ sections: [cucina()] }));
+    getState.mockResolvedValueOnce(state({ sections: [quick()] })).mockResolvedValue(state({ sections: [cucina()] }));
     const user = userEvent.setup();
     renderCard({ onAllConfirmed });
     const button = await confirmButton();

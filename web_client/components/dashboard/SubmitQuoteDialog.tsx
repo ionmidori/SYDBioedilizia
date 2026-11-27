@@ -7,12 +7,15 @@ import { Button } from '@/components/ui/button';
 import { SydLoader } from '@/components/ui/SydLoader';
 import { useSubmitQuote } from '@/hooks/use-submit-quote';
 import { describeApiError } from '@/lib/api-client';
+import type { QuoteSubmitResponse } from '@/types/quote';
 
 interface SubmitQuoteDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     /** The user's chat: the house the quote is of. */
     projectId: string;
+    /** Called once the request is with the team (`duplicate`: it already was). */
+    onSent?: (result: QuoteSubmitResponse) => void;
 }
 
 // The backend messages are for developers: the client reads these.
@@ -37,11 +40,12 @@ function submitErrorMessage(error: unknown): string {
 
 /**
  * "Invia al team" — explicit confirmation before the quote of the house goes to
- * the team (same path as the chat tool submit_quote_request). The body is
+ * the team (from the dashboard and from the chat's summary card: the only way a
+ * request reaches the team, the agent never sends it). The body is
  * mounted only while open: each opening gets its own Idempotency-Key, reused
  * by a retry after an error, so a double click never sends two emails.
  */
-export function SubmitQuoteDialog({ open, onOpenChange, projectId }: SubmitQuoteDialogProps) {
+export function SubmitQuoteDialog({ open, onOpenChange, projectId, onSent }: SubmitQuoteDialogProps) {
     return (
         <ResponsiveDrawer
             open={open}
@@ -50,17 +54,25 @@ export function SubmitQuoteDialog({ open, onOpenChange, projectId }: SubmitQuote
             description="Richiesta di preventivo della tua casa"
             className="sm:max-w-[500px] bg-surface border-line"
         >
-            {open && <SubmitQuoteBody projectId={projectId} onClose={() => onOpenChange(false)} />}
+            {open && <SubmitQuoteBody projectId={projectId} onClose={() => onOpenChange(false)} onSent={onSent} />}
         </ResponsiveDrawer>
     );
 }
 
-function SubmitQuoteBody({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+function SubmitQuoteBody({
+    projectId,
+    onClose,
+    onSent,
+}: {
+    projectId: string;
+    onClose: () => void;
+    onSent?: (result: QuoteSubmitResponse) => void;
+}) {
     const [idempotencyKey] = useState(() => crypto.randomUUID());
     const submit = useSubmitQuote();
 
     const handleSubmit = () => {
-        submit.mutate({ projectId, idempotencyKey });
+        submit.mutate({ projectId, idempotencyKey }, { onSuccess: (result) => onSent?.(result) });
     };
 
     if (submit.isSuccess) {
