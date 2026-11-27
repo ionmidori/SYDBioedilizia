@@ -968,12 +968,21 @@ async def test_the_tool_draft_has_a_price_range():
 
 
 async def test_draft_reply_invites_confirmation():
-    """The draft was made from measures the model took (declared): the client may confirm them."""
-    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}):
+    """The draft rests on a measure the model estimated: the client confirms it on the card."""
+    estimated = [SpecMeasure(name="mq", value=6, source="estimated")]
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom(measures=estimated)}):
         reply = await _quote()
 
     assert _CARD_DRAFT_NOTE in reply and "scheda" in _CARD_DRAFT_NOTE
     assert reply.index(_CARD_DRAFT_NOTE) < reply.index("Vuoi che invii ora la richiesta al team?")
+
+
+async def test_draft_reply_does_not_invite_for_what_the_client_said():
+    """A measure the client declared is accepted as it is (U3): nothing to confirm."""
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}):
+        reply = await _quote()
+
+    assert _CARD_DRAFT_NOTE not in reply
 
 
 async def test_draft_reply_does_not_invite_when_everything_is_confirmed():

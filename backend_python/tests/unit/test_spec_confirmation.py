@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from src.schemas.confirmation import ChoiceConfirmation, ConfirmationUpdate, MeasureConfirmation
+from src.schemas.confirmation import ChoiceConfirmation, ConfirmationUpdate, MeasureConfirmation, MeasureState
 from src.schemas.intervention_spec import (
     ADMIN_CHECKS_MAX,
     RoomInterventionSpec,
@@ -28,6 +28,7 @@ from src.services.spec_confirmation import (
     confirmations_only,
     expansion_inputs,
     has_unconfirmed_measures,
+    measure_needs_answer,
     proposal_notes,
     same_confirmations,
     spec_measures,
@@ -283,12 +284,39 @@ def test_same_confirmations_compares_only_what_the_client_confirmed() -> None:
     assert not same_confirmations(None, _spec(choices=[StoredElementChoice(element="s", action="keep", confirmed=True)]))
 
 
-def test_unconfirmed_measures_are_told_from_the_confirmed_ones() -> None:
+@pytest.mark.parametrize(("source", "needs_answer"), [
+    # What the client said, the room brief and the code's calculation are accepted as they are (U3).
+    ("confirmed", False), ("declared", False), ("brief", False), ("calculated", False),
+    # A photo reading or the model's estimate, without a figure from the client: the client confirms it.
+    ("photo", True), ("estimated", True),
+])
+def test_a_measure_needs_an_answer_only_when_nobody_gave_it(source: StoredMeasureSource, needs_answer: bool) -> None:
+    assert measure_needs_answer(StoredMeasure(name="mq", value=6, source=source), {}) is needs_answer
+
+
+def test_a_missing_measure_needs_an_answer() -> None:
+    missing = MeasureState(name="mq", label="pavimento", value=None, source=None)
+    assert measure_needs_answer(missing, {})
+
+
+def test_a_measure_in_conflict_needs_an_answer() -> None:
+    assert measure_needs_answer(StoredMeasure(name="mq", value=6, source="declared"), {"mq": [6.0, 8.0]})
+    assert not measure_needs_answer(StoredMeasure(name="mq", value=6, source="declared"), {"mq_pareti": [6.0, 8.0]})
+
+
+def test_an_unanswered_proposal_needs_an_answer() -> None:
+    assert measure_needs_answer(_confirmed("mq", 8, proposed=6), {})
+
+
+def test_unconfirmed_measures_are_only_the_ones_to_answer() -> None:
     declared = StoredMeasure(name="mq", value=6, source="declared")
-    assert has_unconfirmed_measures(_spec([declared]))
-    assert has_unconfirmed_measures(_spec([_confirmed("mq", 6), declared.model_copy(update={"name": "mq_pareti"})]))
+    photo = StoredMeasure(name="mq_pareti", value=20, source="photo")
+    assert not has_unconfirmed_measures(_spec([declared]))
+    assert has_unconfirmed_measures(_spec([_confirmed("mq", 6), photo]))
     assert not has_unconfirmed_measures(_spec([_confirmed("mq", 6)]))
     assert not has_unconfirmed_measures(_spec())
+    assert has_unconfirmed_measures(_spec([declared]).model_copy(update={"conflicts": {"mq": [6.0, 8.0]}}))
+    assert has_unconfirmed_measures(_spec([declared]).model_copy(update={"missing_measures": ["mq_pareti"]}))
 
 
 def test_a_proposal_the_client_has_not_answered_is_unconfirmed() -> None:

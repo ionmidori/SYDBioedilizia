@@ -62,7 +62,13 @@ from src.services.quote_drafts import (
     save_ai_draft,
 )
 from src.services.quote_state import ai_draft_action
-from src.services.spec_confirmation import analysis_from_spec, confirm, spec_measures, team_checks
+from src.services.spec_confirmation import (
+    analysis_from_spec,
+    confirm,
+    measure_needs_answer,
+    spec_measures,
+    team_checks,
+)
 from src.utils.datetime_utils import utc_now
 
 logger = get_logger(__name__)
@@ -234,9 +240,8 @@ def _choice_states(spec: RoomInterventionSpec, library: AssemblyLibrary) -> list
 def _section_state(section: _Section, expansion: Expansion, library: AssemblyLibrary) -> SectionState:
     measures = _measure_states(section.spec, expansion.missing_measures)
     choices = _choice_states(section.spec, library)
-    pending = any(m.source != "confirmed" or m.proposed is not None for m in measures) or any(
-        not c.confirmed for c in choices
-    )
+    # Only the measures to answer: the element choices are a summary with "Modifica" (U3).
+    pending = any(measure_needs_answer(m, section.spec.conflicts) for m in measures)
     return SectionState(
         section_key=section.key, label=section.label, pending=pending, measures=measures, element_choices=choices
     )
