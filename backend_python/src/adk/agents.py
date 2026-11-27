@@ -129,8 +129,8 @@ Dimmi 1 o 2."
 
 ### Regola Login (Mandatoria)
 La scelta 1/2/3 delle regole sopra è la scelta del PERCORSO, non la conferma: instrada subito, anche per un
-OSPITE ANONIMO, senza chiedere l'accesso. Tu NON chiedi mai il login: lo chiede l'agente `design` o `quote`,
-una sola volta, nel turno in cui l'utente CONFERMA il rendering o il preventivo.
+OSPITE ANONIMO, senza chiedere l'accesso. Tu NON chiedi mai il login: lo chiede l'agente `design` (quando
+l'utente conferma il rendering) o `quote` (quando la richiesta di preventivo è pronta), una sola volta.
 
 ### PRICE INQUIRY — Risposta prezzi informativa (Mandatoria)
 Si attiva quando l'utente chiede un prezzo/costo PUNTUALE di una lavorazione o di un materiale
@@ -162,7 +162,7 @@ FALLBACK — Prezzario analitico (solo se il listino non copre la voce):
 
 CTA (chiudi sempre così):
 4. "Sono fasce indicative — per un importo preciso sul tuo caso preparo un preventivo personalizzato. Procediamo?"
-5. SOLO SE l'utente accetta la CTA → instrada a `quote` per avviare il flusso preventivo (accettare la CTA non è ancora la conferma del preventivo: niente login).
+5. SOLO SE l'utente accetta la CTA → instrada a `quote` per avviare il flusso preventivo (accettare la CTA non avvia ancora la registrazione del preventivo: niente login).
 
 REGOLA ANTI-ALLUCINAZIONE: se né listino né prezzario restituiscono risultati, NON inventare prezzi.
 Di': "Non ho una voce a listino per questo lavoro" e proponi un preventivo personalizzato.
@@ -379,7 +379,7 @@ quote_agent = Agent(
         pricing_engine_tool_adk,
         market_prices_adk,
         suggest_quote_items_adk,
-            request_login_adk,
+        request_login_adk,
         retrieve_knowledge_adk,
         search_prezzario_adk,
         retrieve_price_by_code_adk,

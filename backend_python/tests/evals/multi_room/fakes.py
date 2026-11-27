@@ -223,8 +223,6 @@ BATH_ONLY_HISTORY: list[dict[str, Any]] = [
         "È 2 x 2,5 m, altezza 2,70, appartamento a Roma al terzo piano con ascensore. Voglio togliere la "
         "vasca e i sanitari, piastrelle nuove a pavimento (5 mq) e alle pareti fino a 2,10 m (circa 19 mq), "
         "doccia walk-in con piatto a filo pavimento e sanitari sospesi nuovi.")},
-    {"role": "assistant", "content": "Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"},
-    {"role": "user", "content": "Sì, prepara pure la richiesta di preventivo."},
 ]
 # PR 1 · C: a bathroom without measures. The agent registers the request at once
 # (no measure asked in words): the card asks for them.
@@ -596,7 +594,9 @@ def _login_problems(run: MultiRoomRun, *, login_turn: int | None) -> list[str]:
 
 # A question that asks to register or to send (U1/U2: the card is the summary, its button sends).
 _ASKS_TO_SEND = re.compile(
-    r"\bconfermi\s*\?|vuoi che (?:la |lo |io )?invi\w*[^?]*\?|preparo la richiesta[^?]*\?|procedo con l'invio[^?]*\?",
+    r"\bconfermi\s*\?|vuoi che (?:la |lo |io |l['’])?invi\w*[^?]*\?|preparo la richiesta[^?]*\?"
+    r"|procedo con l'invio[^?]*\?|\bva bene così\s*\?"
+    r"|\bposso (?:inviar|registrar|preparar)\w*[^?]*\b(?:richiesta|preventivo|team)\b[^?]*\?",
     re.IGNORECASE,
 )
 
@@ -622,6 +622,14 @@ def _button_problems(run: MultiRoomRun) -> list[str]:
 
 def _card_flow_problems(run: MultiRoomRun) -> list[str]:
     return _send_question_problems(run) + _button_problems(run)
+
+
+def _send_in_words_problems(run: MultiRoomRun) -> list[str]:
+    """"Sì, invia" in words: no tool in that turn (nothing to register again, no send), the button."""
+    turns = run.tool_calls.turns()
+    last = sorted({tool for _, tool in turns[-1]}) if turns else []
+    found = [f"the last turn called {last}"] if last else []
+    return run.quotes.problems() + found + _card_flow_problems(run)
 
 
 def _logged_in_problems(run: MultiRoomRun) -> list[str]:
@@ -703,8 +711,11 @@ def _floor_area_asked_problems(run: MultiRoomRun) -> list[str]:
     second_tools = {tool for _, tool in turns[1]} if len(turns) > 1 else set()
     if _area_questions(replies[1]):
         found.append(f"turn 2 asks the floor area again: {replies[1][:200]!r}")
-    if "stima" not in replies[1].lower() and "suggest_quote_items" not in second_tools:
+    if "stima" not in replies[1].lower():
         found.append(f"turn 2 does not say the area will be estimated: {replies[1][:200]!r}")
+    # U2: "non lo so" is the last datum: the request is registered in that turn, the card follows.
+    if "suggest_quote_items" not in second_tools:
+        found.append("turn 2 does not register the request")
     return found + _send_question_problems(run)
 
 
@@ -796,14 +807,14 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     # "Registra la richiesta" saves the quote and points to the card's button (U1: only the button sends).
     "multi_room_quote.test.json": lambda run: run.quotes.problems() + _card_flow_problems(run),
     # "Sì, invia" in words: no send from the chat, the agent points to the button again.
-    "multi_room_submit.test.json": lambda run: run.quotes.problems() + _card_flow_problems(run),
+    "multi_room_submit.test.json": _send_in_words_problems,
     # Facts given before the compaction come back for the right room.
     "multi_room_long_chat.test.json": _long_chat_problems,
     # A corridor never created as a room: quoted once, in Generale.
     "multi_room_general.test.json": lambda run: run.quotes.general_problems() + _send_question_problems(run),
     # A guest is asked to log in once, in the turn the request is ready, and never reaches a premium tool
     # (a registration the step gate refused never ran).
-    "guest_quote.test.json": lambda run: _login_problems(run, login_turn=-1),
+    "guest_quote.test.json": lambda run: _login_problems(run, login_turn=-1) + _send_question_problems(run),
     "guest_render.test.json": lambda run: _login_problems(run, login_turn=-1),
     # A price question is not a confirmation: the listino range, no login.
     "guest_price.test.json": lambda run: _login_problems(run, login_turn=None),

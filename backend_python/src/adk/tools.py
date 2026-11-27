@@ -632,9 +632,10 @@ _LOGIN_NOT_NEEDED = (
 async def request_login(tool_context) -> str:
     """Shows the login card to a guest, once per turn.
 
-    Call it ONLY for a guest (OSPITE ANONIMO), in the turn in which the user
-    CONFIRMED a render or a quote, instead of the premium tool. Never before
-    the confirmation, never after the premium tool.
+    Call it ONLY for a guest (OSPITE ANONIMO): in the turn in which the user
+    confirmed a render (instead of generate_render), or when suggest_quote_items
+    answered that the guest must log in first. Never for a photo, a price
+    question or the path chosen.
 
     Args:
         tool_context: ADK ToolContext injected automatically by the runner.

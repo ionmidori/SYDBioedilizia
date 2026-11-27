@@ -89,7 +89,60 @@ export function ConfirmationCard({
   // The sections the last save left without a recomputed estimate.
   const [blocked, setBlocked] = useState<readonly string[]>([]);
 
-  if (!data) return null;
+  // The dialog stays mounted whatever the card shows: after the send the card is read again as
+  // read-only and would otherwise take the "Richiesta inviata" message away with it.
+  const dialog = (
+    <SubmitQuoteDialog
+      open={sendOpen}
+      onOpenChange={setSendOpen}
+      projectId={projectId}
+      onSent={(result) => {
+        if (!result.duplicate) onQuoteSent?.();
+      }}
+    />
+  );
+  const sendBlock = (hint: string | null, enabled: boolean) => (
+    <div className="space-y-1.5 border-t border-line pt-3">
+      {/* aria-disabled, not disabled: the button stays focusable and its reason is read with it. */}
+      <Button
+        type="button"
+        className="h-11 w-full gap-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-primary"
+        aria-disabled={!enabled || undefined}
+        aria-describedby={hint ? sendHintId : undefined}
+        onClick={() => enabled && setSendOpen(true)}
+      >
+        <Send aria-hidden="true" className="size-4" />
+        Invia al team
+      </Button>
+      {hint && (
+        <p id={sendHintId} className="text-xs text-ink-muted">
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+  // A draft with works and no section to show (the spec could not be saved, or the card could not be
+  // read): the agent points to the button anyway, so the card keeps just the button.
+  const draftWithWork = quote != null && quote.status === 'draft' && quote.items.length > 0;
+  const sendOnly = (
+    <section
+      aria-label="Riepilogo della richiesta"
+      data-testid="confirmation-card"
+      className="not-prose w-full max-w-md space-y-4 rounded-2xl border border-line bg-surface-muted p-4 shadow-1"
+    >
+      <p className="text-sm font-semibold text-ink">Riepilogo della richiesta</p>
+      {sendBlock(null, !mutation.isPending)}
+    </section>
+  );
+
+  if (!data) {
+    return (
+      <>
+        {draftWithWork && sendOnly}
+        {dialog}
+      </>
+    );
+  }
   // Once the quote is with the team nothing can be changed here: only what is still pending is shown.
   const shown = data.sections.filter((section) => section.pending || (data.editable && hasContent(section)));
   // Only a confirmed voice of a section on screen, while the quote is a draft, can be open: if the
@@ -108,12 +161,13 @@ export function ConfirmationCard({
   // Nothing to confirm or change: the card stays only to say how precise the estimate is, or why
   // the last save failed (the team took the quote meanwhile: the read-only card shows nothing else).
   if (shown.length === 0 && !mutation.isError && !(mutation.isSuccess && data.precision !== null)) {
-    return announcement ? (
+    return (
       <>
-        {null}
-        {liveRegion}
+        {data.editable && draftWithWork && sendOnly}
+        {dialog}
+        {announcement && liveRegion}
       </>
-    ) : null;
+    );
   }
 
   const saving = mutation.isPending ? origin : null;
@@ -197,35 +251,9 @@ export function ConfirmationCard({
         {data.precision !== null && (
           <p className="text-sm font-medium text-success-ink">Stima precisa al {data.precision} %</p>
         )}
-        {data.editable && (
-          <div className="space-y-1.5 border-t border-line pt-3">
-            {/* aria-disabled, not disabled: the button stays focusable and its reason is read with it. */}
-            <Button
-              type="button"
-              className="h-11 w-full gap-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-primary"
-              aria-disabled={!canSend || undefined}
-              aria-describedby={sendHint ? sendHintId : undefined}
-              onClick={() => canSend && setSendOpen(true)}
-            >
-              <Send aria-hidden="true" className="size-4" />
-              Invia al team
-            </Button>
-            {sendHint && (
-              <p id={sendHintId} className="text-xs text-ink-muted">
-                {sendHint}
-              </p>
-            )}
-          </div>
-        )}
+        {data.editable && sendBlock(sendHint, canSend)}
       </section>
-      <SubmitQuoteDialog
-        open={sendOpen}
-        onOpenChange={setSendOpen}
-        projectId={projectId}
-        onSent={(result) => {
-          if (!result.duplicate) onQuoteSent?.();
-        }}
-      />
+      {dialog}
       {liveRegion}
     </>
   );

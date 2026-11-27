@@ -175,10 +175,13 @@ _LOGIN_GUIDE = (
     f"chiama request_login_adk una sola volta (se non l'hai già fatto in questo turno), scrivi «{LOGIN_MESSAGE}» "
     "e fermati."
 )
+# Only to a client with an account: save_contact_phone writes under the session's user, and the
+# claim of a guest's chat does not move a phone (a guest's number would be lost at the login).
 _PHONE_ONCE = (
     f"Se PHONE_ON_FILE è false e in questa chat non l'hai ancora chiesto, chiedi una sola volta «{PHONE_QUESTION}»: "
     "è facoltativo, non aspettare la risposta per proseguire e non richiederlo."
 )
+_ASKS_PHONE = frozenset({"raccolta", "scheda"})
 _NO_SEND = (
     f"Nessuna domanda di conferma o di invio in chat: la richiesta parte solo quando il cliente preme «{SEND_BUTTON}» "
     "sulla scheda. Se il cliente scrive di inviarla, ricordagli il pulsante."
@@ -187,8 +190,8 @@ _NO_SEND = (
 _GUIDE: dict[QuoteStep, str] = {
     QuoteStep.RACCOLTA: (
         "raccogli i dati: comune, lavori stanza per stanza, misure (lunghezza, larghezza e altezza, o i m² del "
-        f"pavimento). {_PHONE_ONCE} Quando hai i dati, chiama {REGISTER_TOOL} senza chiedere conferma: la scheda "
-        "qui sotto farà da riepilogo (per un ospite lo strumento ti dirà di chiedere prima l'accesso)."
+        f"pavimento). Quando hai i dati, chiama {REGISTER_TOOL} senza chiedere conferma: la scheda qui sotto farà da "
+        "riepilogo (per un ospite lo strumento ti dirà di chiedere prima l'accesso)."
     ),
     QuoteStep.ACCESSO: f"la richiesta è pronta ma il cliente è un ospite: {_LOGIN_GUIDE}",
     QuoteStep.REGISTRA: (
@@ -197,7 +200,7 @@ _GUIDE: dict[QuoteStep, str] = {
     ),
     QuoteStep.SCHEDA: (
         f"la richiesta è registrata e la scheda qui sotto la riepiloga: riporta la risposta di {REGISTER_TOOL} come "
-        f"dice lo STEP 1 (la scheda chiede solo ciò che manca, il resto è riepilogo). {_NO_SEND} {_PHONE_ONCE} "
+        f"dice lo STEP 1 (la scheda chiede solo ciò che manca, il resto è riepilogo). {_NO_SEND} "
         "In un turno successivo richiamalo solo se il cliente dà o corregge misure a parole, o cambia lavori."
     ),
     QuoteStep.RIEPILOGO: (
@@ -226,33 +229,41 @@ _JUST_SENT = (
 )
 
 
-def step_guide(step: QuoteStep, action: str | None, *, quote_sent: bool = False) -> str:
+def step_guide(step: QuoteStep, action: str | None, *, quote_sent: bool = False, is_guest: bool = False) -> str:
     """What the agent does at this step (`action`: `ai_draft_action` of the house quote;
-    `quote_sent`: the turn is the signal of the send button)."""
+    `quote_sent`: the turn is the signal of the send button; `is_guest`: never asked the phone)."""
     if quote_sent and step is QuoteStep.AL_TEAM:
         return _JUST_SENT
-    if step is QuoteStep.RACCOLTA and action == _UPDATE:
-        return _COLLECT_ON_DRAFT
-    return _GUIDE[step]
+    guide = _COLLECT_ON_DRAFT if step is QuoteStep.RACCOLTA and action == _UPDATE else _GUIDE[step]
+    if step.value in _ASKS_PHONE and not is_guest:
+        return f"{guide} {_PHONE_ONCE}"
+    return guide
 
 
-def step_line(step: QuoteStep, action: str | None, *, quote_sent: bool = False) -> str:
+def step_line(step: QuoteStep, action: str | None, *, quote_sent: bool = False, is_guest: bool = False) -> str:
     """The step line of the quote agent's session block."""
-    return f"{STEP_LINE_MARKER}: {step.value} — {step_guide(step, action, quote_sent=quote_sent)}"
+    guide = step_guide(step, action, quote_sent=quote_sent, is_guest=is_guest)
+    return f"{STEP_LINE_MARKER}: {step.value} — {guide}"
 
 
 def _refused(step: QuoteStep, why: str) -> str:
     return f"{STEP_REFUSED_PREFIX} (passo: {step.value}): {why}"
 
 
-def step_refusal(step: QuoteStep, tool: str, *, registered_this_turn: bool, is_guest: bool) -> str | None:
+def step_refusal(
+    step: QuoteStep, tool: str, *, registered_this_turn: bool, is_guest: bool, quote_sent: bool = False
+) -> str | None:
     """None when `tool` may run at this step, otherwise what the agent does instead.
 
     Only where the reader is reliable and the error costs: a guest's registration
     (the login first: the tool would refuse it too, but its answer would count as a
     registration), the login while collecting (a photo or a price question is no
     reason: it comes when the model finds the data complete and tries to register),
-    a second registration in one turn."""
+    a second registration in one turn, any quote tool in the turn of the send signal
+    (on a quote with the team the registration would relay a change nobody asked for)."""
+    if quote_sent and tool in (REGISTER_TOOL, LOGIN_TOOL):
+        return _refused(step, "il cliente ha appena inviato la richiesta con il pulsante della scheda: confermalo "
+                              "in una frase, senza strumenti.")
     if tool == REGISTER_TOOL:
         if is_guest or step is QuoteStep.ACCESSO:
             return _refused(step, f"il cliente è un ospite: {_LOGIN_GUIDE}")

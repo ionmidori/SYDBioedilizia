@@ -195,3 +195,46 @@ describe('ConfirmationCard — "Invia al team"', () => {
     expect(screen.queryByRole('button', { name: 'Invia al team' })).not.toBeInTheDocument();
   });
 });
+
+describe('ConfirmationCard — "Invia al team" in the edge cases (final review of PR A)', () => {
+  it('keeps the confirmation of the send on screen when the card turns read-only', async () => {
+    submitQuote.mockResolvedValue({ project_id: 'chat-1', status: 'pending_review', duplicate: false });
+    getState.mockResolvedValueOnce(state()).mockResolvedValue(state({ editable: false }));
+    const user = userEvent.setup();
+    renderCard();
+
+    const button = await sendButton();
+    await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'));
+    await user.click(button);
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Invia al team' }));
+
+    expect(await screen.findByText(/Richiesta inviata/)).toBeInTheDocument();
+    // The card is read again after the send (the quote is with the team): the message stays.
+    await waitFor(() => expect(getState.mock.calls.length).toBeGreaterThan(1));
+    expect(screen.getByText(/Richiesta inviata/)).toBeInTheDocument();
+  });
+
+  it('offers the button when the request has no section to show but has works', async () => {
+    getState.mockResolvedValue(state({ sections: [] }));
+    renderCard();
+
+    const button = await sendButton();
+    await waitFor(() => expect(button).not.toHaveAttribute('aria-disabled'));
+  });
+
+  it('offers the button when the card cannot be read but the draft has works', async () => {
+    getState.mockRejectedValue({ message: 'Errore', status: 500 });
+    renderCard();
+
+    expect(await sendButton()).toBeInTheDocument();
+  });
+
+  it('draws nothing without sections when the request has no works yet', async () => {
+    getState.mockResolvedValue(state({ sections: [] }));
+    getQuote.mockResolvedValue({ ...DRAFT, items: [] });
+    renderCard();
+
+    await waitFor(() => expect(getQuote).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: 'Invia al team' })).not.toBeInTheDocument();
+  });
+});

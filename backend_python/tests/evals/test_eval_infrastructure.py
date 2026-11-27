@@ -260,15 +260,23 @@ class TestFloorAreaAskedEval:
     def test_check_passes_on_one_question_then_the_estimate(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS
 
-        run = self._run([self.ASKED, self.ESTIMATED], [["select_room"], []])
+        run = self._run([self.ASKED, self.ESTIMATED], [["select_room"], ["suggest_quote_items"]])
         assert BACKEND_CHECKS["floor_area_asked.test.json"](run) == []
+
+    def test_check_reports_an_estimate_without_the_registration(self) -> None:
+        """U2: "non lo so" is the last datum: the request is registered in that turn, the card follows."""
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        run = self._run([self.ASKED, self.ESTIMATED], [["select_room"], []])
+        assert BACKEND_CHECKS["floor_area_asked.test.json"](run) == ["turn 2 does not register the request"]
 
     def test_check_reports_the_tool_called_without_asking(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS
 
         run = self._run(["Preparo la richiesta.", self.ESTIMATED], [["select_room", "suggest_quote_items"], []])
         problems = BACKEND_CHECKS["floor_area_asked.test.json"](run)
-        assert len(problems) == 2 and "before the floor area" in problems[0] and "turn 1" in problems[1]
+        assert len(problems) == 3 and "before the floor area" in problems[0] and "turn 1" in problems[1]
+        assert problems[2] == "turn 2 does not register the request"
 
     def test_check_reports_a_wall_question_and_the_area_asked_twice(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS
@@ -277,7 +285,7 @@ class TestFloorAreaAskedEval:
         problems = BACKEND_CHECKS["floor_area_asked.test.json"](run)
         assert [p.split(":")[0] for p in problems] == [
             "turn 1 does not ask the floor area", "turn 2 asks the floor area again",
-            "turn 2 does not say the area will be estimated",
+            "turn 2 does not say the area will be estimated", "turn 2 does not register the request",
         ]
 
     def test_check_reports_the_registration_question(self) -> None:
@@ -285,7 +293,8 @@ class TestFloorAreaAskedEval:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS
 
         asked = "Userò una stima. Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"
-        problems = BACKEND_CHECKS["floor_area_asked.test.json"](self._run([self.ASKED, asked], [[], []]))
+        run = self._run([self.ASKED, asked], [[], ["suggest_quote_items"]])
+        problems = BACKEND_CHECKS["floor_area_asked.test.json"](run)
         assert problems == [f"turn 2 asks to confirm or to send: {asked[:160]!r}"]
 
 
@@ -552,6 +561,24 @@ class TestMultiRoomQuoteEval:
         assert per_turn == [[], [], ["suggest_quote_items"], []]
         assert "invia" in case.conversation[-1].user_content.parts[0].text
 
+    @pytest.mark.parametrize("asks", [
+        "Vuoi che l'invii al team?", "Posso inviarla al team?", "Va bene così?", "Posso registrare la richiesta?",
+    ])
+    def test_the_send_question_check_knows_other_wordings(self, asks: str) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS, multi_room_backend
+
+        with multi_room_backend() as run:
+            run.responses.texts = {"inv": [f"Ecco il riepilogo. {asks}"]}
+        assert any("asks to confirm or to send" in p for p in BACKEND_CHECKS["card_confirmed.test.json"](run))
+
+    def test_the_submit_check_wants_no_tool_in_the_last_turn(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS, TOOL_CALLS, multi_room_backend
+
+        with multi_room_backend() as run:
+            TOOL_CALLS.calls = {"t1": [("quote", "suggest_quote_items")], "t2": [("quote", "suggest_quote_items")]}
+            run.responses.texts = {"inv": ["Basta premere «Invia al team» sulla scheda."]}
+        assert "the last turn called ['suggest_quote_items']" in BACKEND_CHECKS["multi_room_submit.test.json"](run)
+
     def test_the_submit_check_wants_the_button_and_no_claimed_send(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS, multi_room_backend
 
@@ -728,6 +755,11 @@ class TestLoginAndGeneraleEvals:
         assert BACKEND_CHECKS["guest_quote.test.json"](premium) == ["turn 2: guest called quote.suggest_quote_items"]
         right = self._run({"t1": [("syd_orchestrator", "transfer_to_agent")], "t2": [("quote", "request_login")]})
         assert BACKEND_CHECKS["guest_quote.test.json"](right) == []
+        asked = self._run({"t1": [], "t2": [("quote", "request_login")]})
+        asked.responses.texts = {"t2": ["Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"]}
+        assert BACKEND_CHECKS["guest_quote.test.json"](asked) == [
+            "turn 1 asks to confirm or to send: 'Ho tutto quello che mi serve. Preparo la richiesta di preventivo?'"
+        ]
         # The step gate refused the registration (it never ran): not a premium call.
         gated = self._run(
             {"t1": [], "t2": [("quote", "suggest_quote_items"), ("quote", "request_login")]},

@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from google.api_core.exceptions import GoogleAPICallError, NotFound
 from pydantic import ValidationError
 from src.core.money import sum_amounts
@@ -1020,6 +1021,27 @@ async def test_a_revision_does_not_invite_to_the_card():
 
     assert "nuova revisione" in reply and _CARD_DRAFT_NOTE not in reply
     assert f"«{SEND_BUTTON}»" in reply and "Vuoi che invii" not in reply
+
+
+async def test_a_revision_with_something_to_complete_says_so():
+    """U3 holds for a revision too: the client completes «Da completare» before the button."""
+    estimated = [SpecMeasure(name="mq", value=6, source="estimated")]
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom(measures=estimated)}) as mocks:
+        mocks["saved"].return_value = DraftSaveResult(DraftSaveOutcome.REVISED, "draft", "PRV-2026-0042", 2, True)
+        reply = await _quote()
+
+    assert _CARD_DRAFT_NOTE in reply
+
+
+@pytest.mark.parametrize("outcome", [DraftSaveOutcome.UPDATED, DraftSaveOutcome.REVISED])
+async def test_the_reply_never_reads_as_if_the_team_had_the_request(outcome):
+    """Review finding: "Il team esaminerà la richiesta" right after "Ho registrato" read as sent."""
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks:
+        mocks["saved"].return_value = DraftSaveResult(outcome, "draft", "PRV-2026-0042", 2, False)
+        reply = await _quote()
+
+    assert "non ancora inviata" in reply and "Quando la invii" in reply
+    assert "Il team esaminerà" not in reply
 
 
 async def test_no_amount_in_reply():

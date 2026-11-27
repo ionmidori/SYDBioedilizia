@@ -54,7 +54,7 @@ def quote_agent_instruction(context: ReadonlyContext) -> str:
     if state.get(SESSION_CONTEXT_STATE_KEY):
         try:
             facts = quote_facts(context.session.events, context.invocation_id, context.user_content, state)
-            line = step_line(quote_step(facts), _action(facts), quote_sent=facts.quote_sent)
+            line = step_line(quote_step(facts), _action(facts), quote_sent=facts.quote_sent, is_guest=facts.is_guest)
         except _READ_ERRORS as e:
             logger.warning(f"[QuoteGate] Step line not computed: {type(e).__name__}")
     return session_context_instruction(context, step_line=line, playbook_field="prompt_guidance")
@@ -76,7 +76,8 @@ async def quote_step_gate(tool: BaseTool, args: dict[str, Any], tool_context: To
         step = quote_step(facts)
         before = calls_before(session.events, tool_context.invocation_id, tool_context.function_call_id)
         refusal = step_refusal(
-            step, tool.name, registered_this_turn=REGISTER_TOOL in before, is_guest=facts.is_guest
+            step, tool.name, registered_this_turn=REGISTER_TOOL in before, is_guest=facts.is_guest,
+            quote_sent=facts.quote_sent,
         )
     except _READ_ERRORS as e:
         logger.warning(f"[QuoteGate] Step not computed, tool let through: {type(e).__name__}")

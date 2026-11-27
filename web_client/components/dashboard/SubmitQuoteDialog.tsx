@@ -85,7 +85,7 @@ function SubmitQuoteBody({
                 <div role="status" className="flex items-start gap-3">
                     <CheckCircle2 aria-hidden="true" className="w-6 h-6 text-success-ink shrink-0 mt-0.5" />
                     <p className="text-sm text-ink-muted">
-                        {/* duplicate: a retry of this same click, or the quote was already sent from the chat */}
+                        {/* duplicate: a retry of this same click, or the quote was already sent from the card or the dashboard */}
                         {submit.data.duplicate
                             ? 'La richiesta è con il nostro team: la sta esaminando e riceverai il preventivo finale via email.'
                             : 'Richiesta inviata. Il nostro team la esamina e riceverai il preventivo finale via email.'}
